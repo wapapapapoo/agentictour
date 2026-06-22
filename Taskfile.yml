@@ -1,80 +1,52 @@
 version: '3'
 
 tasks:
-  # ========== 后端 ==========
+  check:
+    deps: [backend:check, frontend:check]
+
+  deploy:
+    cmds:
+      - docker compose up --build -d
+
+  down:
+    cmds:
+      - docker compose down
+
   backend:lint:
-    desc: Ruff 代码规范检查
     dir: backend
     cmds:
       - ruff check .
 
   backend:typecheck:
-    desc: mypy 类型检查
     dir: backend
     cmds:
       - mypy main.py
 
   backend:test:
-    desc: pytest 测试
     dir: backend
     cmds:
       - pytest -v
 
   backend:check:
-    desc: 后端全部检查
     deps: [backend:lint, backend:typecheck, backend:test]
 
-  # ========== 前端 ==========
   frontend:lint:
-    desc: ESLint 代码规范检查
     dir: frontend
     cmds:
       - npm run lint
 
   frontend:typecheck:
-    desc: TypeScript 类型检查
     dir: frontend
     cmds:
       - npm run type-check
 
   frontend:test:
-    desc: Vitest 测试
     dir: frontend
     cmds:
       - npm run test
 
   frontend:check:
-    desc: 前端全部检查
     deps: [frontend:lint, frontend:typecheck, frontend:test]
 
-  # ========== 构建 & 部署 ==========
-  check:
-    desc: 前后端全部检查
-    deps: [backend:check, frontend:check]
-
-  build:
-    desc: 构建 Docker 镜像
-    deps: [check]
-    cmds:
-      - docker compose build
-
-  deploy:
-    desc: 一键部署（检查 → 构建 → 启动）
-    deps: [build]
-    cmds:
-      - docker compose up -d
-
-  up:
-    desc: 快速启动（跳过检查）
-    cmds:
-      - docker compose up --build -d
-
-  down:
-    desc: 停止服务
-    cmds:
-      - docker compose down
-
-  # ========== 默认 ==========
   default:
-    desc: 跑全部检查
     deps: [check]
