@@ -19,5 +19,5 @@ jobs:
           script: |
             cd ~/agentictour
             git pull
-            sudo task down
-            sudo task deploy
+            task down
+            task deploy
