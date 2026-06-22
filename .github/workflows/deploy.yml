@@ -17,7 +17,13 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || '22' }}
           script: |
+            export http_proxy=http://127.0.0.1:7891
+            export https_proxy=http://127.0.0.1:7891
+            export no_proxy=localhost,127.0.0.1,::1
+            export HTTP_PROXY=http://127.0.0.1:7891
+            export HTTPS_PROXY=http://127.0.0.1:7891
+            export NO_PROXY=localhost,127.0.0.1,::1
             cd ~/agentictour
-            https_proxy=http://127.0.0.1:7891 http_proxy=http://127.0.0.1:7891 all_proxy=socks5://127.0.0.1:7891 git pull
+            git pull
             task down
             task deploy
