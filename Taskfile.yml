@@ -48,5 +48,17 @@ tasks:
   frontend:check:
     deps: [frontend:lint, frontend:typecheck, frontend:test]
 
+  backend:dev:
+    desc: Start backend with hot-reload
+    dir: backend
+    cmds:
+      - uvicorn main:app --host 127.0.0.1 --port 8000 --reload --log-level debug
+
+  frontend:dev:
+    desc: Start frontend dev server
+    dir: frontend
+    cmds:
+      - npm run dev
+
   default:
     deps: [check]
