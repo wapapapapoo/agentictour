@@ -2,7 +2,7 @@ version: '3'
 
 tasks:
   check:
-    deps: [backend:check, frontend:check]
+    deps: [backend:check, frontend:check, mcp:check]
 
   deploy:
     cmds:
@@ -49,11 +49,35 @@ tasks:
   frontend:check:
     deps: [frontend:lint, frontend:typecheck, frontend:test]
 
+  mcp:lint:
+    dir: mcp
+    cmds:
+      - ruff check .
+
+  mcp:typecheck:
+    dir: mcp
+    cmds:
+      - mypy travel_mcp
+
+  mcp:test:
+    dir: mcp
+    cmds:
+      - pytest -v
+
+  mcp:check:
+    deps: [mcp:lint, mcp:typecheck, mcp:test]
+
   backend:dev:
     desc: Start backend with hot-reload
     dir: backend
     cmds:
       - uvicorn main:app --host 127.0.0.1 --port 8000 --reload --log-level debug
+
+  mcp:dev:
+    desc: Start MCP server
+    dir: mcp
+    cmds:
+      - python -m travel_mcp.server
 
   frontend:dev:
     desc: Start frontend dev server
