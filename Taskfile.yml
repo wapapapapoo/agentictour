@@ -6,7 +6,6 @@ tasks:
 
   deploy:
     cmds:
-      - docker compose pull --ignore-pull-failures
       - docker compose up --build -d
 
   down:
