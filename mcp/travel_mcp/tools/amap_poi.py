@@ -14,15 +14,15 @@ async def amap_nearby_search(
     page_num: int = 1,
 ) -> Dict[str, Any]:
     """
-    鏌ヨ闄勮繎 POI銆?
+    查询附近 POI。
 
-    鍙傛暟:
-    - location: 涓績鐐圭粡绾害锛屾牸寮忥細缁忓害,绾害锛屼緥濡?116.397428,39.90923
-    - keywords: 鎼滅储鍏抽敭璇嶏紝渚嬪 椁愬巺銆佸挅鍟°€佸帟鎵€銆佸晢鍦?
-    - types: 楂樺痉 POI 绫诲瀷缂栫爜锛屽彲閫?
-    - radius: 鎼滅储鍗婂緞锛屽崟浣嶇背
-    - page_size: 杩斿洖鏁伴噺锛屽缓璁?5~20
-    - page_num: 椤电爜
+    参数:
+    - location: 中心点经纬度，格式：经度,纬度，例如 116.397428,39.90923
+    - keywords: 搜索关键词，例如 餐厅、咖啡、厕所、商场
+    - types: 高德 POI 类型编码，可选
+    - radius: 搜索半径，单位米
+    - page_size: 返回数量，建议 5~20
+    - page_num: 页码
     """
 
     url = f"{settings.AMAP_BASE_URL}/v5/place/around"
