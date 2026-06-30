@@ -11,12 +11,12 @@ async def amap_walking_route(
     isindoor: int = 0,
 ) -> Dict[str, Any]:
     """
-    鏌ヨ姝ヨ璺嚎銆?
+    查询步行路线。
 
-    鍙傛暟:
-    - origin: 璧风偣缁忕含搴︼紝鏍煎紡锛氱粡搴?绾害
-    - destination: 缁堢偣缁忕含搴︼紝鏍煎紡锛氱粡搴?绾害
-    - isindoor: 鏄惁闇€瑕佸鍐呯畻璺紝0 涓嶉渶瑕侊紝1 闇€瑕?
+    参数:
+    - origin: 起点经纬度，格式：经度,纬度
+    - destination: 终点经纬度，格式：经度,纬度
+    - isindoor: 是否需要室内算路，0 不需要，1 需要
     """
 
     url = f"{settings.AMAP_BASE_URL}/v5/direction/walking"
