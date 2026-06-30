@@ -87,3 +87,4 @@ services:
 
 volumes:
   mysql_data:
+  mysql_data_test:
