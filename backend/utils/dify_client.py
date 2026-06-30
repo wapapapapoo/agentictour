@@ -1,3 +1,11 @@
+"""
+    通过调用 Dify API 来运行工作流和发送聊天消息的客户端。
+    通过 init 一个 DifyClient 实例来使用。
+
+    强制需要 api_key 和 url 参数。
+    同时可传入一个有 post 方法的 session 对象和 timeout 参数。
+    函数将 dify 的返回值解析为 json 并返回,若 dify 返回非 200 状态码则抛出异常。
+"""
 from __future__ import annotations
 
 import os
