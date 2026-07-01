@@ -3,6 +3,8 @@ import os
 from dotenv import load_dotenv
 from fastapi import FastAPI
 
+from routers.blog import router as blog_router
+
 # 加载 .env 文件
 load_dotenv()
 
@@ -11,6 +13,7 @@ app = FastAPI(
     debug=os.getenv("DEBUG", "false").lower() == "true",
 )
 
+app.include_router(blog_router)
 
 @app.get("/")
 def root() -> dict[str, str]:
