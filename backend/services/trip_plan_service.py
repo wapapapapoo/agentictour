@@ -1,0 +1,283 @@
+from __future__ import annotations
+
+import json
+import os
+from typing import Any
+
+from sqlalchemy.orm import Session
+
+from models.trip_plan import TripPlanRequest, TripPlanVersion
+from schemas.trip_plan import TripPlanGenerateRequest, TripPlanReviseRequest
+from utils.dify_client import DifyClient, DifyError, DifyResponseError
+
+DEFAULT_EMPTY_PLAN = {
+    "title": "行程计划生成失败",
+    "summary": "Dify 未返回可用的 plan_json。",
+    "days": [],
+    "budget": {},
+    "warnings": ["请检查 Dify 工作流输出变量是否包含 plan_json。"],
+    "route_summary": {},
+}
+
+
+def create_plan(db: Session, data: TripPlanGenerateRequest) -> TripPlanRequest:
+    request = TripPlanRequest(
+        user_id=data.user_id,
+        action="create",
+        origin_city=data.origin_city,
+        destination_city=data.destination_city,
+        start_date=data.start_date,
+        end_date=data.end_date,
+        people_count=data.people_count,
+        budget_total=data.budget_total,
+        interests=data.interests,
+        hotel_level=data.hotel_level,
+        transport_preference=data.transport_preference,
+        pace=data.pace,
+        special_requirements=data.special_requirements,
+    )
+    db.add(request)
+    db.flush()
+
+    response = _run_trip_plan_workflow(data)
+    version = _build_version(
+        request_id=request.id,
+        user_id=data.user_id,
+        version_no=1,
+        revision_request=data.revision_request,
+        workflow_response=response,
+    )
+    db.add(version)
+    db.commit()
+    db.refresh(request)
+    return request
+
+
+def revise_plan(
+    db: Session,
+    plan_id: int,
+    data: TripPlanReviseRequest,
+) -> TripPlanRequest:
+    request = get_plan(db, plan_id)
+    if request is None:
+        raise LookupError("trip plan not found")
+
+    latest_version = get_latest_version(db, plan_id)
+    if latest_version is None:
+        raise LookupError("trip plan version not found")
+
+    generate_request = TripPlanGenerateRequest(
+        action="revise",
+        user_id=data.user_id,
+        origin_city=request.origin_city,
+        destination_city=request.destination_city,
+        start_date=request.start_date,
+        end_date=request.end_date,
+        people_count=request.people_count,
+        budget_total=request.budget_total,
+        interests=request.interests,
+        hotel_level=request.hotel_level,
+        transport_preference=request.transport_preference,
+        pace=request.pace,
+        special_requirements=request.special_requirements or "",
+        previous_plan_json=latest_version.plan_json,
+        revision_request=data.revision_request,
+    )
+
+    response = _run_trip_plan_workflow(generate_request)
+    next_version_no = latest_version.version_no + 1
+    version = _build_version(
+        request_id=request.id,
+        user_id=data.user_id,
+        version_no=next_version_no,
+        revision_request=data.revision_request,
+        workflow_response=response,
+    )
+    db.add(version)
+    db.commit()
+    db.refresh(request)
+    return request
+
+
+def get_plan(db: Session, plan_id: int) -> TripPlanRequest | None:
+    return db.query(TripPlanRequest).filter(TripPlanRequest.id == plan_id).first()
+
+
+def get_latest_version(db: Session, plan_id: int) -> TripPlanVersion | None:
+    return (
+        db.query(TripPlanVersion)
+        .filter(TripPlanVersion.request_id == plan_id)
+        .order_by(TripPlanVersion.version_no.desc())
+        .first()
+    )
+
+
+def list_plans(db: Session, user_id: str | None = None) -> list[dict[str, Any]]:
+    query = db.query(TripPlanRequest).order_by(TripPlanRequest.created_at.desc())
+    if user_id:
+        query = query.filter(TripPlanRequest.user_id == user_id)
+
+    items: list[dict[str, Any]] = []
+    for request in query.all():
+        latest_version = get_latest_version(db, request.id)
+        plan_json = _loads_json(latest_version.plan_json) if latest_version else {}
+        title = plan_json.get("title") if isinstance(plan_json, dict) else None
+        items.append(
+            {
+                "id": request.id,
+                "user_id": request.user_id,
+                "origin_city": request.origin_city,
+                "destination_city": request.destination_city,
+                "start_date": request.start_date,
+                "end_date": request.end_date,
+                "version_no": latest_version.version_no if latest_version else None,
+                "title": title,
+                "created_at": request.created_at,
+                "updated_at": request.updated_at,
+            }
+        )
+    return items
+
+
+def delete_plan(db: Session, plan_id: int) -> bool:
+    request = get_plan(db, plan_id)
+    if request is None:
+        return False
+
+    db.delete(request)
+    db.commit()
+    return True
+
+
+def to_response(request: TripPlanRequest) -> dict[str, Any]:
+    latest_version = max(
+        request.versions,
+        key=lambda version: version.version_no,
+        default=None,
+    )
+    return {
+        "id": request.id,
+        "user_id": request.user_id,
+        "action": request.action,
+        "origin_city": request.origin_city,
+        "destination_city": request.destination_city,
+        "start_date": request.start_date,
+        "end_date": request.end_date,
+        "people_count": request.people_count,
+        "budget_total": request.budget_total,
+        "interests": request.interests,
+        "hotel_level": request.hotel_level,
+        "transport_preference": request.transport_preference,
+        "pace": request.pace,
+        "special_requirements": request.special_requirements,
+        "created_at": request.created_at,
+        "updated_at": request.updated_at,
+        "latest_version": _version_to_response(latest_version)
+        if latest_version is not None
+        else None,
+    }
+
+
+def _run_trip_plan_workflow(data: TripPlanGenerateRequest) -> dict[str, Any]:
+    client = DifyClient(
+        api_key=os.getenv("DIFY_TRIP_PLAN_API_KEY") or os.getenv("DIFY_API_KEY"),
+        url=os.getenv("DIFY_TRIP_PLAN_URL") or os.getenv("DIFY_URL"),
+        timeout=float(os.getenv("DIFY_TIMEOUT", "60")),
+    )
+    try:
+        return client.run_workflow(
+            user=data.user_id,
+            inputs=_to_dify_inputs(data),
+        )
+    except DifyError:
+        raise
+
+
+def _to_dify_inputs(data: TripPlanGenerateRequest) -> dict[str, str]:
+    return {
+        "action": data.action,
+        "user_id": data.user_id,
+        "origin_city": data.origin_city,
+        "destination_city": data.destination_city,
+        "start_date": data.start_date,
+        "end_date": data.end_date,
+        "people_count": data.people_count,
+        "budget_total": data.budget_total,
+        "interests": data.interests,
+        "hotel_level": data.hotel_level,
+        "transport_preference": data.transport_preference,
+        "pace": data.pace,
+        "special_requirements": data.special_requirements,
+        "previous_plan_json": data.previous_plan_json,
+        "revision_request": data.revision_request,
+    }
+
+
+def _build_version(
+    *,
+    request_id: int,
+    user_id: str,
+    version_no: int,
+    revision_request: str,
+    workflow_response: dict[str, Any],
+) -> TripPlanVersion:
+    plan_json = _extract_plan_json(workflow_response)
+    return TripPlanVersion(
+        request_id=request_id,
+        user_id=user_id,
+        version_no=version_no,
+        revision_request=revision_request,
+        workflow_run_id=workflow_response.get("workflow_run_id")
+        or workflow_response.get("workflow_run_id".replace("_", "-")),
+        task_id=workflow_response.get("task_id"),
+        plan_json=json.dumps(plan_json, ensure_ascii=False),
+        raw_response_json=json.dumps(workflow_response, ensure_ascii=False),
+    )
+
+
+def _extract_plan_json(workflow_response: dict[str, Any]) -> Any:
+    outputs = workflow_response.get("data", {}).get("outputs", {})
+    if not isinstance(outputs, dict):
+        raise DifyResponseError("Dify workflow outputs must be an object.")
+
+    value = (
+        outputs.get("plan_json")
+        or outputs.get("result")
+        or outputs.get("answer")
+        or DEFAULT_EMPTY_PLAN
+    )
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return DEFAULT_EMPTY_PLAN
+        return _loads_json(stripped)
+
+    return value
+
+
+def _loads_json(value: str) -> Any:
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        return {
+            "title": "行程计划",
+            "summary": value,
+            "days": [],
+            "budget": {},
+            "warnings": ["Dify 返回了文本内容，后端已包装为基础 JSON。"],
+            "route_summary": {},
+        }
+
+
+def _version_to_response(version: TripPlanVersion) -> dict[str, Any]:
+    return {
+        "id": version.id,
+        "request_id": version.request_id,
+        "user_id": version.user_id,
+        "version_no": version.version_no,
+        "revision_request": version.revision_request,
+        "workflow_run_id": version.workflow_run_id,
+        "task_id": version.task_id,
+        "plan_json": _loads_json(version.plan_json),
+        "created_at": version.created_at,
+    }

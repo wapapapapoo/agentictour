@@ -1,0 +1,65 @@
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+
+from database import get_db
+from schemas.trip_plan import (
+    TripPlanGenerateRequest,
+    TripPlanListItem,
+    TripPlanResponse,
+    TripPlanReviseRequest,
+)
+from services import trip_plan_service
+from utils.dify_client import DifyError
+
+router = APIRouter(prefix="/api/trip-plans", tags=["行前旅行计划制定"])
+
+
+@router.post("/generate", response_model=TripPlanResponse)
+def generate_trip_plan(
+    data: TripPlanGenerateRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        plan = trip_plan_service.create_plan(db, data)
+    except DifyError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return trip_plan_service.to_response(plan)
+
+
+@router.post("/{plan_id}/revise", response_model=TripPlanResponse)
+def revise_trip_plan(
+    plan_id: int,
+    data: TripPlanReviseRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        plan = trip_plan_service.revise_plan(db, plan_id, data)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except DifyError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return trip_plan_service.to_response(plan)
+
+
+@router.get("", response_model=list[TripPlanListItem])
+def list_trip_plans(
+    user_id: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    return trip_plan_service.list_plans(db, user_id)
+
+
+@router.get("/{plan_id}", response_model=TripPlanResponse)
+def get_trip_plan(plan_id: int, db: Session = Depends(get_db)):
+    plan = trip_plan_service.get_plan(db, plan_id)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="trip plan not found")
+    return trip_plan_service.to_response(plan)
+
+
+@router.delete("/{plan_id}")
+def delete_trip_plan(plan_id: int, db: Session = Depends(get_db)):
+    ok = trip_plan_service.delete_plan(db, plan_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="trip plan not found")
+    return {"message": "删除成功"}
