@@ -4,12 +4,17 @@ from sqlalchemy.sql import func
 
 from database import Base
 
+ID_TYPE = BigInteger().with_variant(Integer, "sqlite")
+
 
 class BlogMaterial(Base):
     __tablename__ = "blog_materials"
+    __table_args__ = (
+        {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"},
+    )
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    user_id = Column(String(64), nullable=False)
+    id = Column(ID_TYPE, primary_key=True, autoincrement=True)
+    user_id = Column(String(64), nullable=False, index=True)
     title = Column(String(255), nullable=False)
     destination = Column(String(100), nullable=False)
     start_date = Column(Date, nullable=True)
@@ -34,14 +39,18 @@ class BlogMaterial(Base):
 
 class BlogGeneration(Base):
     __tablename__ = "blog_generations"
+    __table_args__ = (
+        {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"},
+    )
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(ID_TYPE, primary_key=True, autoincrement=True)
     material_id = Column(
-        BigInteger,
+        ID_TYPE,
         ForeignKey("blog_materials.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
     )
-    user_id = Column(String(64), nullable=False)
+    user_id = Column(String(64), nullable=False, index=True)
 
     content_type = Column(String(50), nullable=False)
     writing_style = Column(String(50), nullable=False)
@@ -51,6 +60,6 @@ class BlogGeneration(Base):
     tags = Column(Text, nullable=True)
     risk_note = Column(Text, nullable=True)
 
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, server_default=func.now(), index=True)
 
     material = relationship("BlogMaterial", back_populates="generations")

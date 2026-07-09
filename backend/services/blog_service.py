@@ -1,10 +1,10 @@
 from sqlalchemy.orm import Session
 
 from models.blog import BlogGeneration, BlogMaterial
-from schemas.blog import BlogGenerateRequest, BlogMaterialCreate
+from schemas.blog import BlogContentType, BlogGenerateRequest, BlogMaterialCreate, BlogWritingStyle
 
-VALID_CONTENT_TYPES = {"blog", "social_post", "title_tags"}
-VALID_WRITING_STYLES = {"guide", "story", "casual", "promotion"}
+VALID_CONTENT_TYPES = {item.value for item in BlogContentType}
+VALID_WRITING_STYLES = {item.value for item in BlogWritingStyle}
 
 
 def create_material(db: Session, data: BlogMaterialCreate) -> BlogMaterial:
@@ -15,8 +15,15 @@ def create_material(db: Session, data: BlogMaterialCreate) -> BlogMaterial:
     return material
 
 
-def get_material(db: Session, material_id: int) -> BlogMaterial | None:
-    return db.query(BlogMaterial).filter(BlogMaterial.id == material_id).first()
+def get_material(
+    db: Session,
+    material_id: int,
+    user_id: str | None = None,
+) -> BlogMaterial | None:
+    query = db.query(BlogMaterial).filter(BlogMaterial.id == material_id)
+    if user_id is not None:
+        query = query.filter(BlogMaterial.user_id == user_id)
+    return query.first()
 
 
 def generate_mock_content(material: BlogMaterial, req: BlogGenerateRequest) -> dict[str, str]:
@@ -84,7 +91,7 @@ def create_generation(db: Session, req: BlogGenerateRequest) -> BlogGeneration:
     if req.writing_style not in VALID_WRITING_STYLES:
         raise ValueError("invalid writing_style")
 
-    material = get_material(db, req.material_id)
+    material = get_material(db, req.material_id, req.user_id)
     if material is None:
         raise LookupError("material not found")
 
@@ -107,15 +114,13 @@ def create_generation(db: Session, req: BlogGenerateRequest) -> BlogGeneration:
     return generation
 
 
-def list_generations(db: Session, user_id: str | None = None) -> list[dict]:
+def list_generations(db: Session, user_id: str) -> list[dict]:
     query = (
         db.query(BlogGeneration, BlogMaterial)
         .join(BlogMaterial, BlogGeneration.material_id == BlogMaterial.id)
+        .filter(BlogGeneration.user_id == user_id)
         .order_by(BlogGeneration.created_at.desc())
     )
-
-    if user_id:
-        query = query.filter(BlogGeneration.user_id == user_id)
 
     rows = query.all()
 
@@ -134,12 +139,19 @@ def list_generations(db: Session, user_id: str | None = None) -> list[dict]:
     ]
 
 
-def get_generation(db: Session, generation_id: int) -> BlogGeneration | None:
-    return db.query(BlogGeneration).filter(BlogGeneration.id == generation_id).first()
+def get_generation(
+    db: Session,
+    generation_id: int,
+    user_id: str | None = None,
+) -> BlogGeneration | None:
+    query = db.query(BlogGeneration).filter(BlogGeneration.id == generation_id)
+    if user_id is not None:
+        query = query.filter(BlogGeneration.user_id == user_id)
+    return query.first()
 
 
-def delete_generation(db: Session, generation_id: int) -> bool:
-    generation = get_generation(db, generation_id)
+def delete_generation(db: Session, generation_id: int, user_id: str) -> bool:
+    generation = get_generation(db, generation_id, user_id)
     if generation is None:
         return False
 

@@ -1,22 +1,81 @@
 from datetime import date, datetime
-from typing import Optional
+from enum import StrEnum
+from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
-class BlogMaterialCreate(BaseModel):
+class BlogContentType(StrEnum):
+    BLOG = "blog"
+    SOCIAL_POST = "social_post"
+    TITLE_TAGS = "title_tags"
+
+
+class BlogWritingStyle(StrEnum):
+    GUIDE = "guide"
+    STORY = "story"
+    CASUAL = "casual"
+    PROMOTION = "promotion"
+
+
+class BlogBaseModel(BaseModel):
+    @field_validator(
+        "user_id",
+        "title",
+        "destination",
+        "itinerary_text",
+        mode="before",
+        check_fields=False,
+    )
+    @classmethod
+    def required_text_must_not_be_blank(cls, value: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+
+        value = value.strip()
+        if not value:
+            raise ValueError("field must not be blank")
+        return value
+
+    @field_validator(
+        "food_text",
+        "photo_text",
+        "expense_text",
+        "feeling_text",
+        mode="before",
+        check_fields=False,
+    )
+    @classmethod
+    def optional_text_blank_to_none(cls, value: Any) -> Any:
+        if value is None:
+            return None
+
+        if not isinstance(value, str):
+            return value
+
+        value = value.strip()
+        return value or None
+
+
+class BlogMaterialCreate(BlogBaseModel):
     user_id: str = Field(..., max_length=64)
     title: str = Field(..., max_length=255)
     destination: str = Field(..., max_length=100)
     start_date: Optional[date] = None
     end_date: Optional[date] = None
-    people_count: Optional[int] = None
+    people_count: Optional[int] = Field(default=None, gt=0)
 
     itinerary_text: str
     food_text: Optional[str] = None
     photo_text: Optional[str] = None
     expense_text: Optional[str] = None
     feeling_text: Optional[str] = None
+
+    @model_validator(mode="after")
+    def end_date_must_not_be_before_start_date(self) -> "BlogMaterialCreate":
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            raise ValueError("end_date must not be before start_date")
+        return self
 
 
 class BlogMaterialResponse(BaseModel):
@@ -35,15 +94,14 @@ class BlogMaterialResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
-class BlogGenerateRequest(BaseModel):
-    material_id: int
+class BlogGenerateRequest(BlogBaseModel):
+    material_id: int = Field(..., gt=0)
     user_id: str
-    content_type: str = Field(..., description="blog/social_post/title_tags")
-    writing_style: str = Field(..., description="guide/story/casual/promotion")
+    content_type: BlogContentType = Field(..., description="blog/social_post/title_tags")
+    writing_style: BlogWritingStyle = Field(..., description="guide/story/casual/promotion")
 
 
 class BlogGenerationResponse(BaseModel):
@@ -58,8 +116,7 @@ class BlogGenerationResponse(BaseModel):
     risk_note: Optional[str]
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BlogGenerationListItem(BaseModel):
