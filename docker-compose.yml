@@ -2,6 +2,10 @@ services:
   backend:
     build: ./backend
     container_name: app-backend
+    env_file:
+      - ./backend/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8000:8000"
     restart: unless-stopped
