@@ -10,6 +10,21 @@ from database import Base
 from models.blog import BlogGeneration, BlogMaterial
 from schemas.blog import BlogGenerateRequest, BlogMaterialCreate
 from services import blog_service
+from utils.dify_client import DifyResponseError
+
+
+@pytest.fixture(autouse=True)
+def mock_blog_generation(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        blog_service,
+        "_generate_blog_content",
+        lambda material, req: {
+            "generated_title": "test title",
+            "generated_content": "test content",
+            "tags": "travel,test",
+            "risk_note": "test risk note",
+        },
+    )
 
 
 @pytest.fixture()
@@ -119,3 +134,42 @@ def test_generation_queries_are_limited_to_user(db_session: Session) -> None:
     assert blog_service.get_generation(db_session, user_b_generation.id, "user-a") is None
     assert blog_service.delete_generation(db_session, user_b_generation.id, "user-a") is False
     assert blog_service.delete_generation(db_session, user_b_generation.id, "user-b") is True
+
+
+def test_to_dify_inputs_matches_workflow_variables(db_session: Session) -> None:
+    material = blog_service.create_material(db_session, _material_data())
+
+    inputs = blog_service._to_dify_inputs(material, _generate_request(material.id))
+
+    assert inputs["material_id"] == str(material.id)
+    assert inputs["start_date"] == "2026-07-20"
+    assert inputs["content_type"] == "blog"
+    assert inputs["writing_style"] == "guide"
+    assert inputs["photo_text"] == ""
+
+
+def test_extract_generation_result_parses_dify_result_json() -> None:
+    response = {
+        "data": {
+            "outputs": {
+                "result": '{"generated_title":"title","generated_content":"content",'
+                '"tags":"travel,test","risk_note":"note"}'
+            }
+        }
+    }
+
+    result = blog_service._extract_generation_result(response)
+
+    assert result == {
+        "generated_title": "title",
+        "generated_content": "content",
+        "tags": "travel,test",
+        "risk_note": "note",
+    }
+
+
+def test_extract_generation_result_rejects_invalid_result() -> None:
+    with pytest.raises(DifyResponseError):
+        blog_service._extract_generation_result(
+            {"data": {"outputs": {"result": "not json"}}}
+        )

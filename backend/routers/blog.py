@@ -10,6 +10,7 @@ from schemas.blog import (
     BlogMaterialResponse,
 )
 from services import blog_service
+from utils.dify_client import DifyConfigError, DifyError, DifyTimeoutError
 
 router = APIRouter(prefix="/api/blog", tags=["旅游博客辅助创作"])
 
@@ -39,6 +40,12 @@ def generate_blog(data: BlogGenerateRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="素材不存在")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except DifyConfigError:
+        raise HTTPException(status_code=503, detail="Dify service is not configured")
+    except DifyTimeoutError:
+        raise HTTPException(status_code=504, detail="Dify generation timed out")
+    except DifyError:
+        raise HTTPException(status_code=502, detail="Dify generation failed")
 
 
 @router.get("/generations", response_model=list[BlogGenerationListItem])

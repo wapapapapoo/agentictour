@@ -1,7 +1,17 @@
+import json
+import os
+from typing import Any
+
 from sqlalchemy.orm import Session
 
 from models.blog import BlogGeneration, BlogMaterial
-from schemas.blog import BlogContentType, BlogGenerateRequest, BlogMaterialCreate, BlogWritingStyle
+from schemas.blog import (
+    BlogContentType,
+    BlogGenerateRequest,
+    BlogMaterialCreate,
+    BlogWritingStyle,
+)
+from utils.dify_client import DifyClient, DifyResponseError
 
 VALID_CONTENT_TYPES = {item.value for item in BlogContentType}
 VALID_WRITING_STYLES = {item.value for item in BlogWritingStyle}
@@ -26,62 +36,74 @@ def get_material(
     return query.first()
 
 
-def generate_mock_content(material: BlogMaterial, req: BlogGenerateRequest) -> dict[str, str]:
-    style_map = {
-        "guide": "攻略型",
-        "story": "故事型",
-        "casual": "轻松分享型",
-        "promotion": "种草型",
-    }
-
-    type_map = {
-        "blog": "游记初稿",
-        "social_post": "社交平台文案",
-        "title_tags": "标题和标签",
-    }
-
-    content_type_cn = type_map.get(req.content_type, req.content_type)
-    style_cn = style_map.get(req.writing_style, req.writing_style)
-    title = f"{material.destination}旅行记录：{material.title}"
-
-    if req.content_type == "title_tags":
-        content = (
-            f"标题建议：\n"
-            f"1. {material.destination}旅行记录：一次轻松又真实的出行\n"
-            f"2. {material.destination}游玩整理：路线、美食与感受\n"
-            f"3. 我的{material.destination}之旅：慢节奏体验分享\n"
-        )
-    elif req.content_type == "social_post":
-        content = (
-            f"这次去了{material.destination}，整体感受是："
-            f"{material.feeling_text or '行程比较顺利，体验不错。'}\n\n"
-            f"行程安排：{material.itinerary_text}\n\n"
-            f"美食体验：{material.food_text or '暂无详细美食记录。'}\n\n"
-            f"适合想要轻松出行、不想安排太满的朋友。"
-        )
-    else:
-        content = (
-            f"# {title}\n\n"
-            f"这是一篇根据用户旅行素材生成的{content_type_cn}，"
-            f"当前写作风格为{style_cn}。\n\n"
-            f"## 行程概况\n"
-            f"{material.itinerary_text}\n\n"
-            f"## 美食体验\n"
-            f"{material.food_text or '用户暂未补充详细美食记录。'}\n\n"
-            f"## 照片与场景\n"
-            f"{material.photo_text or '用户暂未补充照片描述。'}\n\n"
-            f"## 消费情况\n"
-            f"{material.expense_text or '用户暂未补充消费摘要。'}\n\n"
-            f"## 个人感受\n"
-            f"{material.feeling_text or '用户暂未补充个人感受。'}\n"
-        )
+def _to_dify_inputs(
+    material: BlogMaterial,
+    req: BlogGenerateRequest,
+) -> dict[str, str]:
+    def text(value: Any) -> str:
+        return "" if value is None else str(value)
 
     return {
-        "title": title,
-        "content": content,
-        "tags": f"{material.destination},旅行,游记,{style_cn}",
-        "risk_note": "当前内容为模拟生成结果，后续接入 Dify 后将替换为真实模型输出。",
+        "material_id": text(material.id),
+        "user_id": req.user_id,
+        "title": material.title,
+        "destination": material.destination,
+        "start_date": text(material.start_date),
+        "end_date": text(material.end_date),
+        "people_count": text(material.people_count),
+        "itinerary_text": material.itinerary_text,
+        "food_text": text(material.food_text),
+        "photo_text": text(material.photo_text),
+        "expense_text": text(material.expense_text),
+        "feeling_text": text(material.feeling_text),
+        "content_type": req.content_type.value,
+        "writing_style": req.writing_style.value,
     }
+
+
+def _extract_generation_result(workflow_response: dict[str, Any]) -> dict[str, str]:
+    data = workflow_response.get("data")
+    outputs = data.get("outputs") if isinstance(data, dict) else None
+    if not isinstance(outputs, dict):
+        raise DifyResponseError("Dify workflow outputs must be an object.")
+
+    result = outputs.get("result")
+    if isinstance(result, str):
+        try:
+            result = json.loads(result)
+        except json.JSONDecodeError as exc:
+            raise DifyResponseError(
+                "Dify workflow output 'result' must be valid JSON."
+            ) from exc
+
+    if not isinstance(result, dict):
+        raise DifyResponseError("Dify workflow output 'result' must be an object.")
+
+    generated_content = result.get("generated_content")
+    if not isinstance(generated_content, str) or not generated_content.strip():
+        raise DifyResponseError("Dify result is missing generated_content.")
+
+    parsed = {"generated_content": generated_content.strip()}
+    for field in ("generated_title", "tags", "risk_note"):
+        value = result.get(field)
+        parsed[field] = value.strip() if isinstance(value, str) else ""
+    return parsed
+
+
+def _generate_blog_content(
+    material: BlogMaterial,
+    req: BlogGenerateRequest,
+) -> dict[str, str]:
+    client = DifyClient(
+        api_key=os.getenv("DIFY_BLOG_API_KEY") or os.getenv("DIFY_API_KEY"),
+        url=os.getenv("DIFY_BLOG_URL") or os.getenv("DIFY_URL"),
+        timeout=float(os.getenv("DIFY_TIMEOUT", "120")),
+    )
+    response = client.run_workflow(
+        user=req.user_id,
+        inputs=_to_dify_inputs(material, req),
+    )
+    return _extract_generation_result(response)
 
 
 def create_generation(db: Session, req: BlogGenerateRequest) -> BlogGeneration:
@@ -95,17 +117,16 @@ def create_generation(db: Session, req: BlogGenerateRequest) -> BlogGeneration:
     if material is None:
         raise LookupError("material not found")
 
-    mock_result = generate_mock_content(material, req)
-
+    result = _generate_blog_content(material, req)
     generation = BlogGeneration(
         material_id=req.material_id,
         user_id=req.user_id,
         content_type=req.content_type,
         writing_style=req.writing_style,
-        generated_title=mock_result["title"],
-        generated_content=mock_result["content"],
-        tags=mock_result["tags"],
-        risk_note=mock_result["risk_note"],
+        generated_title=result["generated_title"] or None,
+        generated_content=result["generated_content"],
+        tags=result["tags"] or None,
+        risk_note=result["risk_note"] or None,
     )
 
     db.add(generation)
@@ -115,14 +136,13 @@ def create_generation(db: Session, req: BlogGenerateRequest) -> BlogGeneration:
 
 
 def list_generations(db: Session, user_id: str) -> list[dict]:
-    query = (
+    rows = (
         db.query(BlogGeneration, BlogMaterial)
         .join(BlogMaterial, BlogGeneration.material_id == BlogMaterial.id)
         .filter(BlogGeneration.user_id == user_id)
         .order_by(BlogGeneration.created_at.desc())
+        .all()
     )
-
-    rows = query.all()
 
     return [
         {
