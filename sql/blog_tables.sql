@@ -14,7 +14,9 @@ CREATE TABLE IF NOT EXISTS blog_materials (
     feeling_text TEXT NULL COMMENT '个人感受',
 
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+
+    KEY idx_blog_materials_user_id (user_id)
 ) COMMENT='旅游博客素材表';
 
 CREATE TABLE IF NOT EXISTS blog_generations (
@@ -34,5 +36,9 @@ CREATE TABLE IF NOT EXISTS blog_generations (
 
     CONSTRAINT fk_blog_generation_material
         FOREIGN KEY (material_id) REFERENCES blog_materials(id)
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+
+    KEY idx_blog_generations_material_id (material_id),
+    KEY idx_blog_generations_user_id (user_id),
+    KEY idx_blog_generations_created_at (created_at)
 ) COMMENT='旅游博客生成结果表';
