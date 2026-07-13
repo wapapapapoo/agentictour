@@ -2,10 +2,12 @@
 -- AgenticTour 基础测试数据（MySQL 8.4）
 --
 -- 前置条件：请先依次执行以下建表脚本：
---   1. user_tables.sql
---   2. trip_plan_tables.sql
---   3. blog_tables.sql
---   4. accompany_tables.sql
+--   1. 01_user_tables.sql
+--   2. 02_blog_tables.sql
+--   3. 03_trip_plan_tables.sql
+--   4. 04_accompany_tables.sql
+--   5. 05_hikari_atlas_migration.sql
+--   6. 06_plan_knowledge_mappings.sql
 --
 -- 特性：
 --   1. 使用 seed-user-001 / seed-user-002 标识测试数据；
@@ -279,6 +281,77 @@ INSERT INTO blog_generations (
     '亲子体验因年龄和体力而异，请结合实际情况调整行程。',
     '2026-05-04 14:25:00'
 );
+
+-- Hikari Atlas UTC/reminder/advice-pair/notification seed extension.
+UPDATE chat_sessions AS session
+JOIN trip_plan_requests AS request ON request.id = session.tour_id
+SET session.user_id = request.user_id
+WHERE session.tour_id IN (@trip_1_id, @trip_2_id);
+
+UPDATE itinerary_items
+SET itinerary_type = 'play', reminder_time = start_time,
+    is_initial = 1, reminded_at = NULL
+WHERE tour_id IN (@trip_1_id, @trip_2_id);
+
+UPDATE itinerary_items AS current_item
+JOIN itinerary_items AS previous_item
+  ON previous_item.tour_id = current_item.tour_id
+ AND DATE(previous_item.start_time) = DATE(current_item.start_time)
+ AND previous_item.start_time < current_item.start_time
+SET current_item.is_initial = 0,
+    current_item.reminder_time = CASE
+        WHEN TIMESTAMPDIFF(MINUTE, previous_item.start_time, previous_item.end_time) >= 20
+            THEN DATE_SUB(previous_item.end_time, INTERVAL 20 MINUTE)
+        WHEN TIMESTAMPDIFF(MINUTE, previous_item.start_time, previous_item.end_time) >= 5
+            THEN DATE_SUB(previous_item.end_time, INTERVAL 5 MINUTE)
+        ELSE previous_item.end_time
+    END;
+
+UPDATE ai_advice
+SET advice_type = 'replan', input_text = reason_text,
+    audit_status = 'pass', generation_stopped = (result = 'rejected')
+WHERE tour_id IN (@trip_1_id, @trip_2_id);
+
+UPDATE ai_advice AS revised
+JOIN (
+    SELECT tour_id, MIN(advice_id) AS original_advice_id
+    FROM ai_advice
+    WHERE tour_id IN (@trip_1_id, @trip_2_id)
+    GROUP BY tour_id
+) AS original ON original.tour_id = revised.tour_id
+SET revised.parent_advice_id = original.original_advice_id,
+    revised.input_text = CONCAT(
+        '原输入：', revised.reason_text, '\n',
+        '原建议：示例旧建议\n',
+        '用户新要求：请进一步调整'
+    )
+WHERE revised.advice_id <> original.original_advice_id;
+
+UPDATE memos
+SET reminder_time = CASE memo_id % 2
+    WHEN 0 THEN NULL
+    ELSE '2026-07-20 00:30:00'
+END,
+reminded_at = NULL
+WHERE tour_id IN (@trip_1_id, @trip_2_id);
+
+INSERT INTO notifications (
+    tour_id, user_id, advice_id, category, content, read_at, created_at
+)
+SELECT a.tour_id, r.user_id, a.advice_id, 'replan', a.advice_text, NULL, a.created_at
+FROM ai_advice AS a
+JOIN trip_plan_requests AS r ON r.id = a.tour_id
+WHERE a.tour_id IN (@trip_1_id, @trip_2_id);
+
+INSERT INTO agent_job_states (job_name, last_run_at) VALUES
+('hourly_itinerary_check', '2026-07-13 00:00:00'),
+('three_hour_proactive', '2026-07-13 00:00:00');
+
+INSERT INTO user_locations (
+    user_id, latitude, longitude, city, place_name, location_context, updated_at
+) VALUES
+('seed-user-001', 31.2400, 121.4900, '上海', '外滩', '前端最近一次上报位置', '2026-07-13 00:00:00'),
+('seed-user-002', 31.3240, 120.6290, '苏州', '平江路', '前端最近一次上报位置', '2026-07-13 00:00:00');
 
 COMMIT;
 

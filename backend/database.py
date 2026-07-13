@@ -1,7 +1,7 @@
 import os
 
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 load_dotenv()
@@ -22,6 +22,17 @@ engine = create_engine(
     pool_pre_ping=True,
     pool_recycle=3600,
 )
+
+
+@event.listens_for(engine, "connect")
+def set_mysql_utc(dbapi_connection, _connection_record) -> None:
+    """Keep MySQL DATETIME defaults and comparisons on UTC for every connection."""
+    cursor = dbapi_connection.cursor()
+    try:
+        cursor.execute("SET time_zone = '+00:00'")
+    finally:
+        cursor.close()
+
 
 SessionLocal = sessionmaker(
     autocommit=False,

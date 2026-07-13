@@ -1,11 +1,15 @@
+import asyncio
 import os
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
 
+from routers.accompany import router as accompany_router
 from routers.blog import router as blog_router
 from routers.knowledge import router as knowledge_router
 from routers.trip_plan import router as trip_plan_router
+from scheduler import reminder_loop
 
 # 加载 .env 文件
 load_dotenv()
@@ -13,14 +17,27 @@ load_dotenv()
 from db_init import run_init_sql
 run_init_sql()
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    task = asyncio.create_task(reminder_loop())
+    yield
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
 app = FastAPI(
     title=os.getenv("APP_NAME", "My FastAPI App"),
     debug=os.getenv("DEBUG", "false").lower() == "true",
+    lifespan=lifespan,
 )
 
 app.include_router(blog_router)
 app.include_router(knowledge_router)
 app.include_router(trip_plan_router)
+app.include_router(accompany_router)
+
 
 @app.get("/")
 def root() -> dict[str, str]:
