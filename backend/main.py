@@ -10,6 +10,9 @@ from routers.trip_plan import router as trip_plan_router
 # 加载 .env 文件
 load_dotenv()
 
+from db_init import run_init_sql
+run_init_sql()
+
 app = FastAPI(
     title=os.getenv("APP_NAME", "My FastAPI App"),
     debug=os.getenv("DEBUG", "false").lower() == "true",
