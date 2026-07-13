@@ -313,6 +313,7 @@ def _extract_plan_json(workflow_response: dict[str, Any]) -> Any:
 
     value = (
         outputs.get("plan_json")
+        or outputs.get("title")
         or outputs.get("result")
         or outputs.get("answer")
         or DEFAULT_EMPTY_PLAN
