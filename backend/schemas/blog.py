@@ -97,6 +97,17 @@ class BlogMaterialResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class BlogPhotoResponse(BaseModel):
+    id: int
+    material_id: int
+    user_id: str
+    original_filename: str
+    content_type: str
+    file_size: int
+    file_url: str
+    created_at: datetime
+
+
 class BlogGenerateRequest(BlogBaseModel):
     material_id: int = Field(..., gt=0)
     user_id: str

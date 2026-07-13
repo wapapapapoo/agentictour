@@ -42,3 +42,22 @@ CREATE TABLE IF NOT EXISTS blog_generations (
     KEY idx_blog_generations_user_id (user_id),
     KEY idx_blog_generations_created_at (created_at)
 ) COMMENT='旅游博客生成结果表';
+
+CREATE TABLE IF NOT EXISTS blog_photos (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '图片ID',
+    material_id BIGINT NOT NULL COMMENT '关联素材ID',
+    user_id VARCHAR(64) NOT NULL COMMENT '用户ID',
+    original_filename VARCHAR(255) NOT NULL COMMENT '原始文件名',
+    stored_filename VARCHAR(255) NOT NULL COMMENT '服务器文件名',
+    content_type VARCHAR(50) NOT NULL COMMENT '图片类型',
+    file_size INT NOT NULL COMMENT '文件大小（字节）',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '上传时间',
+
+    CONSTRAINT fk_blog_photo_material
+        FOREIGN KEY (material_id) REFERENCES blog_materials(id)
+        ON DELETE CASCADE,
+
+    UNIQUE KEY uk_blog_photos_stored_filename (stored_filename),
+    KEY idx_blog_photos_material_id (material_id),
+    KEY idx_blog_photos_user_id (user_id)
+) COMMENT='旅游博客素材图片表';

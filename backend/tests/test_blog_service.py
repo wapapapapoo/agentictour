@@ -7,7 +7,7 @@ from sqlalchemy.pool import StaticPool
 pytest.importorskip("pymysql")
 
 from database import Base
-from models.blog import BlogGeneration, BlogMaterial
+from models.blog import BlogGeneration, BlogMaterial, BlogPhoto
 from schemas.blog import BlogGenerateRequest, BlogMaterialCreate
 from services import blog_service
 from utils.dify_client import DifyResponseError
@@ -36,7 +36,7 @@ def db_session() -> Session:
     )
     Base.metadata.create_all(
         bind=engine,
-        tables=[BlogMaterial.__table__, BlogGeneration.__table__],
+        tables=[BlogMaterial.__table__, BlogPhoto.__table__, BlogGeneration.__table__],
     )
     testing_session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db = testing_session()
@@ -47,7 +47,7 @@ def db_session() -> Session:
         db.close()
         Base.metadata.drop_all(
             bind=engine,
-            tables=[BlogGeneration.__table__, BlogMaterial.__table__],
+            tables=[BlogGeneration.__table__, BlogPhoto.__table__, BlogMaterial.__table__],
         )
 
 
@@ -172,4 +172,44 @@ def test_extract_generation_result_rejects_invalid_result() -> None:
     with pytest.raises(DifyResponseError):
         blog_service._extract_generation_result(
             {"data": {"outputs": {"result": "not json"}}}
+        )
+
+
+def test_create_photo_saves_file_for_material_owner(
+    db_session: Session,
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BLOG_UPLOAD_DIR", str(tmp_path))
+    material = blog_service.create_material(db_session, _material_data())
+    png_content = b"\x89PNG\r\n\x1a\nimage-data"
+
+    photo = blog_service.create_photo(
+        db_session,
+        material_id=material.id,
+        user_id=material.user_id,
+        original_filename="trip.png",
+        content=png_content,
+    )
+
+    assert photo.content_type == "image/png"
+    assert photo.file_size == len(png_content)
+    assert blog_service.get_photo_path(photo).read_bytes() == png_content
+
+
+def test_create_photo_rejects_unsupported_file(
+    db_session: Session,
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BLOG_UPLOAD_DIR", str(tmp_path))
+    material = blog_service.create_material(db_session, _material_data())
+
+    with pytest.raises(ValueError, match="only JPG, PNG and WEBP"):
+        blog_service.create_photo(
+            db_session,
+            material_id=material.id,
+            user_id=material.user_id,
+            original_filename="notes.txt",
+            content=b"not an image",
         )

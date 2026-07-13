@@ -35,6 +35,34 @@ class BlogMaterial(Base):
         back_populates="material",
         cascade="all, delete-orphan",
     )
+    photos = relationship(
+        "BlogPhoto",
+        back_populates="material",
+        cascade="all, delete-orphan",
+    )
+
+
+class BlogPhoto(Base):
+    __tablename__ = "blog_photos"
+    __table_args__ = (
+        {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"},
+    )
+
+    id = Column(ID_TYPE, primary_key=True, autoincrement=True)
+    material_id = Column(
+        ID_TYPE,
+        ForeignKey("blog_materials.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_id = Column(String(64), nullable=False, index=True)
+    original_filename = Column(String(255), nullable=False)
+    stored_filename = Column(String(255), nullable=False, unique=True)
+    content_type = Column(String(50), nullable=False)
+    file_size = Column(Integer, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    material = relationship("BlogMaterial", back_populates="photos")
 
 
 class BlogGeneration(Base):
