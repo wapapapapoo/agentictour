@@ -22,6 +22,8 @@ services:
   mcp:
     build: ./mcp
     container_name: app-mcp
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8001:8001"
     restart: unless-stopped
