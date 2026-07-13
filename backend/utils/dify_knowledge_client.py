@@ -61,7 +61,11 @@ def create_document_by_text(
         },
     }
     resp = requests.post(url, headers=_headers(), json=payload, timeout=_timeout())
-    resp.raise_for_status()
+    if resp.status_code >= 400:
+        raise requests.HTTPError(
+            f"{resp.status_code} {resp.reason}: {resp.text[:500]}",
+            response=resp,
+        )
     return resp.json()
 
 
