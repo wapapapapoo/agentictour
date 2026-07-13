@@ -27,6 +27,23 @@ class PlanKnowledgeResponse(BaseModel):
         from_attributes = True
 
 
+class KnowledgeSearchRequest(BaseModel):
+    dataset_id: str = Field(..., max_length=100)
+    query: str
+
+
+class KnowledgeSearchResult(BaseModel):
+    chunk_content: str
+    score: float
+    document_id: str
+    plan_id: Optional[int] = None
+    plan_title: Optional[str] = None
+
+
+class KnowledgeSearchResponse(BaseModel):
+    results: list[KnowledgeSearchResult]
+
+
 class TraceKnowledgeResponse(BaseModel):
     plan_id: int
     version_id: int

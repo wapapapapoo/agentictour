@@ -196,6 +196,53 @@ def trace_by_document_id(
     }
 
 
+def search_knowledge(
+    db: Session,
+    data: Any,  # KnowledgeSearchRequest
+) -> dict[str, Any]:
+    try:
+        resp = kb_client.retrieve_chunks(
+            dataset_id=data.dataset_id,
+            query=data.query,
+        )
+    except requests.RequestException as exc:
+        raise DifyRequestError(f"retrieve failed: {exc}") from exc
+
+    results: list[dict[str, Any]] = []
+    for record in resp.get("records", []):
+        segment = record.get("segment", record)
+        doc_id = segment.get("document_id", "")
+        chunk = segment.get("content", "")
+
+        # 查映射
+        mapping = (
+            db.query(PlanKnowledgeMapping)
+            .filter(PlanKnowledgeMapping.document_id == doc_id)
+            .first()
+        )
+
+        plan_id = mapping.plan_id if mapping else None
+        title = None
+        if plan_id:
+            plan = get_plan(db, plan_id)
+            if plan:
+                version = get_latest_version(db, plan_id)
+                if version and version.plan_json:
+                    obj = _loads_json(version.plan_json)
+                    if isinstance(obj, dict):
+                        title = obj.get("title")
+
+        results.append({
+            "chunk_content": chunk,
+            "score": record.get("score", 0.0),
+            "document_id": doc_id,
+            "plan_id": plan_id,
+            "plan_title": title,
+        })
+
+    return {"results": results}
+
+
 def _pick_doc_name(title: str | None, plan: TripPlanRequest) -> str:
     base = (title or "行程").strip()
     safe = re.sub(r"[\\/:*?\"<>|]", "_", base)
