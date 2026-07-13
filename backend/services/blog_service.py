@@ -18,6 +18,7 @@ from utils.dify_client import DifyClient, DifyResponseError
 VALID_CONTENT_TYPES = {item.value for item in BlogContentType}
 VALID_WRITING_STYLES = {item.value for item in BlogWritingStyle}
 MAX_PHOTO_SIZE = 10 * 1024 * 1024
+DEFAULT_PHOTO_DIR = Path(__file__).resolve().parents[1] / "uploads" / "blog"
 
 
 def create_material(db: Session, data: BlogMaterialCreate) -> BlogMaterial:
@@ -59,7 +60,7 @@ def create_photo(
         raise ValueError("only JPG, PNG and WEBP images are supported")
 
     extension, content_type = image_type
-    upload_dir = Path(os.getenv("BLOG_UPLOAD_DIR", "uploads/blog"))
+    upload_dir = Path(os.getenv("BLOG_UPLOAD_DIR", str(DEFAULT_PHOTO_DIR)))
     upload_dir.mkdir(parents=True, exist_ok=True)
     stored_filename = f"{uuid4().hex}{extension}"
     file_path = upload_dir / stored_filename
@@ -107,7 +108,7 @@ def get_photo(db: Session, photo_id: int, user_id: str) -> BlogPhoto | None:
 
 
 def get_photo_path(photo: BlogPhoto) -> Path:
-    upload_dir = Path(os.getenv("BLOG_UPLOAD_DIR", "uploads/blog")).resolve()
+    upload_dir = Path(os.getenv("BLOG_UPLOAD_DIR", str(DEFAULT_PHOTO_DIR))).resolve()
     file_path = (upload_dir / photo.stored_filename).resolve()
     if file_path.parent != upload_dir or not file_path.is_file():
         raise FileNotFoundError("photo file not found")

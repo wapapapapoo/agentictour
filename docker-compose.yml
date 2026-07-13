@@ -8,6 +8,8 @@ services:
       - "host.docker.internal:host-gateway"
     ports:
       - "8000:8000"
+    volumes:
+      - ./backend/uploads/blog:/app/uploads/blog
     restart: unless-stopped
     environment:
       DB_HOST: mysql
