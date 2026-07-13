@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 class PlanKnowledgeRequest(BaseModel):
     user_id: str = Field(..., max_length=64)
     dataset_id: str = Field(..., max_length=100)
+    chunk_size: int = Field(default=4000, ge=1, le=4000, description="分块大小(token数)，最大4000")
 
 
 class PlanKnowledgeResponse(BaseModel):

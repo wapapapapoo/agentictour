@@ -79,6 +79,7 @@ def create_knowledge(
         dataset_id=data.dataset_id,
         name=doc_name,
         text=humanized_text,
+        chunk_size=data.chunk_size,
     )
     doc_id = result.get("document", {}).get("id") or result.get("id")
     batch = result.get("batch")

@@ -31,14 +31,25 @@ def create_document_by_text(
     name: str,
     text: str,
     indexing_technique: str = "high_quality",
+    chunk_size: int = 4000,
 ) -> dict[str, Any]:
     url = f"{_base_url()}/datasets/{dataset_id}/documents"
     client = DifyClient(api_key=_api_key(), url=url)
-    return client.post_json({
+    payload: dict[str, Any] = {
         "name": name,
         "text": text,
         "indexing_technique": indexing_technique,
-    })
+        "process_rule": {
+            "mode": "custom",
+            "rules": {
+                "segmentation": {
+                    "separator": "\n",
+                    "max_tokens": chunk_size,
+                }
+            },
+        },
+    }
+    return client.post_json(payload)
 
 
 def get_indexing_status(
