@@ -113,6 +113,41 @@ def create_knowledge(
     }
 
 
+def trace_by_document_id(
+    db: Session,
+    document_id: str,
+) -> dict[str, Any] | None:
+    mapping = (
+        db.query(PlanKnowledgeMapping)
+        .filter(PlanKnowledgeMapping.document_id == document_id)
+        .first()
+    )
+    if mapping is None:
+        return None
+
+    plan = get_plan(db, mapping.plan_id)
+    if plan is None:
+        return None
+
+    version = get_latest_version(db, mapping.plan_id)
+    plan_obj = _loads_json(version.plan_json) if version and version.plan_json else {}
+    title = plan_obj.get("title") if isinstance(plan_obj, dict) else None
+
+    return {
+        "plan_id": plan.id,
+        "version_id": mapping.version_id,
+        "title": title,
+        "origin_city": plan.origin_city,
+        "destination_city": plan.destination_city,
+        "start_date": plan.start_date,
+        "end_date": plan.end_date,
+        "document_id": mapping.document_id or "",
+        "document_name": mapping.document_name,
+        "indexing_status": mapping.indexing_status,
+        "created_at": mapping.created_at,
+    }
+
+
 def _pick_doc_name(title: str | None, plan: TripPlanRequest) -> str:
     base = (title or "行程").strip()
     safe = re.sub(r"[\\/:*?\"<>|]", "_", base)

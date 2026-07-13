@@ -1,10 +1,14 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from database import get_db
-from schemas.knowledge import PlanKnowledgeRequest, PlanKnowledgeResponse
+from schemas.knowledge import (
+    PlanKnowledgeRequest,
+    PlanKnowledgeResponse,
+    TraceKnowledgeResponse,
+)
 from services import knowledge_service
 from utils.dify_client import DifyError
 
@@ -25,3 +29,17 @@ def sync_plan_to_knowledge(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.get("/knowledge/trace", response_model=TraceKnowledgeResponse)
+def trace_from_document_id(
+    document_id: str = Query(..., min_length=1),
+    db: Session = Depends(get_db),
+):
+    result = knowledge_service.trace_by_document_id(db, document_id)
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"no plan found for document_id={document_id}",
+        )
+    return result

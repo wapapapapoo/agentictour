@@ -25,3 +25,17 @@ class PlanKnowledgeResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class TraceKnowledgeResponse(BaseModel):
+    plan_id: int
+    version_id: int
+    title: Optional[str] = None
+    origin_city: str
+    destination_city: str
+    start_date: str
+    end_date: str
+    document_id: str
+    document_name: str
+    indexing_status: str
+    created_at: datetime
