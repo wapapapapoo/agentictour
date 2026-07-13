@@ -1,0 +1,2688 @@
+app:
+  description: 旅行陪伴光光，从出发陪伴您整个旅行
+  icon: 20dcbea8-aedf-43e1-afa4-46f9d8ac42a6
+  icon_background: ''
+  icon_type: image
+  mode: advanced-chat
+  name: 旅行陪伴Hikari
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.2.1@0924de1d15a8a35b0cc64ff396c68d5edddcfbc495a1e52ea57e8648434eff4b
+    version: null
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: junjiem/db_query:0.0.11@2eae0951f13c4e8daa099310d706c9502c349236bca81fcc996f2aea9524c97c
+    version: null
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: alexmultiagent/myweather:0.1.2@ba4defcda4731980e30e4fd1252a357adb2cd9dcfba5126c2d25849b4c98d451
+    version: null
+kind: app
+version: 0.6.0
+workflow:
+  conversation_variables:
+  - description: 记录重推荐循环到第几步
+    id: eee91d83-07d5-4aea-a33e-b2e470c6de3c
+    name: turns
+    selector:
+    - conversation
+    - turns
+    value: 0
+    value_type: integer
+  - description: ''
+    id: fcc1f85a-38c7-4bb2-b05b-c1f0b99bcf2c
+    name: test
+    selector:
+    - conversation
+    - test
+    value: ''
+    value_type: string
+  - description: '预处理用户输入
+
+      '
+    id: 04e95825-0966-4ee6-93d3-579017ff15de
+    name: input_n1
+    selector:
+    - conversation
+    - input_n1
+    value: 现在是系统提示，请你合理调用自己的工具，根据当前时间、用户位置、天气等等为用户提供相应的推荐。
+    value_type: string
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - remote_url
+      - local_file
+      enabled: true
+      fileUploadConfig:
+        attachment_image_file_size_limit: 2
+        audio_file_size_limit: 50
+        batch_count_limit: 500
+        file_size_limit: 500
+        file_upload_limit: 20
+        image_file_batch_limit: 10
+        image_file_size_limit: 10
+        single_chunk_attachment_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: agent
+        targetType: answer
+      id: 1782351047886-source-1782351997056-target
+      selected: false
+      source: '1782351047886'
+      sourceHandle: source
+      target: '1782351997056'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: if-else
+        targetType: if-else
+      id: 1782286303865-false-1782434126371-target
+      selected: false
+      source: '1782286303865'
+      sourceHandle: 'false'
+      target: '1782434126371'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: assigner
+        targetType: agent
+      id: 1782434163662-source-1782351047886-target
+      selected: false
+      source: '1782434163662'
+      sourceHandle: source
+      target: '1782351047886'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: if-else
+        targetType: assigner
+      id: 1782434126371-true-1782434163662-target
+      selected: false
+      source: '1782434126371'
+      sourceHandle: 'true'
+      target: '1782434163662'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: if-else
+        targetType: agent
+      id: 1782434126371-false-1782351047886-target
+      selected: false
+      source: '1782434126371'
+      sourceHandle: 'false'
+      target: '1782351047886'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: if-else
+        targetType: tool
+      id: 1782286303865-true-1782439086817-target
+      selected: false
+      source: '1782286303865'
+      sourceHandle: 'true'
+      target: '1782439086817'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: tool
+        targetType: tool
+      id: 1782439086817-source-1782439121606-target
+      selected: false
+      source: '1782439086817'
+      sourceHandle: source
+      target: '1782439121606'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: agent
+        targetType: answer
+      id: 17824362484760-source-1782437042677-target
+      selected: false
+      source: '17824362484760'
+      sourceHandle: source
+      target: '1782437042677'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: tool
+        targetType: tool
+      id: 1782439121606-source-1782441089142-target
+      selected: false
+      source: '1782439121606'
+      sourceHandle: source
+      target: '1782441089142'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: tool
+      id: 1782285385726-source-1782441291535-target
+      selected: false
+      source: '1782285385726'
+      sourceHandle: source
+      target: '1782441291535'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: tool
+        targetType: if-else
+      id: 1782441291535-source-1782286303865-target
+      selected: false
+      source: '1782441291535'
+      sourceHandle: source
+      target: '1782286303865'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: if-else
+        targetType: agent
+      id: 1782286303865-0363e60e-3402-4bea-b11c-780ef8787057-17824362484760-target
+      selected: false
+      source: '1782286303865'
+      sourceHandle: 0363e60e-3402-4bea-b11c-780ef8787057
+      target: '17824362484760'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: true
+        loop_id: '1783577983446'
+        sourceType: loop-start
+        targetType: llm
+      id: 1783577983446start-source-17835780288100-target
+      selected: false
+      source: 1783577983446start
+      sourceHandle: source
+      target: '17835780288100'
+      targetHandle: target
+      type: custom
+      zIndex: 1002
+    - data:
+        isInLoop: false
+        sourceType: tool
+        targetType: loop
+      id: 1782441089142-source-1783577983446-target
+      selected: false
+      source: '1782441089142'
+      sourceHandle: source
+      target: '1783577983446'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: true
+        loop_id: '1783577983446'
+        sourceType: llm
+        targetType: agent
+      id: 17835780288100-source-1783578074170-target
+      selected: false
+      source: '17835780288100'
+      sourceHandle: source
+      target: '1783578074170'
+      targetHandle: target
+      type: custom
+      zIndex: 1002
+    - data:
+        isInIteration: false
+        isInLoop: true
+        loop_id: '1783577983446'
+        sourceType: agent
+        targetType: parameter-extractor
+      id: 1783578074170-source-1783644416640-target
+      selected: false
+      source: '1783578074170'
+      sourceHandle: source
+      target: '1783644416640'
+      targetHandle: target
+      type: custom
+      zIndex: 1002
+    - data:
+        isInIteration: false
+        isInLoop: true
+        loop_id: '1783577983446'
+        sourceType: parameter-extractor
+        targetType: assigner
+      id: 1783644416640-source-1783644602686-target
+      selected: false
+      source: '1783644416640'
+      sourceHandle: source
+      target: '1783644602686'
+      targetHandle: target
+      type: custom
+      zIndex: 1002
+    - data:
+        isInIteration: false
+        isInLoop: true
+        loop_id: '1783577983446'
+        sourceType: assigner
+        targetType: if-else
+      id: 1783644602686-source-1783644715580-target
+      selected: false
+      source: '1783644602686'
+      sourceHandle: source
+      target: '1783644715580'
+      targetHandle: target
+      type: custom
+      zIndex: 1002
+    - data:
+        isInIteration: false
+        isInLoop: true
+        loop_id: '1783577983446'
+        sourceType: if-else
+        targetType: answer
+      id: 1783644715580-bdfda8df-df26-4988-8a54-f4bb7fe501dd-1783645130534-target
+      selected: false
+      source: '1783644715580'
+      sourceHandle: bdfda8df-df26-4988-8a54-f4bb7fe501dd
+      target: '1783645130534'
+      targetHandle: target
+      type: custom
+      zIndex: 1002
+    nodes:
+    - data:
+        selected: false
+        title: 用户输入
+        type: start
+        variables:
+        - hide: true
+          hint: ''
+          label: trigger_type
+          options:
+          - system_auto_remind
+          - user_input
+          - system_auto_accident
+          - system_auto_advice
+          - user_accident
+          placeholder: ''
+          required: false
+          type: select
+          variable: trigger_type
+        - default: ''
+          hide: true
+          hint: ''
+          label: tour_id
+          options: []
+          placeholder: ''
+          required: false
+          type: text-input
+          variable: tour_id
+      height: 134
+      id: '1782285385726'
+      position:
+        x: 0
+        y: 184.19047619047615
+      positionAbsolute:
+        x: 0
+        y: 184.19047619047615
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        cases:
+        - case_id: 'true'
+          conditions:
+          - comparison_operator: is
+            id: ca255493-3164-4d27-9677-ca711af58587
+            value: system_auto_remind
+            varType: string
+            variable_selector:
+            - '1782285385726'
+            - trigger_type
+          id: 'true'
+          logical_operator: and
+        - case_id: 0363e60e-3402-4bea-b11c-780ef8787057
+          conditions:
+          - comparison_operator: is
+            id: f2388a60-af02-4c35-952f-f8c012dfe206
+            value: system_auto_accident
+            varType: string
+            variable_selector:
+            - '1782285385726'
+            - trigger_type
+          - comparison_operator: is
+            id: 99cd8fe5-5a75-4d88-ba23-acce05bbe41a
+            value: user_accident
+            varType: string
+            variable_selector:
+            - '1782285385726'
+            - trigger_type
+          id: 0363e60e-3402-4bea-b11c-780ef8787057
+          logical_operator: or
+        selected: false
+        title: 条件分支
+        type: if-else
+      height: 269
+      id: '1782286303865'
+      position:
+        x: 683
+        y: 153.52380952380946
+      positionAbsolute:
+        x: 683
+        y: 153.52380952380946
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+    - data:
+        agent_parameters:
+          context:
+            type: variable
+            value:
+            - '1782441291535'
+            - json
+          instruction:
+            type: constant
+            value: '你是 AI 旅行陪伴系统中的工具调度 Agent。
+
+
+              你的任务是根据用户问题和上下文，判断是否需要调用工具，并返回可靠的旅行相关信息。
+
+
+              规则：
+
+              1. 用户询问天气、穿衣、是否适合出发时，必须调用天气工具。
+
+              2. 用户询问附近餐厅、咖啡店、休息点、厕所时，必须调用地点搜索工具。
+
+              3. 用户询问怎么走、多久到、是否来得及时，必须调用路线工具。
+
+              4. 用户询问自己的行程安排时，必须调用行程查询工具。
+
+              5. 如果只是普通聊天或常识解释，可以不调用工具。
+
+              6. 工具没有返回的信息，不允许编造。
+
+              7. 输出尽量结构化，方便后续 LLM 节点生成最终回复。
+
+              8.sql查询工具只能用来查询，不允许进行更改，添加和删除！'
+          model:
+            type: constant
+            value:
+              completion_params: {}
+              mode: chat
+              model: deepseek-v4-flash
+              model_type: llm
+              provider: langgenius/tongyi/tongyi
+              type: model-selector
+          query:
+            type: constant
+            value: '{{#conversation.input_n1#}}'
+          tools:
+            type: constant
+            value:
+            - enabled: true
+              extra:
+                description: 一个用于获取当前时间的工具。
+              parameters: {}
+              provider_name: time
+              provider_show_name: time
+              settings:
+                format:
+                  value:
+                    type: mixed
+                    value: '%Y-%m-%d %H:%M:%S'
+                timezone:
+                  value:
+                    type: constant
+                    value: UTC
+              tool_description: 一个用于获取当前时间的工具。
+              tool_label: 获取当前时间
+              tool_name: current_time
+              type: builtin
+            - enabled: true
+              extra:
+                description: 数据库SQL查询工具。
+              parameters:
+                db_host:
+                  auto: 1
+                  value: null
+                db_name:
+                  auto: 1
+                  value: null
+                db_password:
+                  auto: 1
+                  value: null
+                db_port:
+                  auto: 1
+                  value: null
+                db_properties:
+                  auto: 1
+                  value: null
+                db_type:
+                  auto: 1
+                  value: null
+                db_username:
+                  auto: 1
+                  value: null
+                query_sql:
+                  auto: 1
+                  value: null
+              provider_name: junjiem/db_query/db_query
+              provider_show_name: junjiem/db_query/db_query
+              settings:
+                output_format:
+                  value:
+                    type: constant
+                    value: markdown
+              tool_description: 数据库SQL查询工具。
+              tool_label: SQL查询
+              tool_name: sql_query
+              type: builtin
+            - enabled: true
+              extra:
+                description: '查询指定城市或区县的天气。
+
+
+                  适用场景：
+
+                  - 用户问今天/现在天气
+
+                  - 用户问是否需要带伞
+
+                  - 用户问穿衣建议
+
+                  - 系统自动生成行前提醒
+
+
+                  参数：
+
+                  - adcode: 高德行政区编码，例如上海 310000，北京 110000
+
+                  - extensions: base 表示实况天气，all 表示天气预报'
+              parameters:
+                adcode:
+                  auto: 1
+                  value: null
+                extensions:
+                  auto: 1
+                  value: null
+              provider_name: travel-mcp
+              provider_show_name: AI旅游MCP
+              settings: {}
+              tool_description: '查询指定城市或区县的天气。
+
+
+                适用场景：
+
+                - 用户问今天/现在天气
+
+                - 用户问是否需要带伞
+
+                - 用户问穿衣建议
+
+                - 系统自动生成行前提醒
+
+
+                参数：
+
+                - adcode: 高德行政区编码，例如上海 310000，北京 110000
+
+                - extensions: base 表示实况天气，all 表示天气预报'
+              tool_label: amap_weather
+              tool_name: amap_weather
+              type: mcp
+            - enabled: true
+              extra:
+                description: '查询当前位置附近的地点。
+
+
+                  适用场景：
+
+                  - 用户想找附近餐厅
+
+                  - 用户想找咖啡店
+
+                  - 用户想找休息点
+
+                  - 用户想找厕所、商场、景点等
+
+
+                  参数：
+
+                  - location: 经纬度，格式为 经度,纬度，例如 116.397428,39.90923
+
+                  - keywords: 搜索关键词，例如 餐厅、咖啡、厕所、商场
+
+                  - types: 高德 POI 类型编码，可为空
+
+                  - radius: 搜索半径，单位米
+
+                  - page_size: 返回数量
+
+                  - page_num: 页码'
+              parameters:
+                keywords:
+                  auto: 1
+                  value: null
+                location:
+                  auto: 1
+                  value: null
+                page_num:
+                  auto: 1
+                  value: null
+                page_size:
+                  auto: 1
+                  value: null
+                radius:
+                  auto: 1
+                  value: null
+                types:
+                  auto: 1
+                  value: null
+              provider_name: travel-mcp
+              provider_show_name: AI旅游MCP
+              settings: {}
+              tool_description: '查询当前位置附近的地点。
+
+
+                适用场景：
+
+                - 用户想找附近餐厅
+
+                - 用户想找咖啡店
+
+                - 用户想找休息点
+
+                - 用户想找厕所、商场、景点等
+
+
+                参数：
+
+                - location: 经纬度，格式为 经度,纬度，例如 116.397428,39.90923
+
+                - keywords: 搜索关键词，例如 餐厅、咖啡、厕所、商场
+
+                - types: 高德 POI 类型编码，可为空
+
+                - radius: 搜索半径，单位米
+
+                - page_size: 返回数量
+
+                - page_num: 页码'
+              tool_label: amap_nearby_search
+              tool_name: amap_nearby_search
+              type: mcp
+            - enabled: true
+              extra:
+                description: '查询两个地点之间的步行路线。
+
+
+                  适用场景：
+
+                  - 用户问怎么走
+
+                  - 用户问步行多久
+
+                  - 用户问是否来得及
+
+                  - 系统判断附近地点是否适合作为推荐
+
+
+                  参数：
+
+                  - origin: 起点经纬度，格式为 经度,纬度
+
+                  - destination: 终点经纬度，格式为 经度,纬度
+
+                  - isindoor: 是否室内算路，0 不需要，1 需要'
+              parameters:
+                destination:
+                  auto: 1
+                  value: null
+                isindoor:
+                  auto: 1
+                  value: null
+                origin:
+                  auto: 1
+                  value: null
+              provider_name: travel-mcp
+              provider_show_name: AI旅游MCP
+              settings: {}
+              tool_description: '查询两个地点之间的步行路线。
+
+
+                适用场景：
+
+                - 用户问怎么走
+
+                - 用户问步行多久
+
+                - 用户问是否来得及
+
+                - 系统判断附近地点是否适合作为推荐
+
+
+                参数：
+
+                - origin: 起点经纬度，格式为 经度,纬度
+
+                - destination: 终点经纬度，格式为 经度,纬度
+
+                - isindoor: 是否室内算路，0 不需要，1 需要'
+              tool_label: amap_walking_route
+              tool_name: amap_walking_route
+              type: mcp
+        agent_strategy_label: FunctionCalling
+        agent_strategy_name: function_calling
+        agent_strategy_provider_name: langgenius/agent/agent
+        desc: 为用户提供建议，充当聊天机器人
+        memory:
+          query_prompt_template: '{{#sys.query#}}
+
+
+            {{#sys.files#}}'
+          window:
+            enabled: false
+            size: 50
+        meta:
+          minimum_dify_version: 1.7.0
+          version: 0.0.2
+        output_schema: {}
+        plugin_unique_identifier: langgenius/agent:0.0.39@ceea6a76b3a495de2df2a55bcea82e903d49b06f4d8e1463c2aa085657f27164
+        selected: false
+        title: 聊天主Agent
+        tool_node_version: '2'
+        type: agent
+      height: 215
+      id: '1782351047886'
+      position:
+        x: 1766
+        y: 548.25
+      positionAbsolute:
+        x: 1766
+        y: 548.25
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+    - data:
+        answer: '{{#1782351047886.text#}}'
+        selected: false
+        title: 直接回复 2
+        type: answer
+        variables: []
+      height: 102
+      id: '1782351997056'
+      position:
+        x: 2107
+        y: 640.5833333333333
+      positionAbsolute:
+        x: 2107
+        y: 640.5833333333333
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+    - data:
+        cases:
+        - case_id: 'true'
+          conditions:
+          - comparison_operator: contains
+            id: ee039771-2fb0-469a-9740-db46ccefe682
+            value: user_input
+            varType: string
+            variable_selector:
+            - '1782285385726'
+            - trigger_type
+          id: 'true'
+          logical_operator: and
+        desc: 判断是用户输入还是ai的主动
+        selected: false
+        title: 条件分支 2
+        type: if-else
+      height: 175
+      id: '1782434126371'
+      position:
+        x: 1044
+        y: 528.8333333333333
+      positionAbsolute:
+        x: 1044
+        y: 528.8333333333333
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+    - data:
+        desc: 用户输入
+        items:
+        - input_type: variable
+          operation: over-write
+          value:
+          - sys
+          - query
+          variable_selector:
+          - conversation
+          - input_n1
+        selected: false
+        title: 聊天赋值
+        type: assigner
+        version: '2'
+      height: 111
+      id: '1782434163662'
+      position:
+        x: 1405
+        y: 538.25
+      positionAbsolute:
+        x: 1405
+        y: 538.25
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+    - data:
+        agent_parameters:
+          context:
+            type: variable
+            value:
+            - '1782441291535'
+            - json
+          instruction:
+            type: constant
+            value: '现在，一些突发情况发生或者用户自己的原因，需要变更原有的旅游计划，你需要根据目前的情况为用户更新旅程表。
+
+              请注意，你并不具有直接修改表的权限，你更改的版本会被传给审核agent，经过其合法检查后传给用户，由用户决定是否采用。
+
+              你只需要考虑当前时间之后的旅程表修改即可，但是你返回的应该是一张完整的表（包括前面内容不变）
+
+              你在进行设计时，需要考虑当前用户的位置、时间、需求和路径规划。
+
+
+              请优先考虑用户需求（具有全局指导性），同时修改范围尽量小且合理。
+
+
+              在回答时，注意  {{#1782285385726.trigger_type#}} ，如果是 "system_auto_accident"，请以主动告知的语气告诉用户；
+
+              如果是 "user_accident" ，则以对话的口吻回答'
+          model:
+            type: constant
+            value:
+              completion_params: {}
+              mode: chat
+              model: deepseek-v4-flash
+              model_type: llm
+              provider: langgenius/tongyi/tongyi
+              type: model-selector
+          query:
+            type: constant
+            value: '{{#sys.query#}}'
+          tools:
+            type: constant
+            value:
+            - enabled: true
+              extra:
+                description: '查询指定城市或区县的天气。
+
+
+                  适用场景：
+
+                  - 用户问今天/现在天气
+
+                  - 用户问是否需要带伞
+
+                  - 用户问穿衣建议
+
+                  - 系统自动生成行前提醒
+
+
+                  参数：
+
+                  - adcode: 高德行政区编码，例如上海 310000，北京 110000
+
+                  - extensions: base 表示实况天气，all 表示天气预报'
+              parameters:
+                adcode:
+                  auto: 1
+                  value: null
+                extensions:
+                  auto: 1
+                  value: null
+              provider_name: travel-mcp
+              provider_show_name: AI旅游MCP
+              settings: {}
+              tool_description: '查询指定城市或区县的天气。
+
+
+                适用场景：
+
+                - 用户问今天/现在天气
+
+                - 用户问是否需要带伞
+
+                - 用户问穿衣建议
+
+                - 系统自动生成行前提醒
+
+
+                参数：
+
+                - adcode: 高德行政区编码，例如上海 310000，北京 110000
+
+                - extensions: base 表示实况天气，all 表示天气预报'
+              tool_label: amap_weather
+              tool_name: amap_weather
+              type: mcp
+            - enabled: true
+              extra:
+                description: '查询当前位置附近的地点。
+
+
+                  适用场景：
+
+                  - 用户想找附近餐厅
+
+                  - 用户想找咖啡店
+
+                  - 用户想找休息点
+
+                  - 用户想找厕所、商场、景点等
+
+
+                  参数：
+
+                  - location: 经纬度，格式为 经度,纬度，例如 116.397428,39.90923
+
+                  - keywords: 搜索关键词，例如 餐厅、咖啡、厕所、商场
+
+                  - types: 高德 POI 类型编码，可为空
+
+                  - radius: 搜索半径，单位米
+
+                  - page_size: 返回数量
+
+                  - page_num: 页码'
+              parameters:
+                keywords:
+                  auto: 1
+                  value: null
+                location:
+                  auto: 1
+                  value: null
+                page_num:
+                  auto: 1
+                  value: null
+                page_size:
+                  auto: 1
+                  value: null
+                radius:
+                  auto: 1
+                  value: null
+                types:
+                  auto: 1
+                  value: null
+              provider_name: travel-mcp
+              provider_show_name: AI旅游MCP
+              settings: {}
+              tool_description: '查询当前位置附近的地点。
+
+
+                适用场景：
+
+                - 用户想找附近餐厅
+
+                - 用户想找咖啡店
+
+                - 用户想找休息点
+
+                - 用户想找厕所、商场、景点等
+
+
+                参数：
+
+                - location: 经纬度，格式为 经度,纬度，例如 116.397428,39.90923
+
+                - keywords: 搜索关键词，例如 餐厅、咖啡、厕所、商场
+
+                - types: 高德 POI 类型编码，可为空
+
+                - radius: 搜索半径，单位米
+
+                - page_size: 返回数量
+
+                - page_num: 页码'
+              tool_label: amap_nearby_search
+              tool_name: amap_nearby_search
+              type: mcp
+            - enabled: true
+              extra:
+                description: '查询两个地点之间的步行路线。
+
+
+                  适用场景：
+
+                  - 用户问怎么走
+
+                  - 用户问步行多久
+
+                  - 用户问是否来得及
+
+                  - 系统判断附近地点是否适合作为推荐
+
+
+                  参数：
+
+                  - origin: 起点经纬度，格式为 经度,纬度
+
+                  - destination: 终点经纬度，格式为 经度,纬度
+
+                  - isindoor: 是否室内算路，0 不需要，1 需要'
+              parameters:
+                destination:
+                  auto: 1
+                  value: null
+                isindoor:
+                  auto: 1
+                  value: null
+                origin:
+                  auto: 1
+                  value: null
+              provider_name: travel-mcp
+              provider_show_name: AI旅游MCP
+              settings: {}
+              tool_description: '查询两个地点之间的步行路线。
+
+
+                适用场景：
+
+                - 用户问怎么走
+
+                - 用户问步行多久
+
+                - 用户问是否来得及
+
+                - 系统判断附近地点是否适合作为推荐
+
+
+                参数：
+
+                - origin: 起点经纬度，格式为 经度,纬度
+
+                - destination: 终点经纬度，格式为 经度,纬度
+
+                - isindoor: 是否室内算路，0 不需要，1 需要'
+              tool_label: amap_walking_route
+              tool_name: amap_walking_route
+              type: mcp
+            - enabled: true
+              extra:
+                description: 一个用于获取当前时间的工具。
+              parameters: {}
+              provider_name: time
+              provider_show_name: time
+              settings:
+                format:
+                  value:
+                    type: mixed
+                    value: '%Y-%m-%d %H:%M:%S'
+                timezone:
+                  value:
+                    type: constant
+                    value: UTC
+              tool_description: 一个用于获取当前时间的工具。
+              tool_label: 获取当前时间
+              tool_name: current_time
+              type: builtin
+        agent_strategy_label: FunctionCalling
+        agent_strategy_name: function_calling
+        agent_strategy_provider_name: langgenius/agent/agent
+        desc: ''
+        isInIteration: false
+        isInLoop: false
+        memory:
+          query_prompt_template: '{{#sys.query#}}
+
+
+            {{#sys.files#}}'
+          window:
+            enabled: false
+            size: 50
+        meta:
+          minimum_dify_version: 1.7.0
+          version: 0.0.2
+        output_schema: {}
+        plugin_unique_identifier: langgenius/agent:0.0.39@ceea6a76b3a495de2df2a55bcea82e903d49b06f4d8e1463c2aa085657f27164
+        selected: false
+        title: 日程重推荐Agent
+        tool_node_version: '2'
+        type: agent
+      height: 187
+      id: '17824362484760'
+      position:
+        x: 1044
+        y: 252.16666666666663
+      positionAbsolute:
+        x: 1044
+        y: 252.16666666666663
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+    - data:
+        answer: '{{#17824362484760.text#}}'
+        selected: false
+        title: 直接回复 3
+        type: answer
+        variables: []
+      height: 102
+      id: '1782437042677'
+      position:
+        x: 1385
+        y: 325.8333333333333
+      positionAbsolute:
+        x: 1385
+        y: 325.8333333333333
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+    - data:
+        is_team_authorization: true
+        paramSchemas:
+        - auto_generate: null
+          default: mysql
+          form: llm
+          human_description:
+            en_US: Used for selecting the database type, mysql, oracle, oracle11g,
+              postgresql or mssql.
+            ja_JP: Used for selecting the database type, mysql, oracle, oracle11g,
+              postgresql or mssql.
+            pt_BR: Used for selecting the database type, mysql, oracle, oracle11g,
+              postgresql or mssql.
+            zh_Hans: 用于选择数据库类型，mysql、oracle、oracle11g、postgresql或mssql。
+          label:
+            en_US: Database type
+            ja_JP: Database type
+            pt_BR: Database type
+            zh_Hans: 数据库类型
+          llm_description: ''
+          max: null
+          min: null
+          name: db_type
+          options:
+          - icon: ''
+            label:
+              en_US: MySQL
+              ja_JP: MySQL
+              pt_BR: MySQL
+              zh_Hans: MySQL
+            value: mysql
+          - icon: ''
+            label:
+              en_US: Oracle
+              ja_JP: Oracle
+              pt_BR: Oracle
+              zh_Hans: Oracle
+            value: oracle
+          - icon: ''
+            label:
+              en_US: Oracle11g
+              ja_JP: Oracle11g
+              pt_BR: Oracle11g
+              zh_Hans: Oracle11g
+            value: oracle11g
+          - icon: ''
+            label:
+              en_US: PostgreSQL
+              ja_JP: PostgreSQL
+              pt_BR: PostgreSQL
+              zh_Hans: PostgreSQL
+            value: postgresql
+          - icon: ''
+            label:
+              en_US: Microsoft SQL Server
+              ja_JP: Microsoft SQL Server
+              pt_BR: Microsoft SQL Server
+              zh_Hans: Microsoft SQL Server
+            value: mssql
+          placeholder: null
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: select
+        - auto_generate: null
+          default: localhost
+          form: llm
+          human_description:
+            en_US: Database hostname or IP address (Original string, not URL-encoded
+              string).
+            ja_JP: Database hostname or IP address (Original string, not URL-encoded
+              string).
+            pt_BR: Database hostname or IP address (Original string, not URL-encoded
+              string).
+            zh_Hans: 数据库的主机名或IP地址（原始字符串，非URL编码字符串）。
+          label:
+            en_US: Database Host
+            ja_JP: Database Host
+            pt_BR: Database Host
+            zh_Hans: 数据库地址
+          llm_description: ''
+          max: null
+          min: null
+          name: db_host
+          options: []
+          placeholder: null
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: string
+        - auto_generate: null
+          default: null
+          form: llm
+          human_description:
+            en_US: Database port.
+            ja_JP: Database port.
+            pt_BR: Database port.
+            zh_Hans: 数据库的端口。
+          label:
+            en_US: Port
+            ja_JP: Port
+            pt_BR: Port
+            zh_Hans: 端口
+          llm_description: ''
+          max: null
+          min: null
+          name: db_port
+          options: []
+          placeholder: null
+          precision: null
+          required: false
+          scope: null
+          template: null
+          type: number
+        - auto_generate: null
+          default: null
+          form: llm
+          human_description:
+            en_US: Database username (Original string, not URL-encoded string).
+            ja_JP: Database username (Original string, not URL-encoded string).
+            pt_BR: Database username (Original string, not URL-encoded string).
+            zh_Hans: 数据库的用户名（原始字符串，非URL编码字符串）。
+          label:
+            en_US: Username
+            ja_JP: Username
+            pt_BR: Username
+            zh_Hans: 用户名
+          llm_description: ''
+          max: null
+          min: null
+          name: db_username
+          options: []
+          placeholder: null
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: string
+        - auto_generate: null
+          default: null
+          form: llm
+          human_description:
+            en_US: Database password (Original string, not URL-encoded string).
+            ja_JP: Database password (Original string, not URL-encoded string).
+            pt_BR: Database password (Original string, not URL-encoded string).
+            zh_Hans: 数据库的密码（原始字符串，非URL编码字符串）。
+          label:
+            en_US: Password
+            ja_JP: Password
+            pt_BR: Password
+            zh_Hans: 密码
+          llm_description: ''
+          max: null
+          min: null
+          name: db_password
+          options: []
+          placeholder: null
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: secret-input
+        - auto_generate: null
+          default: null
+          form: llm
+          human_description:
+            en_US: Database name (Original string, not URL-encoded string).
+            ja_JP: Database name (Original string, not URL-encoded string).
+            pt_BR: Database name (Original string, not URL-encoded string).
+            zh_Hans: 数据库的名称（原始字符串，非URL编码字符串）。
+          label:
+            en_US: Database name
+            ja_JP: Database name
+            pt_BR: Database name
+            zh_Hans: 库名
+          llm_description: ''
+          max: null
+          min: null
+          name: db_name
+          options: []
+          placeholder: null
+          precision: null
+          required: false
+          scope: null
+          template: null
+          type: string
+        - auto_generate: null
+          default: null
+          form: llm
+          human_description:
+            en_US: 'Database properties, for example: alt_host=host1&alt_host=host2&ssl_cipher=%2Fpath%2Fto%2Fcrt'
+            ja_JP: 'Database properties, for example: alt_host=host1&alt_host=host2&ssl_cipher=%2Fpath%2Fto%2Fcrt'
+            pt_BR: 'Database properties, for example: alt_host=host1&alt_host=host2&ssl_cipher=%2Fpath%2Fto%2Fcrt'
+            zh_Hans: 数据库属性，例如：alt_host=host1&alt_host=host2&ssl_cipher=%2Fpath%2Fto%2Fcrt
+          label:
+            en_US: Database properties
+            ja_JP: Database properties
+            pt_BR: Database properties
+            zh_Hans: 数据库属性
+          llm_description: ''
+          max: null
+          min: null
+          name: db_properties
+          options: []
+          placeholder: null
+          precision: null
+          required: false
+          scope: null
+          template: null
+          type: string
+        - auto_generate: null
+          default: null
+          form: llm
+          human_description:
+            en_US: 'SQL query statement, for example: select * from tbl_name'
+            ja_JP: 'SQL query statement, for example: select * from tbl_name'
+            pt_BR: 'SQL query statement, for example: select * from tbl_name'
+            zh_Hans: SQL查询语句，例如：select * from tbl_name
+          label:
+            en_US: Query SQL
+            ja_JP: Query SQL
+            pt_BR: Query SQL
+            zh_Hans: SQL查询语句
+          llm_description: 'SQL query statement, for example: select * from tbl_name'
+          max: null
+          min: null
+          name: query_sql
+          options: []
+          placeholder: null
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: string
+        - auto_generate: null
+          default: markdown
+          form: form
+          human_description:
+            en_US: Used for selecting the output format, markdown or json.
+            ja_JP: Used for selecting the output format, markdown or json.
+            pt_BR: Used for selecting the output format, markdown or json.
+            zh_Hans: 用于选择输出格式，markdown或json。
+          label:
+            en_US: Output format
+            ja_JP: Output format
+            pt_BR: Output format
+            zh_Hans: 输出格式
+          llm_description: ''
+          max: null
+          min: null
+          name: output_format
+          options:
+          - icon: ''
+            label:
+              en_US: MARKDOWN
+              ja_JP: MARKDOWN
+              pt_BR: MARKDOWN
+              zh_Hans: MARKDOWN
+            value: markdown
+          - icon: ''
+            label:
+              en_US: JSON
+              ja_JP: JSON
+              pt_BR: JSON
+              zh_Hans: JSON
+            value: json
+          placeholder: null
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: select
+        params:
+          db_host: ''
+          db_name: ''
+          db_password: ''
+          db_port: ''
+          db_properties: ''
+          db_type: ''
+          db_username: ''
+          output_format: ''
+          query_sql: ''
+        plugin_id: junjiem/db_query
+        plugin_unique_identifier: junjiem/db_query:0.0.11@2eae0951f13c4e8daa099310d706c9502c349236bca81fcc996f2aea9524c97c
+        provider_icon: /console/api/workspaces/current/plugin/icon?tenant_id=3afb9f68-10e5-4ae6-aa52-22d27c69b253&filename=ce2ce5af47e39e9476fc06eea7fbd05446ad16043d4d16c671e69a3c650a976a.svg
+        provider_id: junjiem/db_query/db_query
+        provider_name: junjiem/db_query/db_query
+        provider_type: builtin
+        selected: false
+        title: 备忘录查询
+        tool_configurations:
+          output_format:
+            type: constant
+            value: markdown
+        tool_description: 数据库SQL查询工具。
+        tool_label: SQL查询
+        tool_name: sql_query
+        tool_node_version: '2'
+        tool_parameters:
+          db_host:
+            type: mixed
+            value: localhost
+          db_name:
+            type: mixed
+            value: null
+          db_password:
+            type: mixed
+            value: null
+          db_port:
+            type: constant
+            value: null
+          db_properties:
+            type: mixed
+            value: null
+          db_type:
+            type: constant
+            value: mysql
+          db_username:
+            type: mixed
+            value: null
+          query_sql:
+            type: mixed
+            value: null
+        type: tool
+      height: 87
+      id: '1782439086817'
+      position:
+        x: 1044
+        y: 85.16666666666663
+      positionAbsolute:
+        x: 1044
+        y: 85.16666666666663
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+    - data:
+        is_team_authorization: true
+        paramSchemas:
+        - auto_generate: null
+          default: null
+          form: llm
+          human_description:
+            en_US: City, region, airport code, or place name. For overseas cities,
+              include country/region when possible.
+            ja_JP: 都市、地域、空港コード、または地名。海外の都市の場合、国/地域を含めてください。
+            pt_BR: City, region, airport code, or place name. For overseas cities,
+              include country/region when possible.
+            zh_Hans: 城市、地区、机场代码或地名。查询海外城市时建议附带国家/地区。
+          label:
+            en_US: Location
+            ja_JP: 場所
+            pt_BR: Location
+            zh_Hans: 地点
+          llm_description: 'Extract only the place name from user input (for example:
+            Shanghai, London, JFK, 深圳, 東京). Do not include extra words like weather,
+            forecast, now, today, 天气, 天気.'
+          max: null
+          min: null
+          name: location
+          options: []
+          placeholder: null
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: string
+        - auto_generate: null
+          default: auto
+          form: form
+          human_description:
+            en_US: Output language. 'Auto' detects from input text (Hangul → Korean,
+              hiragana/katakana → Japanese, CJK → Simplified Chinese, otherwise English).
+            ja_JP: 出力言語。"自動"は入力テキストから検出します（ハングル → 韓国語、ひらがな/カタカナ → 日本語、漢字 → 簡体字中国語、それ以外
+              → 英語）。
+            pt_BR: Output language. 'Auto' detects from input text (Hangul → Korean,
+              hiragana/katakana → Japanese, CJK → Simplified Chinese, otherwise English).
+            zh_Hans: 输出语言。"自动"会根据输入文本检测（谚文 → 韩语，平假名/片假名 → 日语，汉字 → 简体中文，否则 → 英文）。
+          label:
+            en_US: Language
+            ja_JP: 言語
+            pt_BR: Language
+            zh_Hans: 语言
+          llm_description: ''
+          max: null
+          min: null
+          name: language
+          options:
+          - icon: ''
+            label:
+              en_US: Auto (detect)
+              ja_JP: 自動
+              pt_BR: Auto (detect)
+              zh_Hans: 自动
+            value: auto
+          - icon: ''
+            label:
+              en_US: English
+              ja_JP: 英語
+              pt_BR: English
+              zh_Hans: 英文
+            value: en-US
+          - icon: ''
+            label:
+              en_US: Simplified Chinese
+              ja_JP: 簡体字中国語
+              pt_BR: Simplified Chinese
+              zh_Hans: 简体中文
+            value: zh-Hans
+          - icon: ''
+            label:
+              en_US: Traditional Chinese
+              ja_JP: 繁体字中国語
+              pt_BR: Traditional Chinese
+              zh_Hans: 繁体中文
+            value: zh-Hant
+          - icon: ''
+            label:
+              en_US: Japanese
+              ja_JP: 日本語
+              pt_BR: Japanese
+              zh_Hans: 日文
+            value: ja
+          - icon: ''
+            label:
+              en_US: Korean
+              ja_JP: 韓国語
+              pt_BR: Korean
+              zh_Hans: 韩文
+            value: ko
+          placeholder: null
+          precision: null
+          required: false
+          scope: null
+          template: null
+          type: select
+        - auto_generate: null
+          default: metric
+          form: form
+          human_description:
+            en_US: Unit system for temperature and wind speed.
+            ja_JP: 気温と風速の単位系。
+            pt_BR: Unit system for temperature and wind speed.
+            zh_Hans: 温度和风速单位。
+          label:
+            en_US: Units
+            ja_JP: 単位系
+            pt_BR: Units
+            zh_Hans: 单位制
+          llm_description: ''
+          max: null
+          min: null
+          name: units
+          options:
+          - icon: ''
+            label:
+              en_US: Metric (C, km/h)
+              ja_JP: メートル法（C、km/h）
+              pt_BR: Metric (C, km/h)
+              zh_Hans: 公制（C，km/h）
+            value: metric
+          - icon: ''
+            label:
+              en_US: USCS (F, mph)
+              ja_JP: 米国慣用単位（F、mph）
+              pt_BR: USCS (F, mph)
+              zh_Hans: 美制（F，mph）
+            value: uscs
+          placeholder: null
+          precision: null
+          required: false
+          scope: null
+          template: null
+          type: select
+        - auto_generate: null
+          default: wttr
+          form: form
+          human_description:
+            en_US: Choose primary source. The unselected provider is always used as
+              fallback.
+            ja_JP: 優先データソースを選択。選択されていないプロバイダーは常にフォールバックとして使用されます。
+            pt_BR: Choose primary source. The unselected provider is always used as
+              fallback.
+            zh_Hans: 选择主数据源，未选中的数据源会自动兜底。
+          label:
+            en_US: Source Preference
+            ja_JP: データソース優先
+            pt_BR: Source Preference
+            zh_Hans: 数据源偏好
+          llm_description: ''
+          max: null
+          min: null
+          name: source_preference
+          options:
+          - icon: ''
+            label:
+              en_US: wttr.in first (Open-Meteo fallback)
+              ja_JP: wttr.in 優先（Open-Meteo フォールバック）
+              pt_BR: wttr.in first (Open-Meteo fallback)
+              zh_Hans: wttr.in 优先（Open-Meteo 兜底）
+            value: wttr
+          - icon: ''
+            label:
+              en_US: Open-Meteo first (wttr.in fallback)
+              ja_JP: Open-Meteo 優先（wttr.in フォールバック）
+              pt_BR: Open-Meteo first (wttr.in fallback)
+              zh_Hans: Open-Meteo 优先（wttr.in 兜底）
+            value: open-meteo
+          placeholder: null
+          precision: null
+          required: false
+          scope: null
+          template: null
+          type: select
+        - auto_generate: null
+          default: false
+          form: form
+          human_description:
+            en_US: Include raw upstream payload in the JSON output.
+            ja_JP: JSON出力に上流の生ペイロードを含めます。
+            pt_BR: Include raw upstream payload in the JSON output.
+            zh_Hans: 在 JSON 输出中包含上游原始响应。
+          label:
+            en_US: Include Raw JSON
+            ja_JP: 生JSONを含む
+            pt_BR: Include Raw JSON
+            zh_Hans: 包含原始 JSON
+          llm_description: ''
+          max: null
+          min: null
+          name: include_raw_json
+          options: []
+          placeholder: null
+          precision: null
+          required: false
+          scope: null
+          template: null
+          type: boolean
+        params:
+          include_raw_json: ''
+          language: ''
+          location: ''
+          source_preference: ''
+          units: ''
+        plugin_id: alexmultiagent/myweather
+        plugin_unique_identifier: alexmultiagent/myweather:0.1.2@ba4defcda4731980e30e4fd1252a357adb2cd9dcfba5126c2d25849b4c98d451
+        provider_icon: /console/api/workspaces/current/plugin/icon?tenant_id=3afb9f68-10e5-4ae6-aa52-22d27c69b253&filename=271c196c9921879ed50df43c35dbd2f4c2f3f62b9ef035c738183b541db0cd01.svg
+        provider_id: alexmultiagent/myweather/myweather
+        provider_name: alexmultiagent/myweather/myweather
+        provider_type: builtin
+        selected: false
+        title: 天气查询
+        tool_configurations:
+          include_raw_json:
+            type: constant
+            value: false
+          language:
+            type: constant
+            value: auto
+          source_preference:
+            type: constant
+            value: wttr
+          units:
+            type: constant
+            value: metric
+        tool_description: 无需 API Key 的天气查询，支持多语言天气翻译与 CJK 地名定位（wttr.in + Open-Meteo）。
+        tool_label: 天气查询
+        tool_name: weather_lookup
+        tool_node_version: '2'
+        tool_parameters:
+          location:
+            type: mixed
+            value: 天津 {{#1782441291535.text#}}
+        type: tool
+      height: 165
+      id: '1782439121606'
+      position:
+        x: 1385
+        y: 60.66666666666663
+      positionAbsolute:
+        x: 1385
+        y: 60.66666666666663
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+    - data:
+        author: wapapapapoo
+        desc: ''
+        height: 138
+        selected: false
+        showAuthor: true
+        text: '{"root":{"children":[{"children":[{"children":[{"detail":0,"format":0,"mode":"normal","style":"font-size:
+          16px;","text":"根据天气，时间安排等等提醒旅客","type":"text","version":1}],"direction":null,"format":"","indent":0,"type":"listitem","version":1,"value":1}],"direction":null,"format":"","indent":0,"type":"list","version":1,"textStyle":"font-size:
+          16px;","listType":"bullet","start":1,"tag":"ul"}],"direction":null,"format":"","indent":0,"type":"root","version":1}}'
+        theme: blue
+        title: ''
+        type: ''
+        width: 367
+      height: 138
+      id: '1782439210811'
+      position:
+        x: 732.6321390652363
+        y: -268.4757805324085
+      positionAbsolute:
+        x: 732.6321390652363
+        y: -268.4757805324085
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom-note
+      width: 367
+    - data:
+        author: wapapapapoo
+        desc: ''
+        height: 222
+        selected: false
+        showAuthor: true
+        text: '{"root":{"children":[{"children":[{"detail":0,"format":0,"mode":"normal","style":"font-size:
+          16px;","text":"分支一是系统提示要带的东西，不做其他操作","type":"text","version":1}],"direction":null,"format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":"font-size:
+          16px;"},{"children":[],"direction":null,"format":"","indent":0,"type":"paragraph","version":1,"textStyle":"font-size:
+          16px;","textFormat":0},{"children":[{"detail":0,"format":0,"mode":"normal","style":"font-size:
+          16px;","text":"分支二是日程修改建议，获取当前行程表后进行建议。","type":"text","version":1}],"direction":null,"format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":"font-size:
+          16px;"},{"children":[],"direction":null,"format":"","indent":0,"type":"paragraph","version":1,"textStyle":"font-size:
+          16px;","textFormat":0},{"children":[{"detail":0,"format":0,"mode":"normal","style":"font-size:
+          16px;","text":"分支三是聊天和推荐agent，为用户提供一些旅程建议","type":"text","version":1}],"direction":null,"format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":"font-size:
+          16px;"}],"direction":null,"format":"","indent":0,"type":"root","version":1}}'
+        theme: blue
+        title: ''
+        type: ''
+        width: 349
+      height: 222
+      id: '1782439705644'
+      position:
+        x: 599.4796404464034
+        y: 457.4047619047619
+      positionAbsolute:
+        x: 599.4796404464034
+        y: 457.4047619047619
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom-note
+      width: 349
+    - data:
+        is_team_authorization: true
+        paramSchemas:
+        - auto_generate: null
+          default: '%Y-%m-%d %H:%M:%S'
+          form: form
+          human_description:
+            en_US: Time format in strftime standard.
+            ja_JP: Time format in strftime standard.
+            pt_BR: Time format in strftime standard.
+            zh_Hans: strftime 标准的时间格式。
+          label:
+            en_US: Format
+            ja_JP: Format
+            pt_BR: Format
+            zh_Hans: 格式
+          llm_description: null
+          max: null
+          min: null
+          name: format
+          options: []
+          placeholder: null
+          precision: null
+          required: false
+          scope: null
+          template: null
+          type: string
+        - auto_generate: null
+          default: UTC
+          form: form
+          human_description:
+            en_US: Timezone
+            ja_JP: Timezone
+            pt_BR: Timezone
+            zh_Hans: 时区
+          label:
+            en_US: Timezone
+            ja_JP: Timezone
+            pt_BR: Timezone
+            zh_Hans: 时区
+          llm_description: null
+          max: null
+          min: null
+          name: timezone
+          options:
+          - icon: null
+            label:
+              en_US: UTC
+              ja_JP: UTC
+              pt_BR: UTC
+              zh_Hans: UTC
+            value: UTC
+          - icon: null
+            label:
+              en_US: America/New_York
+              ja_JP: America/New_York
+              pt_BR: America/New_York
+              zh_Hans: 美洲/纽约
+            value: America/New_York
+          - icon: null
+            label:
+              en_US: America/Los_Angeles
+              ja_JP: America/Los_Angeles
+              pt_BR: America/Los_Angeles
+              zh_Hans: 美洲/洛杉矶
+            value: America/Los_Angeles
+          - icon: null
+            label:
+              en_US: America/Chicago
+              ja_JP: America/Chicago
+              pt_BR: America/Chicago
+              zh_Hans: 美洲/芝加哥
+            value: America/Chicago
+          - icon: null
+            label:
+              en_US: America/Sao_Paulo
+              ja_JP: America/Sao_Paulo
+              pt_BR: América/São Paulo
+              zh_Hans: 美洲/圣保罗
+            value: America/Sao_Paulo
+          - icon: null
+            label:
+              en_US: Asia/Shanghai
+              ja_JP: Asia/Shanghai
+              pt_BR: Asia/Shanghai
+              zh_Hans: 亚洲/上海
+            value: Asia/Shanghai
+          - icon: null
+            label:
+              en_US: Asia/Ho_Chi_Minh
+              ja_JP: Asia/Ho_Chi_Minh
+              pt_BR: Ásia/Ho Chi Minh
+              zh_Hans: 亚洲/胡志明市
+            value: Asia/Ho_Chi_Minh
+          - icon: null
+            label:
+              en_US: Asia/Tokyo
+              ja_JP: Asia/Tokyo
+              pt_BR: Asia/Tokyo
+              zh_Hans: 亚洲/东京
+            value: Asia/Tokyo
+          - icon: null
+            label:
+              en_US: Asia/Dubai
+              ja_JP: Asia/Dubai
+              pt_BR: Asia/Dubai
+              zh_Hans: 亚洲/迪拜
+            value: Asia/Dubai
+          - icon: null
+            label:
+              en_US: Asia/Kolkata
+              ja_JP: Asia/Kolkata
+              pt_BR: Asia/Kolkata
+              zh_Hans: 亚洲/加尔各答
+            value: Asia/Kolkata
+          - icon: null
+            label:
+              en_US: Asia/Seoul
+              ja_JP: Asia/Seoul
+              pt_BR: Asia/Seoul
+              zh_Hans: 亚洲/首尔
+            value: Asia/Seoul
+          - icon: null
+            label:
+              en_US: Asia/Singapore
+              ja_JP: Asia/Singapore
+              pt_BR: Asia/Singapore
+              zh_Hans: 亚洲/新加坡
+            value: Asia/Singapore
+          - icon: null
+            label:
+              en_US: Europe/London
+              ja_JP: Europe/London
+              pt_BR: Europe/London
+              zh_Hans: 欧洲/伦敦
+            value: Europe/London
+          - icon: null
+            label:
+              en_US: Europe/Berlin
+              ja_JP: Europe/Berlin
+              pt_BR: Europe/Berlin
+              zh_Hans: 欧洲/柏林
+            value: Europe/Berlin
+          - icon: null
+            label:
+              en_US: Europe/Moscow
+              ja_JP: Europe/Moscow
+              pt_BR: Europe/Moscow
+              zh_Hans: 欧洲/莫斯科
+            value: Europe/Moscow
+          - icon: null
+            label:
+              en_US: Australia/Sydney
+              ja_JP: Australia/Sydney
+              pt_BR: Australia/Sydney
+              zh_Hans: 澳大利亚/悉尼
+            value: Australia/Sydney
+          - icon: null
+            label:
+              en_US: Pacific/Auckland
+              ja_JP: Pacific/Auckland
+              pt_BR: Pacific/Auckland
+              zh_Hans: 太平洋/奥克兰
+            value: Pacific/Auckland
+          - icon: null
+            label:
+              en_US: Africa/Cairo
+              ja_JP: Africa/Cairo
+              pt_BR: Africa/Cairo
+              zh_Hans: 非洲/开罗
+            value: Africa/Cairo
+          placeholder: null
+          precision: null
+          required: false
+          scope: null
+          template: null
+          type: select
+        params:
+          format: ''
+          timezone: ''
+        plugin_id: null
+        plugin_unique_identifier: ''
+        provider_icon: /console/api/workspaces/current/tool-provider/builtin/time/icon
+        provider_id: time
+        provider_name: time
+        provider_type: builtin
+        selected: false
+        title: 获取当前时间
+        tool_configurations:
+          format:
+            type: mixed
+            value: '%Y-%m-%d %H:%M:%S'
+          timezone:
+            type: constant
+            value: UTC
+        tool_description: 一个用于获取当前时间的工具。
+        tool_label: 获取当前时间
+        tool_name: current_time
+        tool_node_version: '2'
+        tool_parameters: {}
+        type: tool
+      height: 113
+      id: '1782441089142'
+      position:
+        x: 1726
+        y: 114.16666666666663
+      positionAbsolute:
+        x: 1726
+        y: 114.16666666666663
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+    - data:
+        is_team_authorization: true
+        paramSchemas:
+        - auto_generate: null
+          default: mysql
+          form: llm
+          human_description:
+            en_US: Used for selecting the database type, mysql, oracle, oracle11g,
+              postgresql or mssql.
+            ja_JP: Used for selecting the database type, mysql, oracle, oracle11g,
+              postgresql or mssql.
+            pt_BR: Used for selecting the database type, mysql, oracle, oracle11g,
+              postgresql or mssql.
+            zh_Hans: 用于选择数据库类型，mysql、oracle、oracle11g、postgresql或mssql。
+          label:
+            en_US: Database type
+            ja_JP: Database type
+            pt_BR: Database type
+            zh_Hans: 数据库类型
+          llm_description: ''
+          max: null
+          min: null
+          name: db_type
+          options:
+          - icon: ''
+            label:
+              en_US: MySQL
+              ja_JP: MySQL
+              pt_BR: MySQL
+              zh_Hans: MySQL
+            value: mysql
+          - icon: ''
+            label:
+              en_US: Oracle
+              ja_JP: Oracle
+              pt_BR: Oracle
+              zh_Hans: Oracle
+            value: oracle
+          - icon: ''
+            label:
+              en_US: Oracle11g
+              ja_JP: Oracle11g
+              pt_BR: Oracle11g
+              zh_Hans: Oracle11g
+            value: oracle11g
+          - icon: ''
+            label:
+              en_US: PostgreSQL
+              ja_JP: PostgreSQL
+              pt_BR: PostgreSQL
+              zh_Hans: PostgreSQL
+            value: postgresql
+          - icon: ''
+            label:
+              en_US: Microsoft SQL Server
+              ja_JP: Microsoft SQL Server
+              pt_BR: Microsoft SQL Server
+              zh_Hans: Microsoft SQL Server
+            value: mssql
+          placeholder: null
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: select
+        - auto_generate: null
+          default: localhost
+          form: llm
+          human_description:
+            en_US: Database hostname or IP address (Original string, not URL-encoded
+              string).
+            ja_JP: Database hostname or IP address (Original string, not URL-encoded
+              string).
+            pt_BR: Database hostname or IP address (Original string, not URL-encoded
+              string).
+            zh_Hans: 数据库的主机名或IP地址（原始字符串，非URL编码字符串）。
+          label:
+            en_US: Database Host
+            ja_JP: Database Host
+            pt_BR: Database Host
+            zh_Hans: 数据库地址
+          llm_description: ''
+          max: null
+          min: null
+          name: db_host
+          options: []
+          placeholder: null
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: string
+        - auto_generate: null
+          default: null
+          form: llm
+          human_description:
+            en_US: Database port.
+            ja_JP: Database port.
+            pt_BR: Database port.
+            zh_Hans: 数据库的端口。
+          label:
+            en_US: Port
+            ja_JP: Port
+            pt_BR: Port
+            zh_Hans: 端口
+          llm_description: ''
+          max: null
+          min: null
+          name: db_port
+          options: []
+          placeholder: null
+          precision: null
+          required: false
+          scope: null
+          template: null
+          type: number
+        - auto_generate: null
+          default: null
+          form: llm
+          human_description:
+            en_US: Database username (Original string, not URL-encoded string).
+            ja_JP: Database username (Original string, not URL-encoded string).
+            pt_BR: Database username (Original string, not URL-encoded string).
+            zh_Hans: 数据库的用户名（原始字符串，非URL编码字符串）。
+          label:
+            en_US: Username
+            ja_JP: Username
+            pt_BR: Username
+            zh_Hans: 用户名
+          llm_description: ''
+          max: null
+          min: null
+          name: db_username
+          options: []
+          placeholder: null
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: string
+        - auto_generate: null
+          default: null
+          form: llm
+          human_description:
+            en_US: Database password (Original string, not URL-encoded string).
+            ja_JP: Database password (Original string, not URL-encoded string).
+            pt_BR: Database password (Original string, not URL-encoded string).
+            zh_Hans: 数据库的密码（原始字符串，非URL编码字符串）。
+          label:
+            en_US: Password
+            ja_JP: Password
+            pt_BR: Password
+            zh_Hans: 密码
+          llm_description: ''
+          max: null
+          min: null
+          name: db_password
+          options: []
+          placeholder: null
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: secret-input
+        - auto_generate: null
+          default: null
+          form: llm
+          human_description:
+            en_US: Database name (Original string, not URL-encoded string).
+            ja_JP: Database name (Original string, not URL-encoded string).
+            pt_BR: Database name (Original string, not URL-encoded string).
+            zh_Hans: 数据库的名称（原始字符串，非URL编码字符串）。
+          label:
+            en_US: Database name
+            ja_JP: Database name
+            pt_BR: Database name
+            zh_Hans: 库名
+          llm_description: ''
+          max: null
+          min: null
+          name: db_name
+          options: []
+          placeholder: null
+          precision: null
+          required: false
+          scope: null
+          template: null
+          type: string
+        - auto_generate: null
+          default: null
+          form: llm
+          human_description:
+            en_US: 'Database properties, for example: alt_host=host1&alt_host=host2&ssl_cipher=%2Fpath%2Fto%2Fcrt'
+            ja_JP: 'Database properties, for example: alt_host=host1&alt_host=host2&ssl_cipher=%2Fpath%2Fto%2Fcrt'
+            pt_BR: 'Database properties, for example: alt_host=host1&alt_host=host2&ssl_cipher=%2Fpath%2Fto%2Fcrt'
+            zh_Hans: 数据库属性，例如：alt_host=host1&alt_host=host2&ssl_cipher=%2Fpath%2Fto%2Fcrt
+          label:
+            en_US: Database properties
+            ja_JP: Database properties
+            pt_BR: Database properties
+            zh_Hans: 数据库属性
+          llm_description: ''
+          max: null
+          min: null
+          name: db_properties
+          options: []
+          placeholder: null
+          precision: null
+          required: false
+          scope: null
+          template: null
+          type: string
+        - auto_generate: null
+          default: null
+          form: llm
+          human_description:
+            en_US: 'SQL query statement, for example: select * from tbl_name'
+            ja_JP: 'SQL query statement, for example: select * from tbl_name'
+            pt_BR: 'SQL query statement, for example: select * from tbl_name'
+            zh_Hans: SQL查询语句，例如：select * from tbl_name
+          label:
+            en_US: Query SQL
+            ja_JP: Query SQL
+            pt_BR: Query SQL
+            zh_Hans: SQL查询语句
+          llm_description: 'SQL query statement, for example: select * from tbl_name'
+          max: null
+          min: null
+          name: query_sql
+          options: []
+          placeholder: null
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: string
+        - auto_generate: null
+          default: markdown
+          form: form
+          human_description:
+            en_US: Used for selecting the output format, markdown or json.
+            ja_JP: Used for selecting the output format, markdown or json.
+            pt_BR: Used for selecting the output format, markdown or json.
+            zh_Hans: 用于选择输出格式，markdown或json。
+          label:
+            en_US: Output format
+            ja_JP: Output format
+            pt_BR: Output format
+            zh_Hans: 输出格式
+          llm_description: ''
+          max: null
+          min: null
+          name: output_format
+          options:
+          - icon: ''
+            label:
+              en_US: MARKDOWN
+              ja_JP: MARKDOWN
+              pt_BR: MARKDOWN
+              zh_Hans: MARKDOWN
+            value: markdown
+          - icon: ''
+            label:
+              en_US: JSON
+              ja_JP: JSON
+              pt_BR: JSON
+              zh_Hans: JSON
+            value: json
+          placeholder: null
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: select
+        params:
+          db_host: ''
+          db_name: ''
+          db_password: ''
+          db_port: ''
+          db_properties: ''
+          db_type: ''
+          db_username: ''
+          output_format: ''
+          query_sql: ''
+        plugin_id: junjiem/db_query
+        plugin_unique_identifier: junjiem/db_query:0.0.11@2eae0951f13c4e8daa099310d706c9502c349236bca81fcc996f2aea9524c97c
+        provider_icon: /console/api/workspaces/current/plugin/icon?tenant_id=3afb9f68-10e5-4ae6-aa52-22d27c69b253&filename=ce2ce5af47e39e9476fc06eea7fbd05446ad16043d4d16c671e69a3c650a976a.svg
+        provider_id: junjiem/db_query/db_query
+        provider_name: junjiem/db_query/db_query
+        provider_type: builtin
+        selected: false
+        title: 查询目前计划表
+        tool_configurations:
+          output_format:
+            type: constant
+            value: markdown
+        tool_description: 数据库SQL查询工具。
+        tool_label: SQL查询
+        tool_name: sql_query
+        tool_node_version: '2'
+        tool_parameters:
+          db_host:
+            type: mixed
+            value: localhost
+          db_name:
+            type: mixed
+            value: null
+          db_password:
+            type: mixed
+            value: null
+          db_port:
+            type: constant
+            value: null
+          db_properties:
+            type: mixed
+            value: null
+          db_type:
+            type: constant
+            value: mysql
+          db_username:
+            type: mixed
+            value: null
+          query_sql:
+            type: mixed
+            value: null
+        type: tool
+      height: 87
+      id: '1782441291535'
+      position:
+        x: 342
+        y: 230.02380952380946
+      positionAbsolute:
+        x: 342
+        y: 230.02380952380946
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+    - data:
+        break_conditions:
+        - comparison_operator: is
+          id: 122ba0d9-ab58-4053-bb73-00a364ffd18d
+          value: 'false'
+          varType: boolean
+          variable_selector:
+          - '1783577983446'
+          - result
+        - comparison_operator: ≥
+          id: befba798-3f94-4120-aafe-40ff695c2114
+          value: '10'
+          varType: number
+          variable_selector:
+          - '1783577983446'
+          - times
+        error_handle_mode: terminated
+        height: 379
+        logical_operator: or
+        loop_count: 10
+        loop_variables:
+        - id: 9666da51-5116-49ff-ba29-f6e4a4edf11f
+          label: reply
+          value: ''
+          value_type: constant
+          var_type: string
+        - id: bde628b5-2a38-4932-87c3-979cbb498435
+          label: result
+          value: false
+          value_type: constant
+          var_type: boolean
+        - id: 4a25b45d-7b47-46d2-b12b-3baea08d50e0
+          label: times
+          value: '0'
+          value_type: constant
+          var_type: number
+        selected: false
+        start_node_id: 1783577983446start
+        title: 循环
+        type: loop
+        width: 2090
+      height: 379
+      id: '1783577983446'
+      position:
+        x: 2067
+        y: 0
+      positionAbsolute:
+        x: 2067
+        y: 0
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 2090
+      zIndex: 1
+    - data:
+        desc: ''
+        isInLoop: true
+        selected: false
+        title: ''
+        type: loop-start
+      draggable: false
+      height: 48
+      id: 1783577983446start
+      parentId: '1783577983446'
+      position:
+        x: 60
+        y: 81
+      positionAbsolute:
+        x: 2127
+        y: 81
+      selectable: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom-loop-start
+      width: 44
+      zIndex: 1002
+    - data:
+        context:
+          enabled: true
+          variable_selector:
+          - '1782441291535'
+          - text
+        desc: ''
+        isInIteration: false
+        isInLoop: true
+        loop_id: '1783577983446'
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: deepseek-v4-flash
+          provider: langgenius/tongyi/tongyi
+        prompt_config:
+          jinja2_variables: []
+        prompt_template:
+        - id: 04e5b20e-baa8-4ea9-a8ec-615e9549d025
+          role: system
+          text: '你是旅行陪伴虚拟人物Hikari，模仿 Arcaea 的 Hikari 的说话方式，为用户提供提醒服务。
+
+            当前用户旅行计划表是 {{#context#}} ，请根据表的内容计划进行提醒。'
+        - edition_type: basic
+          id: 8b33eeca-b88d-413b-bb8f-13f20702188d
+          role: user
+          text: '现在时间是 {{#1782441089142.text#}}。你需要为用户进行提醒。
+
+
+            如果是出发前1h内：
+
+            根据用户自己的备忘录 {{#1782439086817.text#}} 和当前天气 {{#1782439121606.text#}} 进行建议一些携带物品，提醒用户出发前别忘了带这些东西；
+
+
+            如果是出发后，在当前事件结束前15分钟，提示用户注意时间'
+        selected: false
+        structured_output_enabled: false
+        title: 用户提醒 (1)
+        type: llm
+        vision:
+          enabled: false
+      height: 87
+      id: '17835780288100'
+      parentId: '1783577983446'
+      position:
+        x: 184
+        y: 69.5
+      positionAbsolute:
+        x: 2251
+        y: 69.5
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+      zIndex: 1002
+    - data:
+        agent_parameters:
+          model:
+            type: constant
+            value:
+              completion_params: {}
+              mode: chat
+              model: deepseek-v4-flash
+              model_type: llm
+              provider: langgenius/tongyi/tongyi
+              type: model-selector
+          query:
+            type: constant
+            value: ''
+        agent_strategy_label: FunctionCalling
+        agent_strategy_name: function_calling
+        agent_strategy_provider_name: langgenius/agent/agent
+        isInIteration: false
+        isInLoop: true
+        loop_id: '1783577983446'
+        meta:
+          minimum_dify_version: 1.7.0
+          version: 0.0.2
+        output_schema: {}
+        plugin_unique_identifier: langgenius/agent:0.0.39@ceea6a76b3a495de2df2a55bcea82e903d49b06f4d8e1463c2aa085657f27164
+        selected: false
+        title: 审核Agent
+        tool_node_version: '2'
+        type: agent
+      height: 135
+      id: '1783578074170'
+      parentId: '1783577983446'
+      position:
+        x: 505
+        y: 60
+      positionAbsolute:
+        x: 2572
+        y: 60
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+      zIndex: 1002
+    - data:
+        instruction: ''
+        isInIteration: false
+        isInLoop: true
+        loop_id: '1783577983446'
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: deepseek-v4-flash
+          provider: langgenius/tongyi/tongyi
+        parameters:
+        - description: 审核的结果
+          name: Result
+          required: false
+          type: boolean
+        - description: 审核输出的内容
+          name: Reply
+          required: false
+          type: string
+        query:
+        - '1783578074170'
+        - text
+        reasoning_mode: prompt
+        selected: false
+        title: 参数提取器
+        type: parameter-extractor
+        vision:
+          enabled: false
+      height: 87
+      id: '1783644416640'
+      parentId: '1783577983446'
+      position:
+        x: 826
+        y: 106.5
+      positionAbsolute:
+        x: 2893
+        y: 106.5
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+      zIndex: 1002
+    - data:
+        isInIteration: false
+        isInLoop: true
+        items:
+        - input_type: variable
+          operation: over-write
+          value:
+          - '1783644416640'
+          - Reply
+          variable_selector:
+          - '1783577983446'
+          - reply
+        - input_type: variable
+          operation: over-write
+          value:
+          - '1783644416640'
+          - Result
+          variable_selector:
+          - '1783577983446'
+          - result
+        - input_type: constant
+          operation: +=
+          value: 1
+          variable_selector:
+          - '1783577983446'
+          - times
+        loop_id: '1783577983446'
+        selected: false
+        title: 变量赋值 2
+        type: assigner
+        version: '2'
+      height: 135
+      id: '1783644602686'
+      parentId: '1783577983446'
+      position:
+        x: 1147
+        y: 97
+      positionAbsolute:
+        x: 3214
+        y: 97
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+      zIndex: 1002
+    - data:
+        cases:
+        - case_id: bdfda8df-df26-4988-8a54-f4bb7fe501dd
+          conditions:
+          - comparison_operator: is
+            id: 5fd0886e-5ce8-46cb-bd12-0c4a43338570
+            value: true
+            varType: boolean
+            variable_selector:
+            - '1783577983446'
+            - result
+          id: bdfda8df-df26-4988-8a54-f4bb7fe501dd
+          logical_operator: and
+        isInIteration: false
+        isInLoop: true
+        loop_id: '1783577983446'
+        selected: false
+        title: 条件分支 3
+        type: if-else
+      height: 123
+      id: '1783644715580'
+      parentId: '1783577983446'
+      position:
+        x: 1468
+        y: 125.5
+      positionAbsolute:
+        x: 3535
+        y: 125.5
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+      zIndex: 1002
+    - data:
+        answer: '{{#17835780288100.text#}}{{#1783644416640.Result#}}'
+        isInIteration: false
+        isInLoop: true
+        loop_id: '1783577983446'
+        selected: false
+        title: 直接回复 3
+        type: answer
+        variables: []
+      height: 121
+      id: '1783645130534'
+      parentId: '1783577983446'
+      position:
+        x: 1789
+        y: 147
+      positionAbsolute:
+        x: 3856
+        y: 147
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+      zIndex: 1002
+    viewport:
+      x: 180.99999999999997
+      y: 99
+      zoom: 0.7
+  rag_pipeline_variables: []

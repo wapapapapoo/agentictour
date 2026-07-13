@@ -1,0 +1,1145 @@
+app:
+  description: 行程生成最小工作流搭建
+  icon: afcaa939-8af1-4a7f-8ee4-9b6cac8539b3
+  icon_background: ''
+  icon_type: image
+  mode: workflow
+  name: ' 游踪拾笔'
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.2.1@0924de1d15a8a35b0cc64ff396c68d5edddcfbc495a1e52ea57e8648434eff4b
+    version: null
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/deepseek:0.0.19@5b68617c637b62d31e7f33a9f5677b76e88f81868fb04a728e208588564b72ea
+    version: null
+kind: app
+version: 0.6.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        attachment_image_file_size_limit: 2
+        audio_file_size_limit: 50
+        batch_count_limit: 500
+        file_size_limit: 500
+        file_upload_limit: 20
+        image_file_batch_limit: 10
+        image_file_size_limit: 10
+        single_chunk_attachment_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        isInLoop: false
+        sourceType: start
+        targetType: template-transform
+      id: 1783646093057-source-1783739113025-target
+      source: '1783646093057'
+      sourceHandle: source
+      target: '1783739113025'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: template-transform
+        targetType: knowledge-retrieval
+      id: 1783739113025-source-1783738852941-target
+      source: '1783739113025'
+      sourceHandle: source
+      target: '1783738852941'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: template-transform
+        targetType: llm
+      id: 1783739895443-source-1783740809027-target
+      source: '1783739895443'
+      sourceHandle: source
+      target: '1783740809027'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: knowledge-retrieval
+        targetType: code
+      id: 1783738852941-source-1783755472791-target
+      source: '1783738852941'
+      sourceHandle: source
+      target: '1783755472791'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: code
+        targetType: template-transform
+      id: 1783755472791-source-1783739895443-target
+      source: '1783755472791'
+      sourceHandle: source
+      target: '1783739895443'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: llm
+        targetType: code
+      id: 1783740809027-source-1783755768601-target
+      source: '1783740809027'
+      sourceHandle: source
+      target: '1783755768601'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: code
+        targetType: if-else
+      id: 1783755768601-source-1783757027459-target
+      source: '1783755768601'
+      sourceHandle: source
+      target: '1783757027459'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: if-else
+        targetType: llm
+      id: 1783757027459-true-1783757232713-target
+      source: '1783757027459'
+      sourceHandle: 'true'
+      target: '1783757232713'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: if-else
+        targetType: llm
+      id: 1783757027459-834a79d9-62b2-41cd-8b70-b8fba5dc1c59-1783757257667-target
+      source: '1783757027459'
+      sourceHandle: 834a79d9-62b2-41cd-8b70-b8fba5dc1c59
+      target: '1783757257667'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: if-else
+        targetType: llm
+      id: 1783757027459-9068757e-3f92-43ac-b27f-f06c10a1fdb7-1783757285860-target
+      source: '1783757027459'
+      sourceHandle: 9068757e-3f92-43ac-b27f-f06c10a1fdb7
+      target: '1783757285860'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: if-else
+        targetType: llm
+      id: 1783757027459-false-1783757232713-target
+      source: '1783757027459'
+      sourceHandle: 'false'
+      target: '1783757232713'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: llm
+        targetType: variable-aggregator
+      id: 1783757232713-source-1783759017803-target
+      source: '1783757232713'
+      sourceHandle: source
+      target: '1783759017803'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: llm
+        targetType: variable-aggregator
+      id: 1783757257667-source-1783759017803-target
+      source: '1783757257667'
+      sourceHandle: source
+      target: '1783759017803'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: llm
+        targetType: variable-aggregator
+      id: 1783757285860-source-1783759017803-target
+      source: '1783757285860'
+      sourceHandle: source
+      target: '1783759017803'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: variable-aggregator
+        targetType: code
+      id: 1783759017803-source-1783759104149-target
+      source: '1783759017803'
+      sourceHandle: source
+      target: '1783759104149'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: code
+        targetType: llm
+      id: 1783759104149-source-1783759344393-target
+      source: '1783759104149'
+      sourceHandle: source
+      target: '1783759344393'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: code
+      id: 1783759344393-source-1783759578673-target
+      source: '1783759344393'
+      sourceHandle: source
+      target: '1783759578673'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: code
+        targetType: end
+      id: 1783759578673-source-1783759660396-target
+      source: '1783759578673'
+      sourceHandle: source
+      target: '1783759660396'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        selected: false
+        title: 用户输入
+        type: start
+        variables:
+        - default: ''
+          hint: ''
+          label: 素材 ID
+          max_length: 256
+          options: []
+          placeholder: ''
+          required: false
+          type: text-input
+          variable: material_id
+        - default: ''
+          hint: ''
+          label: 用户 ID
+          max_length: 256
+          options: []
+          placeholder: ''
+          required: false
+          type: text-input
+          variable: user_id
+        - default: ''
+          hint: ''
+          label: 素材标题
+          max_length: 256
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: title
+        - default: ''
+          hint: ''
+          label: 目的地
+          max_length: 256
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: destination
+        - default: ''
+          hint: ''
+          label: 开始日期
+          max_length: 100
+          options: []
+          placeholder: ''
+          required: false
+          type: text-input
+          variable: start_date
+        - default: ''
+          hint: ''
+          label: 结束日期
+          max_length: 100
+          options: []
+          placeholder: ''
+          required: false
+          type: text-input
+          variable: end_date
+        - default: ''
+          hint: ''
+          label: 人数
+          max_length: 100
+          options: []
+          placeholder: ''
+          required: false
+          type: text-input
+          variable: people_count
+        - default: ''
+          hint: ''
+          label: 行程记录
+          max_length: 10000
+          options: []
+          placeholder: ''
+          required: true
+          type: paragraph
+          variable: itinerary_text
+        - default: ''
+          hint: ''
+          label: 美食记录
+          max_length: 10000
+          options: []
+          placeholder: ''
+          required: false
+          type: paragraph
+          variable: food_text
+        - default: ''
+          hint: ''
+          label: 照片描述
+          max_length: 10000
+          options: []
+          placeholder: ''
+          required: false
+          type: paragraph
+          variable: photo_text
+        - default: ''
+          hint: ''
+          label: 消费摘要
+          max_length: 10000
+          options: []
+          placeholder: ''
+          required: false
+          type: paragraph
+          variable: expense_text
+        - default: ''
+          hint: ''
+          label: 个人感受
+          max_length: 10000
+          options: []
+          placeholder: ''
+          required: false
+          type: paragraph
+          variable: feeling_text
+        - default: ''
+          hint: ''
+          label: 文本类型
+          max_length: 256
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: content_type
+        - hint: ''
+          label: 写作风格
+          max_length: 256
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: writing_style
+      height: 447
+      id: '1783646093057'
+      position:
+        x: -250.70466316383957
+        y: 241.49276531638859
+      positionAbsolute:
+        x: -250.70466316383957
+        y: 241.49276531638859
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        dataset_ids:
+        - 730N4u6I0qgjDBFY2s7g/0EEW65KvMcvVPFDQ3Gsr18bF/2zAMB9PtKv2cclfj4N
+        multiple_retrieval_config:
+          reranking_enable: false
+          reranking_mode: reranking_model
+          reranking_model:
+            model: qwen3-rerank
+            provider: langgenius/tongyi/tongyi
+          score_threshold: null
+          top_k: 5
+        query_attachment_selector: []
+        query_variable_selector:
+        - '1783739113025'
+        - output
+        retrieval_mode: multiple
+        selected: false
+        title: 知识检索
+        type: knowledge-retrieval
+      height: 52
+      id: '1783738852941'
+      position:
+        x: 271.76909435719404
+        y: 349.54764690796776
+      positionAbsolute:
+        x: 271.76909435719404
+        y: 349.54764690796776
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        desc: 构造检索查询
+        selected: false
+        template: "生成类型：{{ content_type }}\r\n写作风格：{{ writing_style }}\r\n目的地：{{ destination\
+          \ }}\r\n素材标题：{{ title }}\r\n\r\n请检索与当前生成类型、写作风格相关的旅游内容写作规范、结构要求、表达要求和风险提示。"
+        title: 模板转换
+        type: template-transform
+        variables:
+        - value_selector:
+          - '1783646093057'
+          - content_type
+          value_type: string
+          variable: content_type
+        - value_selector:
+          - '1783646093057'
+          - writing_style
+          value_type: string
+          variable: writing_style
+        - value_selector:
+          - '1783646093057'
+          - destination
+          value_type: string
+          variable: destination
+        - value_selector:
+          - '1783646093057'
+          - title
+          value_type: string
+          variable: title
+      height: 80
+      id: '1783739113025'
+      position:
+        x: 21.873565565564146
+        y: 272.4386505390588
+      positionAbsolute:
+        x: 21.873565565564146
+        y: 272.4386505390588
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        desc: 整理旅行素材卡
+        selected: false
+        template: "【旅行素材卡】\r\n\r\n素材ID：{{ material_id }}\r\n用户ID：{{ user_id }}\r\n\
+          \r\n一、基础信息\r\n素材标题：{{ title }}\r\n目的地：{{ destination }}\r\n旅行时间：{{ start_date\
+          \ }} 至 {{ end_date }}\r\n同行人数：{{ people_count }}\r\n\r\n二、用户原始素材\r\n\r\n\
+          1. 行程记录：\r\n{{ itinerary_text }}\r\n\r\n2. 美食记录：\r\n{{ food_text }}\r\n\r\
+          \n3. 照片描述：\r\n{{ photo_text }}\r\n\r\n4. 消费摘要：\r\n{{ expense_text }}\r\n\
+          \r\n5. 个人感受：\r\n{{ feeling_text }}\r\n\r\n三、生成配置\r\n生成类型：{{ content_type\
+          \ }}\r\n写作风格：{{ writing_style }}\r\n\r\n四、知识库召回的写作规范\r\n{{ writing_rules\
+          \ }}\r\n\r\n五、创作边界\r\n1. 后续内容必须优先基于用户原始素材生成。\r\n2. 不得编造用户没有提供的景点、酒店、交通方式、消费金额、开放时间、票价、排队时间等具体事实。\r\
+          \n3. 如果某一类素材为空，后续创作时应自然略过，不得虚构。\r\n4. 输出应符合生成类型和写作风格要求。"
+        title: 模板转换 2
+        type: template-transform
+        variables:
+        - value_selector:
+          - '1783646093057'
+          - material_id
+          value_type: string
+          variable: material_id
+        - value_selector:
+          - '1783646093057'
+          - user_id
+          value_type: string
+          variable: user_id
+        - value_selector:
+          - '1783646093057'
+          - title
+          value_type: string
+          variable: title
+        - value_selector:
+          - '1783646093057'
+          - destination
+          value_type: string
+          variable: destination
+        - value_selector:
+          - '1783646093057'
+          - start_date
+          value_type: string
+          variable: start_date
+        - value_selector:
+          - '1783646093057'
+          - end_date
+          value_type: string
+          variable: end_date
+        - value_selector:
+          - '1783646093057'
+          - people_count
+          value_type: string
+          variable: people_count
+        - value_selector:
+          - '1783646093057'
+          - itinerary_text
+          value_type: string
+          variable: itinerary_text
+        - value_selector:
+          - '1783646093057'
+          - food_text
+          value_type: string
+          variable: food_text
+        - value_selector:
+          - '1783646093057'
+          - photo_text
+          value_type: string
+          variable: photo_text
+        - value_selector:
+          - '1783646093057'
+          - expense_text
+          value_type: string
+          variable: expense_text
+        - value_selector:
+          - '1783646093057'
+          - feeling_text
+          value_type: string
+          variable: feeling_text
+        - value_selector:
+          - '1783646093057'
+          - content_type
+          value_type: string
+          variable: content_type
+        - value_selector:
+          - '1783646093057'
+          - writing_style
+          value_type: string
+          variable: writing_style
+        - value_selector:
+          - '1783755472791'
+          - result
+          value_type: string
+          variable: writing_rules
+      height: 80
+      id: '1783739895443'
+      position:
+        x: 830.7113000284032
+        y: 369.5940789129886
+      positionAbsolute:
+        x: 830.7113000284032
+        y: 369.5940789129886
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: 素材整理 Agent
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: deepseek-v4-flash
+          provider: langgenius/deepseek/deepseek
+        prompt_template:
+        - id: 1946bb33-c6de-4536-bcbc-f933ea71dfb1
+          role: system
+          text: "你是 AgenticTour 系统中的“素材整理 Agent”。\n\n不要输出思考过程。 \n不要输出 <think> 标签。\
+            \ \n不要解释你的分析过程。 \n只输出最终整理结果。\n\n你的任务不是直接生成游记，而是根据旅行素材卡，整理出后续内容创作可以使用的素材摘要，并明确创作边界。\n\
+            \n【输入材料】\n{{#1783739895443.output#}}\n\n【任务要求】\n1. 提取用户明确提供的旅行事实。\n2.\
+            \ 判断哪些内容可以用于后续写作。\n3. 标记哪些信息没有提供，后续不能编造。\n4. 保留知识库中与当前生成类型和写作风格相关的写作规范。\n\
+            5. 不要生成正式游记。\n6. 不要输出 JSON。\n7. 不要输出 Markdown 表格。\n\n【输出格式】\n\n一、可用旅行事实\n\
+            - 目的地：\n- 旅行时间：\n- 同行人数：\n- 行程记录：\n- 美食记录：\n- 照片/场景：\n- 消费信息：\n- 个人感受：\n\
+            \n二、可用写作方向\n- 当前生成类型适合怎样组织内容：\n- 当前写作风格应注意什么：\n- 可以突出的旅行亮点：\n\n三、禁止编造的信息\n\
+            - 用户未提供的酒店信息：\n- 用户未提供的具体交通方式：\n- 用户未提供的开放时间、票价、排队时间：\n- 用户未提供的其他具体事实：\n\
+            \n四、后续创作约束\n- 内容必须基于用户素材。\n- 如果涉及实时信息，只能在风险提示中说明需要以官方信息为准。\n- 不得把知识库规范写成用户真实经历。"
+        selected: false
+        title: LLM
+        type: llm
+        vision:
+          enabled: false
+      height: 116
+      id: '1783740809027'
+      position:
+        x: 1123.594075142821
+        y: 364.12374398163934
+      positionAbsolute:
+        x: 1123.594075142821
+        y: 364.12374398163934
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        code: "import json\n\n\ndef main(retrieval_result) -> dict:\n    \"\"\"\n\
+          \    从 Dify 知识检索结果中提取 content 字段，\n    只保留真正的写作规范文本。\n    \"\"\"\n\n   \
+          \ if retrieval_result is None:\n        return {\"result\": \"\"}\n\n  \
+          \  data = retrieval_result\n\n    # 如果传入的是字符串，尝试转成 JSON\n    if isinstance(retrieval_result,\
+          \ str):\n        try:\n            data = json.loads(retrieval_result)\n\
+          \        except Exception:\n            return {\"result\": retrieval_result.strip()}\n\
+          \n    chunks = []\n\n    # Dify 知识检索常见输出：list[dict]\n    if isinstance(data,\
+          \ list):\n        for item in data:\n            if isinstance(item, dict):\n\
+          \                content = (\n                    item.get(\"content\")\n\
+          \                    or item.get(\"text\")\n                    or item.get(\"\
+          page_content\")\n                    or item.get(\"summary\")\n        \
+          \        )\n                if content:\n                    chunks.append(str(content).strip())\n\
+          \            elif isinstance(item, str):\n                chunks.append(item.strip())\n\
+          \n    # 兜底：dict 类型\n    elif isinstance(data, dict):\n        for key in\
+          \ [\"content\", \"text\", \"result\", \"output\"]:\n            value =\
+          \ data.get(key)\n            if value:\n                chunks.append(str(value).strip())\n\
+          \n    if not chunks:\n        return {\"result\": str(retrieval_result)}\n\
+          \n    return {\n        \"result\": \"\\n\\n\".join(chunks)\n    }"
+        code_language: python3
+        desc: 清洗写作规范
+        outputs:
+          result:
+            children: null
+            type: string
+        selected: false
+        title: 代码执行
+        type: code
+        variables:
+        - value_selector:
+          - '1783738852941'
+          - result
+          value_type: array[object]
+          variable: retrieval_result
+      height: 80
+      id: '1783755472791'
+      position:
+        x: 551.217986191702
+        y: 471.8541337621347
+      positionAbsolute:
+        x: 551.217986191702
+        y: 471.8541337621347
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        code: "import re\n\n\ndef main(raw_text: str) -> dict:\n    \"\"\"\n    清理素材整理\
+          \ Agent 输出中的 <think>...</think> 内容，\n    只保留后续内容创作 Agent 需要使用的素材摘要。\n  \
+          \  \"\"\"\n\n    if raw_text is None:\n        raw_text = \"\"\n\n    text\
+          \ = str(raw_text)\n\n    # 删除完整的 <think>...</think>\n    text = re.sub(r\"\
+          <think>.*?</think>\\s*\", \"\", text, flags=re.DOTALL)\n\n    # 兜底：删除未闭合的\
+          \ <think> 后续内容\n    text = re.sub(r\"<think>.*\", \"\", text, flags=re.DOTALL)\n\
+          \n    # 删除可能出现的 Markdown 代码块标记\n    text = text.replace(\"```json\", \"\"\
+          )\n    text = text.replace(\"```\", \"\")\n\n    # 清理首尾空白\n    text = text.strip()\n\
+          \n    return {\n        \"result\": text\n    }"
+        code_language: python3
+        desc: 清洗素材摘要
+        outputs:
+          result:
+            children: null
+            type: string
+        selected: false
+        title: 代码执行 2
+        type: code
+        variables:
+        - value_selector:
+          - '1783740809027'
+          - text
+          value_type: string
+          variable: raw_text
+      height: 80
+      id: '1783755768601'
+      position:
+        x: 1440.8006602884836
+        y: 399.24581189458536
+      positionAbsolute:
+        x: 1440.8006602884836
+        y: 399.24581189458536
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        cases:
+        - case_id: 'true'
+          conditions:
+          - comparison_operator: is
+            id: 114501b4-5280-4826-9c02-0f5cfe99f4bf
+            value: blog
+            varType: string
+            variable_selector:
+            - '1783646093057'
+            - content_type
+          id: 'true'
+          logical_operator: and
+        - case_id: 834a79d9-62b2-41cd-8b70-b8fba5dc1c59
+          conditions:
+          - comparison_operator: is
+            id: 2256d1c2-ceac-4724-ba3e-a314a5bd29bf
+            value: social_post
+            varType: string
+            variable_selector:
+            - '1783646093057'
+            - content_type
+          id: 834a79d9-62b2-41cd-8b70-b8fba5dc1c59
+          logical_operator: and
+        - case_id: 9068757e-3f92-43ac-b27f-f06c10a1fdb7
+          conditions:
+          - comparison_operator: is
+            id: 98d79a64-bde5-480a-ae5c-5cc949ca6eef
+            value: title_tags
+            varType: string
+            variable_selector:
+            - '1783646093057'
+            - content_type
+          id: 9068757e-3f92-43ac-b27f-f06c10a1fdb7
+          logical_operator: and
+        desc: 判断生成类型
+        selected: false
+        title: 条件分支
+        type: if-else
+      height: 320
+      id: '1783757027459'
+      position:
+        x: 1727.3013779829937
+        y: 349.54764690796776
+      positionAbsolute:
+        x: 1727.3013779829937
+        y: 349.54764690796776
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: 游记初稿生成 Agent
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: deepseek-v4-flash
+          provider: langgenius/deepseek/deepseek
+        prompt_template:
+        - id: fd4279d3-72f8-4d16-bcb2-853617dd311a
+          role: system
+          text: "你是 AgenticTour 系统中的“游记初稿生成 Agent”。\n\n不要输出思考过程。\n不要输出 <think> 标签。\n\
+            不要输出 Markdown 代码块。\n不要输出解释说明。\n最终只能输出一个严格 JSON 对象。\n\n【素材摘要】\n{{#1783755768601.result#}}\n\
+            \n【写作规范】\n{{#1783755472791.result#}}\n\n【生成任务】\n请根据素材摘要生成一篇旅游博客游记初稿。\n\
+            \n【写作要求】\n1. 内容必须基于素材摘要中的可用旅行事实。\n2. 不得编造用户没有提供的酒店、交通方式、消费金额、开放时间、票价、排队时间等具体事实。\n\
+            3. 如果美食、照片、消费、个人感受为空，不要虚构，可以自然略过。\n4. 正文适合博客或个人空间发布，建议 4 到 6 个自然段。\n5.\
+            \ 可以适度使用小标题，但不要写成景点百科。\n6. 语言自然、清楚，有真实旅行记录感。\n7. 当前写作风格为：{{#1783646093057.writing_style#}}。\n\
+            \n【输出要求】\n只输出如下 JSON，不要多余文字：\n\n{\n  \"generated_title\": \"生成一个适合游记的标题\"\
+            ,\n  \"generated_content\": \"生成游记正文\",\n  \"tags\": \"标签1,标签2,标签3,标签4,标签5\"\
+            ,\n  \"risk_note\": \"内容根据用户提供素材生成，具体开放时间、票务、交通等实时信息建议以官方信息为准。\"\n}"
+        selected: false
+        title: LLM 2
+        type: llm
+        vision:
+          enabled: false
+      height: 116
+      id: '1783757232713'
+      position:
+        x: 2045.7123827770413
+        y: 181.79070901325562
+      positionAbsolute:
+        x: 2045.7123827770413
+        y: 181.79070901325562
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: 社交文案生成 Agent
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: deepseek-v4-flash
+          provider: langgenius/deepseek/deepseek
+        prompt_template:
+        - id: c25b0d99-5507-4782-9f87-3a3a1c4c0a69
+          role: system
+          text: "你是 AgenticTour 系统中的“社交文案生成 Agent”。\n\n不要输出思考过程。\n不要输出 <think> 标签。\n\
+            不要输出 Markdown 代码块。\n不要输出解释说明。\n最终只能输出一个严格 JSON 对象。\n\n【素材摘要】\n{{#1783755768601.result#}}\n\
+            \n【写作规范】\n{{#1783755472791.result#}}\n\n【生成任务】\n请根据素材摘要生成一段适合社交平台发布的旅行文案。\n\
+            \n【写作要求】\n1. 内容必须基于素材摘要中的可用旅行事实。\n2. 不得编造用户没有提供的具体事实。\n3. 文案适合朋友圈、小红书、微博等平台。\n\
+            4. 正文不要太长，建议 2 到 4 段。\n5. 语气自然、轻松，有分享感。\n6. 可以突出旅行亮点，但不能夸张营销。\n7. 当前写作风格为：{{#1783646093057.writing_style#}}。\n\
+            \n【输出要求】\n只输出如下 JSON，不要多余文字：\n\n{\n  \"generated_title\": \"生成一个适合社交平台的标题\"\
+            ,\n  \"generated_content\": \"生成社交平台文案正文\",\n  \"tags\": \"标签1,标签2,标签3,标签4,标签5\"\
+            ,\n  \"risk_note\": \"内容根据用户提供素材生成，具体开放时间、票务、交通等实时信息建议以官方信息为准。\"\n}"
+        selected: false
+        title: LLM 3
+        type: llm
+        vision:
+          enabled: false
+      height: 116
+      id: '1783757257667'
+      position:
+        x: 2058.4527195333712
+        y: 399.24581189458536
+      positionAbsolute:
+        x: 2058.4527195333712
+        y: 399.24581189458536
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: 标题标签生成 Agent
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: deepseek-v4-flash
+          provider: langgenius/deepseek/deepseek
+        prompt_template:
+        - id: b7d92c21-62d6-4d1a-b37a-1dea09b71f2c
+          role: system
+          text: "你是 AgenticTour 系统中的“标题标签生成 Agent”。\n\n不要输出思考过程。\n不要输出 <think> 标签。\n\
+            不要输出 Markdown 代码块。\n不要输出解释说明。\n最终只能输出一个严格 JSON 对象。\n\n【素材摘要】\n{{#1783755768601.result#}}\n\
+            \n【写作规范】\n{{#1783755472791.result#}}\n\n【生成任务】\n请根据素材摘要生成标题建议和标签，不要生成长篇游记。\n\
+            \n【写作要求】\n1. 必须基于素材摘要中的可用旅行事实。\n2. 不得编造用户没有提供的具体事实。\n3. generated_title\
+            \ 字段放最推荐的一个标题。\n4. generated_content 字段中给出 5 个标题建议，并简短说明适合的发布场景。\n5. tags\
+            \ 字段给出 5 到 8 个标签，用英文逗号或中文逗号分隔均可。\n6. 当前写作风格为：{{#1783646093057.writing_style#}}。\n\
+            \n【输出要求】\n只输出如下 JSON，不要多余文字：\n\n{\n  \"generated_title\": \"最推荐标题\",\n\
+            \  \"generated_content\": \"1. 标题建议一：...\\n2. 标题建议二：...\\n3. 标题建议三：...\\\
+            n4. 标题建议四：...\\n5. 标题建议五：...\\n\\n适合发布场景：...\",\n  \"tags\": \"标签1,标签2,标签3,标签4,标签5\"\
+            ,\n  \"risk_note\": \"内容根据用户提供素材生成，具体开放时间、票务、交通等实时信息建议以官方信息为准。\"\n}"
+        selected: false
+        title: LLM 4
+        type: llm
+        vision:
+          enabled: false
+      height: 116
+      id: '1783757285860'
+      position:
+        x: 2045.7123827770413
+        y: 618.3398797024533
+      positionAbsolute:
+        x: 2045.7123827770413
+        y: 618.3398797024533
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        desc: 聚合创作结果
+        output_type: string
+        selected: false
+        title: 变量聚合器
+        type: variable-aggregator
+        variables:
+        - - '1783757232713'
+          - text
+        - - '1783757257667'
+          - text
+        - - '1783757285860'
+          - text
+      height: 189
+      id: '1783759017803'
+      position:
+        x: 2456.0115845919186
+        y: 443.61733630701804
+      positionAbsolute:
+        x: 2456.0115845919186
+        y: 443.61733630701804
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        code: "import re\nimport json\n\n\ndef main(raw_text: str) -> dict:\n    \"\
+          \"\"\n    清理创作 Agent 输出中的 <think>...</think>，\n    提取 JSON 字符串，供后续质量检查或后端解析使用。\n\
+          \    \"\"\"\n\n    if raw_text is None:\n        raw_text = \"\"\n\n   \
+          \ text = str(raw_text)\n\n    # 删除完整的 <think>...</think>\n    text = re.sub(r\"\
+          <think>.*?</think>\\s*\", \"\", text, flags=re.DOTALL)\n\n    # 删除未闭合的 <think>\n\
+          \    text = re.sub(r\"<think>.*\", \"\", text, flags=re.DOTALL)\n\n    #\
+          \ 删除 Markdown 代码块\n    text = text.replace(\"```json\", \"\").replace(\"\
+          ```\", \"\").strip()\n\n    # 尝试只截取最外层 JSON 对象\n    start = text.find(\"\
+          {\")\n    end = text.rfind(\"}\")\n\n    if start != -1 and end != -1 and\
+          \ end > start:\n        text = text[start:end + 1].strip()\n\n    # 尝试解析\
+          \ JSON，成功则重新标准化输出\n    try:\n        obj = json.loads(text)\n\n        result\
+          \ = {\n            \"generated_title\": str(obj.get(\"generated_title\"\
+          , \"\")).strip(),\n            \"generated_content\": str(obj.get(\"generated_content\"\
+          , \"\")).strip(),\n            \"tags\": str(obj.get(\"tags\", \"\")).strip(),\n\
+          \            \"risk_note\": str(obj.get(\"risk_note\", \"\")).strip()\n\
+          \        }\n\n        return {\n            \"result\": json.dumps(result,\
+          \ ensure_ascii=False)\n        }\n\n    except Exception:\n        # 如果解析失败，先原样返回，后面质量检查\
+          \ Agent 再修\n        return {\n            \"result\": text\n        }"
+        code_language: python3
+        desc: 清洗创作结果
+        outputs:
+          result:
+            children: null
+            type: string
+        selected: false
+        title: 代码执行 3
+        type: code
+        variables:
+        - value_selector:
+          - '1783759017803'
+          - output
+          value_type: string
+          variable: raw_text
+      height: 80
+      id: '1783759104149'
+      position:
+        x: 2758.0115845919186
+        y: 443.61733630701804
+      positionAbsolute:
+        x: 2758.0115845919186
+        y: 443.61733630701804
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: 质量检查 Agent
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: deepseek-v4-flash
+          provider: langgenius/deepseek/deepseek
+        prompt_template:
+        - id: 258bb158-7eb6-44be-a4df-fa990feef14b
+          role: system
+          text: "你是 AgenticTour 系统中的“质量检查 Agent”。\n\n不要输出思考过程。\n不要输出 <think> 标签。\n\
+            不要输出 Markdown 代码块。\n不要输出解释说明。\n最终只能输出一个严格 JSON 对象。\n\n你的任务是检查并修正上一节点生成的旅游内容，确保它可以被后端解析并保存到数据库。\n\
+            \n【可用素材摘要】\n{{#1783755768601.result#}}\n\n【待检查生成结果】\n{{#1783759104149.result#}}\n\
+            \n【生成配置】\n生成类型：{{#1783646093057.content_type#}}\n写作风格：{{#1783646093057.writing_style#}}\n\
+            \n【检查规则】\n1. 最终输出必须是严格 JSON 对象。\n2. JSON 字段只能包含 generated_title、generated_content、tags、risk_note。\n\
+            3. 不允许输出 title、content、tag、note 等其他字段名。\n4. 如果待检查内容包含 <think>、Markdown\
+            \ 代码块或解释说明，必须删除。\n5. 如果待检查内容中出现用户没有提供的酒店、具体交通方式、消费金额、开放时间、票价、排队时间等具体事实，必须删除或改成概括表达。\n\
+            6. 如果用户未提供美食记录，不要编造具体美食、餐厅或味道体验。\n7. 如果用户未提供照片描述，不要编造照片内容。\n8. 如果用户未提供消费摘要，不要编造花费金额。\n\
+            9. 如果用户未提供个人感受，不要编造非常具体的情绪体验，只能根据行程节奏做轻度概括。\n10. 内容应符合当前生成类型：\n   - blog：适合游记初稿，可以较完整。\n\
+            \   - social_post：适合社交平台，正文应更短、更自然。\n   - title_tags：主要输出标题建议和标签，不生成长篇游记。\n\
+            11. risk_note 必须保留，并说明内容根据用户素材生成，实时信息以官方信息为准。\n12. 不得把“2人”自动理解为情侣、闺蜜、亲子、朋友或家人，只能写“两人”“双人”“同行两人”。\n\
+            13. 不得把三天行程改写为“两天半”“周末游”等用户没有提供的时间表达。\n14. 不得编造钟声、禅意、静心、味道、照片氛围等用户没有明确提供的感官细节。\n\
+            \n【最终输出格式】\n{\n  \"generated_title\": \"生成标题\",\n  \"generated_content\"\
+            : \"生成正文\",\n  \"tags\": \"标签1,标签2,标签3,标签4,标签5\",\n  \"risk_note\": \"\
+            内容根据用户提供素材生成，具体开放时间、票务、交通等实时信息建议以官方信息为准。\"\n}"
+        selected: false
+        title: LLM 5
+        type: llm
+        vision:
+          enabled: false
+      height: 116
+      id: '1783759344393'
+      position:
+        x: 3060.0115845919186
+        y: 443.61733630701804
+      positionAbsolute:
+        x: 3060.0115845919186
+        y: 443.61733630701804
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        code: "import re\nimport json\n\n\ndef remove_think(text: str) -> str:\n \
+          \   text = re.sub(r\"<think>.*?</think>\\s*\", \"\", text, flags=re.DOTALL)\n\
+          \    text = re.sub(r\"<think>.*\", \"\", text, flags=re.DOTALL)\n    return\
+          \ text\n\n\ndef extract_json_text(text: str) -> str:\n    text = text.replace(\"\
+          ```json\", \"\").replace(\"```\", \"\").strip()\n    start = text.find(\"\
+          {\")\n    end = text.rfind(\"}\")\n    if start != -1 and end != -1 and\
+          \ end > start:\n        return text[start:end + 1].strip()\n    return text\n\
+          \n\ndef safe_str(value) -> str:\n    if value is None:\n        return \"\
+          \"\n    return str(value).strip()\n\n\ndef clean_hallucination(text: str,\
+          \ material_summary: str) -> str:\n    \"\"\"\n    做一些保守的规则修正，避免模型把用户没说的信息写进去。\n\
+          \    \"\"\"\n\n    if not text:\n        return \"\"\n\n    summary = material_summary\
+          \ or \"\"\n\n    # 用户素材是三天行程，不应被改成两天半\n    text = text.replace(\"两天半\",\
+          \ \"三天\")\n\n    # 没有明确关系时，不要写情侣/闺蜜/亲子\n    if \"情侣\" not in summary:\n\
+          \        text = text.replace(\"情侣游\", \"双人游\").replace(\"情侣\", \"两人\")\n\
+          \    if \"闺蜜\" not in summary:\n        text = text.replace(\"闺蜜游\", \"\
+          双人游\").replace(\"闺蜜\", \"同行伙伴\")\n    if \"亲子\" not in summary:\n      \
+          \  text = text.replace(\"亲子游\", \"双人游\").replace(\"亲子\", \"双人\")\n\n   \
+          \ # 用户没有提供具体感官体验时，弱化主观化表达\n    text = text.replace(\"灵隐寺的钟声\", \"灵隐寺的慢节奏\"\
+          )\n    text = text.replace(\"听听钟声\", \"慢慢游览\")\n    text = text.replace(\"\
+          用味蕾游荡河坊\", \"在河坊街慢慢逛\")\n    text = text.replace(\"河坊街逛吃\", \"河坊街逛街区和小吃店\"\
+          )\n    text = text.replace(\"觅小吃\", \"逛小吃店\")\n    text = text.replace(\"\
+          逛吃小吃\", \"逛街区和小吃店\")\n    text = text.replace(\"逛吃\", \"逛街区和小吃店\")\n   \
+          \ text = text.replace(\"小吃,\", \"小吃店,\")\n    text = text.replace(\"小吃，\"\
+          , \"小吃店，\")\n    text = text.replace(\"小吃\\\\n\", \"小吃店\\\\n\")\n    text\
+          \ = text.replace(\"河坊街烟火\", \"河坊街街区氛围\")\n    text = text.replace(\"河坊街的烟火\"\
+          , \"河坊街的街区氛围\")\n    text = text.replace(\"三天两夜\", \"三日\")\n    text = text.replace(\"\
+          两天一夜\", \"两日\")\n    text = text.replace(\"周末游\", \"短途游\")\n\n    text =\
+          \ text.replace(\"河坊街小吃\", \"河坊街小吃店\")\n    text = text.replace(\"河坊街逛吃\"\
+          , \"河坊街逛街区和小吃店\")\n    text = text.replace(\"河坊街上逛吃小吃\", \"河坊街上逛街区和小吃店\"\
+          )\n    text = text.replace(\"河坊街逛吃小吃\", \"河坊街逛街区和小吃店\")\n\n    text = text.replace(\"\
+          小吃,\", \"小吃店,\")\n    text = text.replace(\"小吃，\", \"小吃店，\")\n    text =\
+          \ text.replace(\"小吃\\n\", \"小吃店\\n\")\n    text = text.replace(\",小吃\\\"\
+          \", \",小吃店\\\"\")\n\n    text = text.replace(\"两人旅行分享平台、微博旅行Vlog\", \"小红书、朋友圈、旅游笔记平台\"\
+          )\n    text = text.replace(\"Instagram/小红书摄影配文\", \"小红书、朋友圈旅行配文\")\n\n \
+          \   return text.strip()\n\n\ndef main(raw_text: str, material_summary: str\
+          \ = \"\", content_type: str = \"\") -> dict:\n    if raw_text is None:\n\
+          \        raw_text = \"\"\n\n    text = str(raw_text)\n\n    # 1. 删除 think\n\
+          \    text = remove_think(text)\n\n    # 2. 提取 JSON\n    text = extract_json_text(text)\n\
+          \n    # 3. 解析 JSON\n    try:\n        obj = json.loads(text)\n    except\
+          \ Exception:\n        obj = {}\n\n    generated_title = safe_str(obj.get(\"\
+          generated_title\"))\n    generated_content = safe_str(obj.get(\"generated_content\"\
+          ))\n    tags = safe_str(obj.get(\"tags\"))\n    risk_note = safe_str(obj.get(\"\
+          risk_note\"))\n\n    # 4. 兜底字段\n    if not generated_title:\n        generated_title\
+          \ = \"旅行内容生成结果\"\n\n    if not generated_content:\n        generated_content\
+          \ = \"根据用户提供的旅行素材生成内容失败，请补充更多行程、感受或照片描述后重试。\"\n\n    if not tags:\n    \
+          \    tags = \"旅行,游记,旅游记录\"\n\n    if not risk_note:\n        risk_note =\
+          \ \"内容根据用户提供素材生成，具体开放时间、票务、交通等实时信息建议以官方信息为准。\"\n\n    # 5. 清理明显越界表达\n  \
+          \  generated_title = clean_hallucination(generated_title, material_summary)\n\
+          \    generated_content = clean_hallucination(generated_content, material_summary)\n\
+          \    tags = clean_hallucination(tags, material_summary)\n    risk_note =\
+          \ clean_hallucination(risk_note, material_summary)\n\n    # 6. title_tags\
+          \ 类型不允许生成长篇游记\n    if content_type == \"title_tags\" and len(generated_content)\
+          \ > 800:\n        generated_content = generated_content[:800].strip()\n\n\
+          \    result = {\n        \"generated_title\": generated_title,\n       \
+          \ \"generated_content\": generated_content,\n        \"tags\": tags,\n \
+          \       \"risk_note\": risk_note\n    }\n\n    return {\n        \"result\"\
+          : json.dumps(result, ensure_ascii=False)\n    }"
+        code_language: python3
+        desc: 最终JSON修正
+        outputs:
+          result:
+            children: null
+            type: string
+        selected: false
+        title: 代码执行 4
+        type: code
+        variables:
+        - value_selector:
+          - '1783759344393'
+          - text
+          value_type: string
+          variable: raw_text
+        - value_selector:
+          - '1783755768601'
+          - result
+          value_type: string
+          variable: material_summary
+        - value_selector:
+          - '1783646093057'
+          - content_type
+          value_type: string
+          variable: content_type
+      height: 80
+      id: '1783759578673'
+      position:
+        x: 3362.0115845919186
+        y: 443.61733630701804
+      positionAbsolute:
+        x: 3362.0115845919186
+        y: 443.61733630701804
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        outputs:
+        - value_selector:
+          - '1783759578673'
+          - result
+          value_type: string
+          variable: result
+        selected: false
+        title: 输出
+        type: end
+      height: 89
+      id: '1783759660396'
+      position:
+        x: 3664.0115845919186
+        y: 443.61733630701804
+      positionAbsolute:
+        x: 3664.0115845919186
+        y: 443.61733630701804
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    viewport:
+      x: -1350.0531022450837
+      y: 11.935895738736463
+      zoom: 0.8572439828530721
+  rag_pipeline_variables: []

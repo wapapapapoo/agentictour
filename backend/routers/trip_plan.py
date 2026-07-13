@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from schemas.trip_plan import (
+    PlanHumanizeRequest,
+    PlanHumanizeResponse,
     TripPlanGenerateRequest,
     TripPlanListItem,
     TripPlanResponse,
@@ -63,3 +65,17 @@ def delete_trip_plan(plan_id: int, db: Session = Depends(get_db)):
     if not ok:
         raise HTTPException(status_code=404, detail="trip plan not found")
     return {"message": "删除成功"}
+
+
+@router.post("/{plan_id}/humanize", response_model=PlanHumanizeResponse)
+def humanize_trip_plan(
+    plan_id: int,
+    data: PlanHumanizeRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        return trip_plan_service.humanize_plan(db, plan_id, data)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except DifyError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc

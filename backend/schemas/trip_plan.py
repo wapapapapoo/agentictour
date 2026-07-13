@@ -22,6 +22,16 @@ class TripPlanGenerateRequest(BaseModel):
     revision_request: str = ""
 
 
+class PlanHumanizeRequest(BaseModel):
+    user_id: str = Field(..., max_length=64)
+
+
+class PlanHumanizeResponse(BaseModel):
+    plan_id: int
+    title: Optional[str] = None
+    natural_language: str
+
+
 class TripPlanReviseRequest(BaseModel):
     user_id: str = Field(..., max_length=64)
     revision_request: str
