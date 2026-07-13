@@ -8,7 +8,11 @@ from pydantic import BaseModel, Field
 
 class PlanKnowledgeRequest(BaseModel):
     user_id: str = Field(..., max_length=64)
-    dataset_id: str = Field(..., max_length=100)
+    dataset_id: str = Field(
+        default="",
+        max_length=100,
+        description="知识库ID，留空则取环境变量 DIFY_KNOWLEDGE_DATASET_ID",
+    )
     chunk_size: int = Field(default=4000, ge=1, le=4000, description="分块大小(token数)，最大4000")
 
 
@@ -25,6 +29,27 @@ class PlanKnowledgeResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class KnowledgeSearchRequest(BaseModel):
+    dataset_id: str = Field(
+        default="",
+        max_length=100,
+        description="知识库ID，留空则取环境变量 DIFY_KNOWLEDGE_DATASET_ID",
+    )
+    query: str
+
+
+class KnowledgeSearchResult(BaseModel):
+    chunk_content: str
+    score: float
+    document_id: str
+    plan_id: Optional[int] = None
+    plan_title: Optional[str] = None
+
+
+class KnowledgeSearchResponse(BaseModel):
+    results: list[KnowledgeSearchResult]
 
 
 class TraceKnowledgeResponse(BaseModel):

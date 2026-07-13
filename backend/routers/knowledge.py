@@ -5,12 +5,14 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from schemas.knowledge import (
+    KnowledgeSearchRequest,
+    KnowledgeSearchResponse,
     PlanKnowledgeRequest,
     PlanKnowledgeResponse,
     TraceKnowledgeResponse,
 )
 from services import knowledge_service
-from utils.dify_client import DifyError
+from utils.dify_client import DifyError, DifyRequestError
 
 router = APIRouter(prefix="/api/trip-plans", tags=["知识库同步"])
 
@@ -43,3 +45,16 @@ def trace_from_document_id(
             detail=f"no plan found for document_id={document_id}",
         )
     return result
+
+
+@router.post("/knowledge/search", response_model=KnowledgeSearchResponse)
+def search_knowledge(
+    data: KnowledgeSearchRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        return knowledge_service.search_knowledge(db, data)
+    except DifyRequestError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

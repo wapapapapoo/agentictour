@@ -73,6 +73,28 @@ def get_indexing_status(
     return resp.json()
 
 
+# ---- Retrieval ----
+
+def retrieve_chunks(
+    *,
+    dataset_id: str,
+    query: str,
+) -> dict[str, Any]:
+    url = f"{_base_url()}/datasets/{dataset_id}/retrieve"
+    resp = requests.post(
+        url,
+        headers=_headers(),
+        json={"query": query},
+        timeout=_timeout(),
+    )
+    if resp.status_code >= 400:
+        raise requests.HTTPError(
+            f"{resp.status_code} {resp.reason}: {resp.text[:500]}",
+            response=resp,
+        )
+    return resp.json()
+
+
 # ---- Metadata ----
 
 def create_metadata_field(
