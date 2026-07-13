@@ -32,6 +32,16 @@ def health_check() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/debug/db")
+def debug_db():
+    from sqlalchemy import text
+    from database import engine, DATABASE_URL
+    safe = DATABASE_URL.rsplit("@", 1)[-1] if "@" in DATABASE_URL else DATABASE_URL
+    with engine.connect() as c:
+        tables = [r[0] for r in c.execute(text("SHOW TABLES"))]
+    return {"host": safe, "tables": tables}
+
+
 if __name__ == "__main__":
     import uvicorn
 
