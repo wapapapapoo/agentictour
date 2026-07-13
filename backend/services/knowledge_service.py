@@ -33,6 +33,28 @@ def create_knowledge(
     if version is None or not version.plan_json:
         raise LookupError("trip plan version empty")
 
+    # 去重：同一 plan_id + version_id 只上传一次
+    existing = (
+        db.query(PlanKnowledgeMapping)
+        .filter(
+            PlanKnowledgeMapping.plan_id == plan_id,
+            PlanKnowledgeMapping.version_id == version.id,
+        )
+        .first()
+    )
+    if existing is not None:
+        return {
+            "plan_id": plan.id,
+            "version_id": version.id,
+            "humanized_text": existing.humanized_text,
+            "dataset_id": existing.dataset_id,
+            "document_name": existing.document_name,
+            "document_id": existing.document_id,
+            "batch": existing.batch,
+            "indexing_status": existing.indexing_status,
+            "created_at": existing.created_at,
+        }
+
     plan_obj = _loads_json(version.plan_json)
     title = (
         plan_obj.get("title")
