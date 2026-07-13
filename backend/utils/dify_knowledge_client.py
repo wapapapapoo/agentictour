@@ -51,17 +51,7 @@ def create_document_by_text(
         "indexing_technique": indexing_technique,
         "doc_form": doc_form,
         "process_rule": {
-            "mode": "custom",
-            "rules": {
-                "pre_processing_rules": [
-                    {"id": "remove_extra_spaces", "enabled": True},
-                    {"id": "remove_urls_emails", "enabled": False},
-                ],
-                "segmentation": {
-                    "separator": "\n",
-                    "max_tokens": chunk_size,
-                },
-            },
+            "mode": "automatic",
         },
     }
     resp = requests.post(url, headers=_headers(), json=payload, timeout=_timeout())
