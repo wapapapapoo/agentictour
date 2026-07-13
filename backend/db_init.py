@@ -8,7 +8,7 @@ from sqlalchemy import text
 
 from database import engine
 
-SQL_DIR = Path(__file__).resolve().parent.parent / "sql"
+SQL_DIR = Path(__file__).resolve().parent / "sql"
 
 
 def run_init_sql() -> None:
