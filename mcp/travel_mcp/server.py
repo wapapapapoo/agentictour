@@ -6,6 +6,10 @@ from travel_mcp.configs import check_settings, settings
 from travel_mcp.tools.amap_poi import amap_nearby_search as amap_nearby_search_func
 from travel_mcp.tools.amap_route import amap_walking_route as amap_walking_route_func
 from travel_mcp.tools.amap_weather import amap_weather as amap_weather_func
+from travel_mcp.tools.knowledge_search import (
+    list_knowledge_bases as list_knowledge_bases_func,
+    search_knowledge as search_knowledge_func,
+)
 
 check_settings()
 
@@ -91,6 +95,33 @@ async def amap_walking_route(
         destination=destination,
         isindoor=isindoor,
     )
+
+
+@mcp.tool
+async def list_knowledge_bases() -> Dict[str, Any]:
+    """
+    列出 Dify 中所有可用的知识库，返回每个知识库的 ID、名称、描述和文档数。
+
+    模型应先调用此工具获取可用知识库清单，根据 description 判断哪个知识库适合用户的查询意图，
+    然后用返回的 id 调用 search_knowledge。
+    """
+    return await list_knowledge_bases_func()
+
+
+@mcp.tool
+async def search_knowledge(dataset_id: str, query: str) -> Dict[str, Any]:
+    """
+    在指定的 Dify 知识库中检索文档片段。
+
+    适用场景：
+    - 用户询问旅行攻略、美食推荐、行程安排等信息
+    - 需要从已有知识库中查找相关内容
+
+    参数：
+    - dataset_id: 知识库 ID（由 list_knowledge_bases 返回）
+    - query: 搜索关键词或问题
+    """
+    return await search_knowledge_func(dataset_id=dataset_id, query=query)
 
 
 if __name__ == "__main__":
