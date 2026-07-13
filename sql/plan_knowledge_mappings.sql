@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS plan_knowledge_mappings (
     document_name   VARCHAR(255)    NOT NULL,
     batch           VARCHAR(100)    NULL,
     humanized_text  TEXT            NOT NULL,
-    indexing_status VARCHAR(50)     NOT NULL DEFAULT 'pending',
+    indexing_status VARCHAR(50)     NOT NULL DEFAULT 'waiting',
     created_at      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT fk_knowledge_plan

@@ -26,5 +26,5 @@ class PlanKnowledgeMapping(Base):
     document_name = Column(String(255), nullable=False)
     batch = Column(String(100), nullable=True)
     humanized_text = Column(Text, nullable=False)
-    indexing_status = Column(String(50), nullable=False, default="pending")
+    indexing_status = Column(String(50), nullable=False, default="waiting")
     created_at = Column(DateTime, server_default=func.now())
