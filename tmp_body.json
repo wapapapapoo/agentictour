@@ -1,1 +1,1 @@
-﻿{"user_id":"test-user-001","dataset_id":"396ae5ec-72b1-464e-b6a0-129567810feb"}
+﻿{"user_id":"test-user-001","action":"create","origin_city":"杭州","destination_city":"上海","start_date":"2026-07-20","end_date":"2026-07-23","people_count":"2","budget_total":"3000","interests":"历史文化、美食、小众景点、城市漫步","hotel_level":"舒适型","transport_preference":"公共交通优先，尽量减少步行","pace":"轻松","special_requirements":"老人同行，单次连续步行不要超过20分钟","previous_plan_json":"","revision_request":""}
