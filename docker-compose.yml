@@ -16,7 +16,7 @@ services:
       DB_USER: ${MYSQL_USER:-agentictour}
       DB_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
     depends_on:
-      mysql:
+      mysql-test:
         condition: service_healthy
 
   mcp:
