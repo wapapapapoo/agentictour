@@ -1,0 +1,633 @@
+app:
+  description: 解毒的工作流，用于旅行计划生成
+  icon: 25d05bd2-4b31-460f-b7ef-8b2806c6b4fa
+  icon_background: null
+  icon_type: image
+  mode: workflow
+  name: AgenticTour 行前旅行计划生成
+  use_icon_as_answer_icon: false
+dependencies: []
+kind: app
+version: 0.6.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        attachment_image_file_size_limit: 2
+        audio_file_size_limit: 50
+        batch_count_limit: 500
+        file_size_limit: 500
+        file_upload_limit: 20
+        image_file_batch_limit: 10
+        image_file_size_limit: 10
+        single_chunk_attachment_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: agent
+        targetType: end
+      id: 1783651897861-source-1783409766047-target
+      source: '1783651897861'
+      sourceHandle: source
+      target: '1783409766047'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: agent
+      id: 1783409402478-source-1783651897861-target
+      source: '1783409402478'
+      sourceHandle: source
+      target: '1783651897861'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        selected: false
+        title: '1'
+        type: start
+        variables:
+        - default: ''
+          hint: ''
+          label: action
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: action
+        - default: ''
+          hint: ''
+          label: user_id
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: user_id
+        - default: ''
+          hint: ''
+          label: origin_city
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: origin_city
+        - default: ''
+          hint: ''
+          label: destination_city
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: destination_city
+        - default: ''
+          hint: ''
+          label: start_date
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: start_date
+        - default: ''
+          hint: ''
+          label: end_date
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: end_date
+        - default: ''
+          hint: ''
+          label: people_count
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: people_count
+        - default: ''
+          hint: ''
+          label: budget_total
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: budget_total
+        - default: ''
+          hint: ''
+          label: interests
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: interests
+        - default: ''
+          hint: ''
+          label: hotel_level
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: hotel_level
+        - default: ''
+          hint: ''
+          label: transport_preference
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: transport_preference
+        - default: ''
+          hint: ''
+          label: pace
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: pace
+        - default: ''
+          hint: ''
+          label: special_requirements
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: special_requirements
+        - default: ''
+          hint: ''
+          label: previous_plan_json
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: previous_plan_json
+        - default: ''
+          hint: ''
+          label: revision_request
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: revision_request
+      height: 471
+      id: '1783409402478'
+      position:
+        x: 32
+        y: 274
+      positionAbsolute:
+        x: 32
+        y: 274
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        outputs:
+        - value_selector:
+          - '1783651897861'
+          - json
+          value_type: array[object]
+          variable: title
+        selected: false
+        title: 输出
+        type: end
+      height: 87
+      id: '1783409766047'
+      position:
+        x: 793
+        y: 308
+      positionAbsolute:
+        x: 793
+        y: 308
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+    - data:
+        agent_parameters:
+          instruction:
+            type: constant
+            value: "\n你是一个旅行规划agent，请你按照用户的要求，制定旅行规划，不论问题如何，你都必须按照下述shema生成json：\n\
+              \n{\n  \"title\": \"上海 3 日轻松美食文化游\",\n  \"summary\": \"适合预算3000元、2人、步行较少的行程。\"\
+              ,\n  \"days\": [\n    {\n      \"day\": 1,\n      \"date\": \"2026-07-20\"\
+              ,\n      \"theme\": \"城市初体验\",\n      \"items\": [\n        {\n    \
+              \      \"time\": \"09:30-11:30\",\n          \"type\": \"attraction\"\
+              ,\n          \"name\": \"外滩\",\n          \"reason\": \"经典城市景观，适合作为首站\"\
+              ,\n          \"transport\": \"地铁+短步行\",\n          \"estimated_cost\"\
+              : 0,\n          \"walking_minutes\": 15,\n          \"tips\": \"夏季注意防晒\"\
+              \n        }\n      ]\n    }\n  ],\n  \"attractions\": [],\n  \"route_summary\"\
+              : {\n    \"total_walking_minutes\": 80,\n    \"transport_advice\": \"\
+              地铁为主，必要时打车\"\n  },\n  \"budget\": {\n    \"total\": 3000,\n    \"hotel\"\
+              : 1200,\n    \"food\": 800,\n    \"transport\": 400,\n    \"tickets\"\
+              : 400,\n    \"buffer\": 200\n  },\n  \"warnings\": [\n    \"如遇高温，下午安排室内场馆\"\
+              \n  ],\n  \"change_log\": [\n    \"根据用户要求减少步行\"\n  ]\n}\n注意：必须是json格式，不要出现改动。\n\
+              \n妈了个逼，不准在{\"后输出莫名其妙的think标签，傻逼\n\n"
+          maximum_iterations:
+            type: constant
+            value: 3
+          model:
+            type: constant
+            value:
+              completion_params:
+                enable_search: true
+                enable_thinking: false
+                response_format: json_object
+                thinking_budget: 2048
+              mode: chat
+              model: qwen3.6-flash
+              model_type: llm
+              provider: langgenius/tongyi/tongyi
+              type: model-selector
+          query:
+            type: constant
+            value: '
+
+              来自用户 {{#1783409402478.user_id#}} 的问题：
+
+
+              =====START USER PROMPT=====
+
+              {{#1783409402478.action#}}
+
+
+              出发地：{{#1783409402478.origin_city#}}
+
+              目的地：{{#1783409402478.destination_city#}}
+
+              出发日期：{{#1783409402478.start_date#}}
+
+              结束日期：{{#1783409402478.end_date#}}
+
+              人数：{{#1783409402478.people_count#}}
+
+              预算：{{#1783409402478.budget_total#}}
+
+              兴趣：{{#1783409402478.interests#}}
+
+              住宿标准：{{#1783409402478.hotel_level#}}
+
+              交通偏好：{{#1783409402478.transport_preference#}}
+
+              旅游节奏：{{#1783409402478.pace#}}
+
+
+              其它要求：
+
+              {{#1783409402478.special_requirements#}}
+
+
+              已有的参考计划：
+
+              {{#1783409402478.previous_plan_json#}}
+
+
+              来自其它agent的审查结果，初次运行为空：
+
+              {{#1783409402478.revision_request#}}
+
+              =====END USER PROMPT====='
+          tools:
+            type: constant
+            value:
+            - enabled: true
+              extra:
+                description: '查询指定城市或区县的天气。
+
+
+                  适用场景：
+
+                  - 用户问今天/现在天气
+
+                  - 用户问是否需要带伞
+
+                  - 用户问穿衣建议
+
+                  - 系统自动生成行前提醒
+
+
+                  参数：
+
+                  - adcode: 高德行政区编码，例如上海 310000，北京 110000
+
+                  - extensions: base 表示实况天气，all 表示天气预报'
+              parameters:
+                adcode:
+                  auto: 1
+                  value: null
+                extensions:
+                  auto: 1
+                  value: null
+              provider_name: travel-mcp
+              provider_show_name: AI旅游MCP
+              settings: {}
+              tool_description: '查询指定城市或区县的天气。
+
+
+                适用场景：
+
+                - 用户问今天/现在天气
+
+                - 用户问是否需要带伞
+
+                - 用户问穿衣建议
+
+                - 系统自动生成行前提醒
+
+
+                参数：
+
+                - adcode: 高德行政区编码，例如上海 310000，北京 110000
+
+                - extensions: base 表示实况天气，all 表示天气预报'
+              tool_label: amap_weather
+              tool_name: amap_weather
+              type: mcp
+            - enabled: true
+              extra:
+                description: '查询当前位置附近的地点。
+
+
+                  适用场景：
+
+                  - 用户想找附近餐厅
+
+                  - 用户想找咖啡店
+
+                  - 用户想找休息点
+
+                  - 用户想找厕所、商场、景点等
+
+
+                  参数：
+
+                  - location: 经纬度，格式为 经度,纬度，例如 116.397428,39.90923
+
+                  - keywords: 搜索关键词，例如 餐厅、咖啡、厕所、商场
+
+                  - types: 高德 POI 类型编码，可为空
+
+                  - radius: 搜索半径，单位米
+
+                  - page_size: 返回数量
+
+                  - page_num: 页码'
+              parameters:
+                keywords:
+                  auto: 1
+                  value: null
+                location:
+                  auto: 1
+                  value: null
+                page_num:
+                  auto: 1
+                  value: null
+                page_size:
+                  auto: 1
+                  value: null
+                radius:
+                  auto: 1
+                  value: null
+                types:
+                  auto: 1
+                  value: null
+              provider_name: travel-mcp
+              provider_show_name: AI旅游MCP
+              settings: {}
+              tool_description: '查询当前位置附近的地点。
+
+
+                适用场景：
+
+                - 用户想找附近餐厅
+
+                - 用户想找咖啡店
+
+                - 用户想找休息点
+
+                - 用户想找厕所、商场、景点等
+
+
+                参数：
+
+                - location: 经纬度，格式为 经度,纬度，例如 116.397428,39.90923
+
+                - keywords: 搜索关键词，例如 餐厅、咖啡、厕所、商场
+
+                - types: 高德 POI 类型编码，可为空
+
+                - radius: 搜索半径，单位米
+
+                - page_size: 返回数量
+
+                - page_num: 页码'
+              tool_label: amap_nearby_search
+              tool_name: amap_nearby_search
+              type: mcp
+            - enabled: true
+              extra:
+                description: '查询两个地点之间的步行路线。
+
+
+                  适用场景：
+
+                  - 用户问怎么走
+
+                  - 用户问步行多久
+
+                  - 用户问是否来得及
+
+                  - 系统判断附近地点是否适合作为推荐
+
+
+                  参数：
+
+                  - origin: 起点经纬度，格式为 经度,纬度
+
+                  - destination: 终点经纬度，格式为 经度,纬度
+
+                  - isindoor: 是否室内算路，0 不需要，1 需要'
+              parameters:
+                destination:
+                  auto: 1
+                  value: null
+                isindoor:
+                  auto: 1
+                  value: null
+                origin:
+                  auto: 1
+                  value: null
+              provider_name: travel-mcp
+              provider_show_name: AI旅游MCP
+              settings: {}
+              tool_description: '查询两个地点之间的步行路线。
+
+
+                适用场景：
+
+                - 用户问怎么走
+
+                - 用户问步行多久
+
+                - 用户问是否来得及
+
+                - 系统判断附近地点是否适合作为推荐
+
+
+                参数：
+
+                - origin: 起点经纬度，格式为 经度,纬度
+
+                - destination: 终点经纬度，格式为 经度,纬度
+
+                - isindoor: 是否室内算路，0 不需要，1 需要'
+              tool_label: amap_walking_route
+              tool_name: amap_walking_route
+              type: mcp
+            - enabled: true
+              extra:
+                description: A tool for getting the current time.
+              parameters: {}
+              provider_name: time
+              provider_show_name: time
+              settings:
+                format:
+                  value:
+                    type: mixed
+                    value: '%Y-%m-%d %H:%M:%S'
+                timezone:
+                  value:
+                    type: constant
+                    value: UTC
+              tool_description: A tool for getting the current time.
+              tool_label: Current Time
+              tool_name: current_time
+              type: builtin
+            - enabled: true
+              extra:
+                description: Get current weather with no API key, with multi-language
+                  translation and CJK-aware geolocation.
+              parameters:
+                location:
+                  auto: 1
+                  value: null
+              provider_name: alexmultiagent/myweather/myweather
+              provider_show_name: alexmultiagent/myweather/myweather
+              settings:
+                include_raw_json:
+                  value:
+                    type: constant
+                    value: false
+                language:
+                  value:
+                    type: constant
+                    value: auto
+                source_preference:
+                  value:
+                    type: constant
+                    value: wttr
+                units:
+                  value:
+                    type: constant
+                    value: metric
+              tool_description: Get current weather with no API key, with multi-language
+                translation and CJK-aware geolocation.
+              tool_label: Weather Lookup
+              tool_name: weather_lookup
+              type: builtin
+            - enabled: true
+              extra:
+                description: A tool for scraping webpages.
+              parameters:
+                url:
+                  auto: 1
+                  value: null
+              provider_name: webscraper
+              provider_show_name: webscraper
+              settings:
+                generate_summary:
+                  value:
+                    type: constant
+                    value: 'false'
+                user_agent:
+                  value:
+                    type: mixed
+                    value: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
+                      (KHTML, like Gecko) Chrome/100.0.1000.0 Safari/537.36
+              tool_description: A tool for scraping webpages.
+              tool_label: Web Scraper
+              tool_name: webscraper
+              type: builtin
+        agent_strategy_label: FunctionCalling
+        agent_strategy_name: function_calling
+        agent_strategy_provider_name: langgenius/agent/agent
+        meta:
+          minimum_dify_version: 1.7.0
+          version: 0.0.2
+        output_schema: {}
+        plugin_unique_identifier: langgenius/agent:0.0.39@ceea6a76b3a495de2df2a55bcea82e903d49b06f4d8e1463c2aa085657f27164
+        selected: false
+        title: Agent
+        tool_node_version: '2'
+        type: agent
+      height: 78
+      id: '1783651897861'
+      position:
+        x: 394
+        y: 249
+      positionAbsolute:
+        x: 394
+        y: 249
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+    viewport:
+      x: -296.5
+      y: 37.5
+      zoom: 1
+  rag_pipeline_variables: []

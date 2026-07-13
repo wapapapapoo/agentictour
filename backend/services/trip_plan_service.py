@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from models.trip_plan import TripPlanRequest, TripPlanVersion
-from schemas.trip_plan import TripPlanGenerateRequest, TripPlanReviseRequest
+from schemas.trip_plan import (
+    PlanHumanizeRequest,
+    TripPlanGenerateRequest,
+    TripPlanReviseRequest,
+)
 from utils.dify_client import DifyClient, DifyError, DifyResponseError
 
 DEFAULT_EMPTY_PLAN = {
@@ -139,6 +144,72 @@ def list_plans(db: Session, user_id: str | None = None) -> list[dict[str, Any]]:
     return items
 
 
+def humanize_plan(
+    db: Session,
+    plan_id: int,
+    data: PlanHumanizeRequest,
+) -> dict[str, Any]:
+    request = get_plan(db, plan_id)
+    if request is None:
+        raise LookupError("trip plan not found")
+
+    latest_version = get_latest_version(db, plan_id)
+    if latest_version is None or not latest_version.plan_json:
+        raise LookupError("trip plan version not found or plan_json is empty")
+
+    plan_json = latest_version.plan_json
+
+    original_prompt = (
+        f"出发地：{request.origin_city}\n"
+        f"目的地：{request.destination_city}\n"
+        f"出发日期：{request.start_date}\n"
+        f"结束日期：{request.end_date}\n"
+        f"人数：{request.people_count}\n"
+        f"预算：{request.budget_total}\n"
+        f"兴趣：{request.interests}\n"
+        f"住宿标准：{request.hotel_level}\n"
+        f"交通偏好：{request.transport_preference}\n"
+        f"旅游节奏：{request.pace}"
+    )
+    if request.special_requirements:
+        original_prompt += f"\n特殊要求：{request.special_requirements}"
+
+    client = DifyClient(
+        api_key=os.getenv("DIFY_HUMANIZE_API_KEY") or os.getenv("DIFY_API_KEY"),
+        url=os.getenv("DIFY_HUMANIZE_URL") or os.getenv("DIFY_URL"),
+        timeout=float(os.getenv("DIFY_TIMEOUT", "60")),
+    )
+    try:
+        response = client.run_workflow(
+            user=data.user_id,
+            inputs={
+                "input_json": plan_json,
+                "original_user_prompt": original_prompt,
+            },
+        )
+    except DifyError:
+        raise
+
+    outputs = response.get("data", {}).get("outputs", {})
+    natural_language = (
+        outputs.get("reply")
+        or outputs.get("text")
+        or outputs.get("result")
+        or ""
+    )
+    if isinstance(natural_language, dict):
+        natural_language = json.dumps(natural_language, ensure_ascii=False)
+
+    plan_obj = _loads_json(plan_json)
+    title = plan_obj.get("title") if isinstance(plan_obj, dict) else None
+
+    return {
+        "plan_id": plan_id,
+        "title": title,
+        "natural_language": natural_language,
+    }
+
+
 def delete_plan(db: Session, plan_id: int) -> bool:
     request = get_plan(db, plan_id)
     if request is None:
@@ -256,8 +327,11 @@ def _extract_plan_json(workflow_response: dict[str, Any]) -> Any:
 
 
 def _loads_json(value: str) -> Any:
+    stripped = value.strip()
+    # 去掉 think 标签，提取纯 JSON
+    think_stripped = re.sub(r"</?think>", "", stripped, flags=re.IGNORECASE).strip()
     try:
-        return json.loads(value)
+        return json.loads(think_stripped)
     except json.JSONDecodeError:
         return {
             "title": "行程计划",

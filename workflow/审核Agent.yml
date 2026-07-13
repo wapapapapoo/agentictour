@@ -1,0 +1,528 @@
+app:
+  description: 对ai生成的内容进行审核
+  icon: 🤖
+  icon_background: '#FFEAD5'
+  icon_type: emoji
+  mode: workflow
+  name: 审核Agent
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/deepseek:0.0.19@5b68617c637b62d31e7f33a9f5677b76e88f81868fb04a728e208588564b72ea
+    version: null
+kind: app
+version: 0.6.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        attachment_image_file_size_limit: 2
+        audio_file_size_limit: 50
+        batch_count_limit: 500
+        file_size_limit: 500
+        file_upload_limit: 20
+        image_file_batch_limit: 10
+        image_file_size_limit: 10
+        single_chunk_attachment_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: agent
+      id: 1783649676231-source-1783649864380-target
+      source: '1783649676231'
+      sourceHandle: source
+      target: '1783649864380'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: agent
+        targetType: parameter-extractor
+      id: 1783649864380-source-1783650107025-target
+      source: '1783649864380'
+      sourceHandle: source
+      target: '1783650107025'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: parameter-extractor
+        targetType: end
+      id: 1783650107025-source-1783650315406-target
+      source: '1783650107025'
+      sourceHandle: source
+      target: '1783650315406'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        selected: false
+        title: 用户输入
+        type: start
+        variables:
+        - default: ''
+          hint: ''
+          label: input
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: input
+        - default: ''
+          hint: ''
+          label: ai_readout
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: ai_readout
+        - default: first
+          hint: ''
+          label: turn
+          options:
+          - first
+          - second
+          placeholder: ''
+          required: true
+          type: select
+          variable: turn
+      height: 159
+      id: '1783649676231'
+      position:
+        x: 209
+        y: 236
+      positionAbsolute:
+        x: 209
+        y: 236
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        agent_parameters:
+          instruction:
+            type: constant
+            value: '你是一个内容审核专家，你需要对你的队友的答复进行审核。
+
+              在开始之前，先根据工具获取一下当前时间，并检查你有哪些工具可以调用。
+
+              你会被告知用户的输入和队友的答复。
+
+              你需要检查答复是否合理、是否满足用户需求。
+
+
+              根据审核结果进行判断，如果当前审核不通过：
+
+              如果当前轮次是"first"，你需要将输入和输出进行总结，然后叙述审核不通过的原因，同时并提出新的答复的要求，用于为队友纠错；
+
+              如果是"second"，你需要向用户进行道歉，说明无法完成人物的原因。
+
+              再进行修改建议时，有可能用户的输入与真实情况存在差异，你需要对此进行提醒，并要求你的队友的回复也必须包含这一步提醒
+
+
+              你返回的内容应该是一个json格式，其中"reply"代表你回答的主要内容，"result"则是一个boolean，代表当前审核是否通过。'
+          model:
+            type: constant
+            value:
+              completion_params:
+                response_format: json_object
+                thinking: true
+              mode: chat
+              model: deepseek-v4-flash
+              model_type: llm
+              provider: langgenius/deepseek/deepseek
+              type: model-selector
+          query:
+            type: constant
+            value: "用户输入：{{#1783649676231.input#}}\n用户输出：{{#1783649676231.ai_readout#}}\n\
+              当前伦次：{{#1783649676231.turn#}}\n审核步骤：\n第一步： 提取AI回复和用户输入中的事实性声明。 \n第二步：\
+              \ 判断哪些声明需要外部数据验证。 \n第三步： 调用工具验证。\n第四步： 输出审核结果。"
+          tools:
+            type: constant
+            value:
+            - enabled: true
+              extra:
+                description: '查询指定城市或区县的天气。
+
+
+                  适用场景：
+
+                  - 需要获取今天/现在天气
+
+
+                  参数：
+
+                  - adcode: 高德行政区编码，例如上海 310000，北京 110000
+
+                  - extensions: base 表示实况天气，all 表示天气预报'
+              parameters:
+                adcode:
+                  auto: 1
+                  value: null
+                extensions:
+                  auto: 1
+                  value: null
+              provider_name: travel-mcp
+              provider_show_name: AI旅游MCP
+              settings: {}
+              tool_description: '查询指定城市或区县的天气。
+
+
+                适用场景：
+
+                - 用户问今天/现在天气
+
+                - 用户问是否需要带伞
+
+                - 用户问穿衣建议
+
+                - 系统自动生成行前提醒
+
+
+                参数：
+
+                - adcode: 高德行政区编码，例如上海 310000，北京 110000
+
+                - extensions: base 表示实况天气，all 表示天气预报'
+              tool_label: amap_weather
+              tool_name: amap_weather
+              type: mcp
+            - enabled: true
+              extra:
+                description: '查询当前位置附近的地点。
+
+
+                  适用场景：
+
+                  -需要查询附近的景点或者建筑
+
+
+                  参数：
+
+                  - location: 经纬度，格式为 经度,纬度，例如 116.397428,39.90923
+
+                  - keywords: 搜索关键词，例如 餐厅、咖啡、厕所、商场
+
+                  - types: 高德 POI 类型编码，可为空
+
+                  - radius: 搜索半径，单位米
+
+                  - page_size: 返回数量
+
+                  - page_num: 页码'
+              parameters:
+                keywords:
+                  auto: 1
+                  value: null
+                location:
+                  auto: 1
+                  value: null
+                page_num:
+                  auto: 1
+                  value: null
+                page_size:
+                  auto: 1
+                  value: null
+                radius:
+                  auto: 1
+                  value: null
+                types:
+                  auto: 1
+                  value: null
+              provider_name: travel-mcp
+              provider_show_name: AI旅游MCP
+              settings: {}
+              tool_description: '查询当前位置附近的地点。
+
+
+                适用场景：
+
+                - 用户想找附近餐厅
+
+                - 用户想找咖啡店
+
+                - 用户想找休息点
+
+                - 用户想找厕所、商场、景点等
+
+
+                参数：
+
+                - location: 经纬度，格式为 经度,纬度，例如 116.397428,39.90923
+
+                - keywords: 搜索关键词，例如 餐厅、咖啡、厕所、商场
+
+                - types: 高德 POI 类型编码，可为空
+
+                - radius: 搜索半径，单位米
+
+                - page_size: 返回数量
+
+                - page_num: 页码'
+              tool_label: amap_nearby_search
+              tool_name: amap_nearby_search
+              type: mcp
+            - enabled: true
+              extra:
+                description: '查询两个地点之间的步行路线。
+
+
+                  适用场景：
+
+                  - 查询路线时
+
+
+                  参数：
+
+                  - origin: 起点经纬度，格式为 经度,纬度
+
+                  - destination: 终点经纬度，格式为 经度,纬度
+
+                  - isindoor: 是否室内算路，0 不需要，1 需要'
+              parameters:
+                destination:
+                  auto: 1
+                  value: null
+                isindoor:
+                  auto: 1
+                  value: null
+                origin:
+                  auto: 1
+                  value: null
+              provider_name: travel-mcp
+              provider_show_name: AI旅游MCP
+              settings: {}
+              tool_description: '查询两个地点之间的步行路线。
+
+
+                适用场景：
+
+                - 用户问怎么走
+
+                - 用户问步行多久
+
+                - 用户问是否来得及
+
+                - 系统判断附近地点是否适合作为推荐
+
+
+                参数：
+
+                - origin: 起点经纬度，格式为 经度,纬度
+
+                - destination: 终点经纬度，格式为 经度,纬度
+
+                - isindoor: 是否室内算路，0 不需要，1 需要'
+              tool_label: amap_walking_route
+              tool_name: amap_walking_route
+              type: mcp
+            - enabled: true
+              extra:
+                description: 一个用于获取当前时间的工具。
+              parameters: {}
+              provider_name: time
+              provider_show_name: time
+              settings:
+                format:
+                  value:
+                    type: mixed
+                    value: '%Y-%m-%d %H:%M:%S'
+                timezone:
+                  value:
+                    type: constant
+                    value: Asia/Shanghai
+              tool_description: 一个用于获取当前时间的工具。
+              tool_label: 获取当前时间
+              tool_name: current_time
+              type: builtin
+            - enabled: true
+              extra:
+                description: 时区转换
+              parameters:
+                current_time:
+                  auto: 1
+                  value: null
+                current_timezone:
+                  auto: 1
+                  value: null
+                target_timezone:
+                  auto: 1
+                  value: null
+              provider_name: time
+              provider_show_name: time
+              settings: {}
+              tool_description: 时区转换
+              tool_label: 时区转换
+              tool_name: timezone_conversion
+              type: builtin
+        agent_strategy_label: FunctionCalling
+        agent_strategy_name: function_calling
+        agent_strategy_provider_name: langgenius/agent/agent
+        desc: 对ai的输出进行check
+        meta:
+          minimum_dify_version: 1.7.0
+          version: 0.0.2
+        output_schema: {}
+        plugin_unique_identifier: langgenius/agent:0.0.39@ceea6a76b3a495de2df2a55bcea82e903d49b06f4d8e1463c2aa085657f27164
+        selected: false
+        title: Agent
+        tool_node_version: '2'
+        type: agent
+      height: 214
+      id: '1783649864380'
+      position:
+        x: 517
+        y: 236
+      positionAbsolute:
+        x: 517
+        y: 236
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+    - data:
+        instruction: 请根据Agent的输出，提取出所需要的变量
+        model:
+          completion_params:
+            temperature: 0.7
+            thinking: true
+          mode: chat
+          name: deepseek-v4-flash
+          provider: langgenius/deepseek/deepseek
+        parameters:
+        - description: 接受ai输出的文本answer
+          name: reply
+          required: false
+          type: string
+        - description: 接受ai判断这轮是否通过
+          name: result
+          required: false
+          type: boolean
+        query:
+        - '1783649864380'
+        - text
+        reasoning_mode: prompt
+        selected: false
+        title: 参数提取器
+        type: parameter-extractor
+        vision:
+          enabled: false
+      height: 86
+      id: '1783650107025'
+      position:
+        x: 826
+        y: 236
+      positionAbsolute:
+        x: 826
+        y: 236
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+    - data:
+        outputs:
+        - value_selector:
+          - '1783650107025'
+          - reply
+          value_type: string
+          variable: reply
+        - value_selector:
+          - '1783650107025'
+          - result
+          value_type: boolean
+          variable: result
+        selected: false
+        title: 输出
+        type: end
+      height: 113
+      id: '1783650315406'
+      position:
+        x: 1095
+        y: 226
+      positionAbsolute:
+        x: 1095
+        y: 226
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+    - data:
+        author: wapapapapoo
+        desc: ''
+        height: 147
+        selected: false
+        showAuthor: true
+        text: '{"root":{"children":[{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"参数为输入、ai读出、审核轮次","type":"text","version":1}],"direction":null,"format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"第一轮未通过输出修改建议","type":"text","version":1}],"direction":null,"format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"第二轮未通过对用户道歉","type":"text","version":1}],"direction":null,"format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"返回值包括reply、回复和result审核结果","type":"text","version":1}],"direction":null,"format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""}],"direction":null,"format":"","indent":0,"type":"root","version":1}}'
+        theme: blue
+        title: ''
+        type: ''
+        width: 297
+      height: 147
+      id: '1783663853638'
+      position:
+        x: 242.65974551658064
+        y: 58.333229951247965
+      positionAbsolute:
+        x: 242.65974551658064
+        y: 58.333229951247965
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom-note
+      width: 297
+    viewport:
+      x: -235.742850498895
+      y: 159.99271471333773
+      zoom: 1.1486983549970347
+  rag_pipeline_variables: []
