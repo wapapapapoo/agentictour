@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -326,8 +327,11 @@ def _extract_plan_json(workflow_response: dict[str, Any]) -> Any:
 
 
 def _loads_json(value: str) -> Any:
+    stripped = value.strip()
+    # 去掉 think 标签，提取纯 JSON
+    think_stripped = re.sub(r"</?think>", "", stripped, flags=re.IGNORECASE).strip()
     try:
-        return json.loads(value)
+        return json.loads(think_stripped)
     except json.JSONDecodeError:
         return {
             "title": "行程计划",
