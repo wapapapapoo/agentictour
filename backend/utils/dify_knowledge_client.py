@@ -53,10 +53,14 @@ def create_document_by_text(
         "process_rule": {
             "mode": "custom",
             "rules": {
+                "pre_processing_rules": [
+                    {"id": "remove_extra_spaces", "enabled": True},
+                    {"id": "remove_urls_emails", "enabled": False},
+                ],
                 "segmentation": {
                     "separator": "\n",
                     "max_tokens": chunk_size,
-                }
+                },
             },
         },
     }
