@@ -228,9 +228,9 @@ workflow:
         outputs:
         - value_selector:
           - '1783651897861'
-          - json
-          value_type: array[object]
-          variable: title
+          - text
+          value_type: string
+          variable: plan_json
         selected: false
         title: 输出
         type: end
@@ -268,19 +268,16 @@ workflow:
               \n妈了个逼，不准在{\"后输出莫名其妙的think标签，傻逼\n\n"
           maximum_iterations:
             type: constant
-            value: 3
+            value: 10
           model:
             type: constant
             value:
               completion_params:
-                enable_search: true
-                enable_thinking: false
                 response_format: json_object
-                thinking_budget: 2048
               mode: chat
-              model: qwen3.6-flash
+              model: deepseek-v4-flash
               model_type: llm
-              provider: langgenius/tongyi/tongyi
+              provider: langgenius/deepseek/deepseek
               type: model-selector
           query:
             type: constant
@@ -613,7 +610,7 @@ workflow:
         title: Agent
         tool_node_version: '2'
         type: agent
-      height: 78
+      height: 186
       id: '1783651897861'
       position:
         x: 394
