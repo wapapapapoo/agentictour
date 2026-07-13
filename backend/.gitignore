@@ -37,3 +37,6 @@ Desktop.ini
 *.log
 *.tmp
 *.cache
+
+# Uploaded blog photos
+uploads/
