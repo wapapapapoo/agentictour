@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 
 from routers.blog import router as blog_router
+from routers.knowledge import router as knowledge_router
 from routers.trip_plan import router as trip_plan_router
 
 # 加载 .env 文件
@@ -15,6 +16,7 @@ app = FastAPI(
 )
 
 app.include_router(blog_router)
+app.include_router(knowledge_router)
 app.include_router(trip_plan_router)
 
 @app.get("/")
