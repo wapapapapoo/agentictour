@@ -328,10 +328,14 @@ def _extract_plan_json(workflow_response: dict[str, Any]) -> Any:
 
 def _loads_json(value: str) -> Any:
     stripped = value.strip()
-    # 去掉 think 标签，提取纯 JSON
-    think_stripped = re.sub(r"</?think>", "", stripped, flags=re.IGNORECASE).strip()
+    # 去掉 think 标签
+    stripped = re.sub(r"</?think>", "", stripped, flags=re.IGNORECASE).strip()
+    # 如果文本中嵌有 JSON，提取从第一个 { 到最后一个 }
+    match = re.search(r"\{.*\}", stripped, re.DOTALL)
+    if match:
+        stripped = match.group(0)
     try:
-        return json.loads(think_stripped)
+        return json.loads(stripped)
     except json.JSONDecodeError:
         return {
             "title": "行程计划",
