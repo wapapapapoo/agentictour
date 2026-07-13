@@ -18,8 +18,14 @@ from services.trip_plan_service import (
     get_plan,
     humanize_plan,
 )
+import os
+
 from utils import dify_knowledge_client as kb_client
 from utils.dify_client import DifyError, DifyRequestError
+
+
+def _dataset_id(requested: str) -> str:
+    return requested or os.getenv("DIFY_KNOWLEDGE_DATASET_ID", "").strip()
 
 _METADATA_PLAN_ID = "plan_id"
 _METADATA_VERSION_ID = "version_id"
@@ -79,7 +85,10 @@ def create_knowledge(
         return _mapping_to_response(existing)
 
     # 确保知识库有元数据字段
-    field_map = _ensure_metadata_fields(data.dataset_id)
+    ds_id = _dataset_id(ds_id)
+    if not ds_id:
+        raise RuntimeError("dataset_id 未配置，请设置 DIFY_KNOWLEDGE_DATASET_ID 环境变量或传入 dataset_id")
+    field_map = _ensure_metadata_fields(ds_id)
 
     plan_obj = _loads_json(version.plan_json)
     title = (
@@ -102,7 +111,7 @@ def create_knowledge(
     doc_name = _pick_doc_name(title, plan)
     try:
         result = kb_client.create_document_by_text(
-            dataset_id=data.dataset_id,
+            dataset_id=ds_id,
             name=doc_name,
             text=humanized_text,
             chunk_size=data.chunk_size,
@@ -116,7 +125,7 @@ def create_knowledge(
     # 3) 写入元数据：来源计划的 plan_id / version_id
     try:
         kb_client.update_document_metadata(
-            dataset_id=data.dataset_id,
+            dataset_id=ds_id,
             operation_data=[{
                 "document_id": doc_id,
                 "metadata_list": [
@@ -133,7 +142,7 @@ def create_knowledge(
         plan_id=plan.id,
         version_id=version.id,
         user_id=data.user_id,
-        dataset_id=data.dataset_id,
+        dataset_id=ds_id,
         document_id=doc_id,
         document_name=doc_name,
         batch=batch,
@@ -200,9 +209,12 @@ def search_knowledge(
     db: Session,
     data: Any,  # KnowledgeSearchRequest
 ) -> dict[str, Any]:
+    ds_id = _dataset_id(data.dataset_id)
+    if not ds_id:
+        raise RuntimeError("dataset_id 未配置")
     try:
         resp = kb_client.retrieve_chunks(
-            dataset_id=data.dataset_id,
+            dataset_id=ds_id,
             query=data.query,
         )
     except requests.RequestException as exc:

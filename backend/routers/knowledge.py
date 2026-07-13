@@ -56,3 +56,5 @@ def search_knowledge(
         return knowledge_service.search_knowledge(db, data)
     except DifyRequestError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
