@@ -16,6 +16,10 @@ dist/
 /docs/
 /outputs/
 
+# Runtime data
+backend/uploads/
+logs/
+
 # OS
 .DS_Store
 Thumbs.db
