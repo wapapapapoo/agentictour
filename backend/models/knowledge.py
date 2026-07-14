@@ -72,6 +72,7 @@ class UserPreferencePrototype(Base):
     )
     user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     vector: Mapped[str] = mapped_column(Text, nullable=False)
+    chunk_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=True, server_default=func.now()
     )
