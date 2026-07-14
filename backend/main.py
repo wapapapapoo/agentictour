@@ -12,6 +12,7 @@ from db_init import run_init_sql
 from routers.accompany import router as accompany_router
 from routers.auth import router as auth_router
 from routers.blog import router as blog_router
+from routers.debug import router as debug_router
 from routers.knowledge import router as knowledge_router
 from routers.trip import router as trip_router
 from routers.trip_plan import router as trip_plan_router
@@ -46,6 +47,7 @@ app.include_router(knowledge_router, dependencies=[Depends(get_current_user)])
 app.include_router(trip_plan_router, dependencies=[Depends(get_current_user)])
 app.include_router(trip_router, dependencies=[Depends(get_current_user)])
 app.include_router(accompany_router, dependencies=[Depends(get_current_user)])
+app.include_router(debug_router)
 
 
 @app.get("/")
