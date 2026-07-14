@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user
 from database import get_db
-from models.operation_log import PlanLike
+from models.knowledge import PlanLike
 from routers.operation_log import write_log
 from schemas.operation_log import PlanLikeRequest, PlanLikeResponse
 from schemas.trip_plan import (

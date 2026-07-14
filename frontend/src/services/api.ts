@@ -22,8 +22,9 @@ export interface Memo { memo_id: number; trip_id: number; memo_text: string; rem
 export interface Itinerary { itinerary_id: number; trip_id: number; title: string; place_name: string; start_time: string; end_time: string; itinerary_type: 'transit' | 'play'; status: string; reminder_time?: string | null; is_initial?: boolean }
 export interface Advice { advice_id: number; trip_id: number; advice_text: string; result: string; audit_status: string; audit_reason?: string | null; created_at: string }
 export interface Notification { notification_id: number; trip_id: number; content: string; category: string; read_at?: string | null; created_at: string }
-export interface KnowledgeSearchResult { chunk_content: string; score: number; document_id: string; plan_id?: number | null; plan_title?: string | null }
+export interface KnowledgeSearchResult { chunk_content: string; score: number; document_id: string; plan_id?: number | null; plan_title?: string | null; like_count: number }
 export interface KnowledgeSearchResponse { results: KnowledgeSearchResult[] }
+export interface PlanLikeResponse { id: number; user_id: number; plan_id: number; chunk_ids: string[]; created_at: string }
 
 function detailMessage(detail: unknown, fallback: string) {
   if (typeof detail === 'string') return detail
@@ -86,6 +87,7 @@ export const api = {
   listNotifications: (unreadOnly = true) => request<Notification[]>(`/notifications?user_id=${requireUserId()}&unread_only=${unreadOnly}`),
   markNotificationRead: (id: number) => request<Notification>(`/notifications/${id}/read?user_id=${requireUserId()}`, { method: 'POST' }),
   searchKnowledge: (query: string, dataset_id = '') => request<KnowledgeSearchResponse>('/trip-plans/knowledge/search', { method: 'POST', body: JSON.stringify({ query, dataset_id }) }),
+  likePlan: (planId: number, chunkIds: string[]) => request<PlanLikeResponse>(`/trip-plans/${planId}/like`, { method: 'POST', body: JSON.stringify({ chunk_ids: chunkIds }) }),
   sendChatMessage: (payload: { trip_id: number; message: string; city?: string; nearby_context?: string; latitude?: number; longitude?: number; location_name?: string }) => request<ChatReply>('/chat/messages', { method: 'POST', body: JSON.stringify({ ...payload, user_id: requireUserId() }) }),
   updateLocation: (payload: { latitude: number; longitude: number; city?: string; place_name?: string; location_context?: string }) => request('/locations', { method: 'PUT', body: JSON.stringify({ ...payload, user_id: requireUserId() }) }),
 }
