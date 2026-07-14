@@ -229,13 +229,14 @@ def search_knowledge(
     except requests.RequestException as exc:
         raise DifyRequestError(f"retrieve failed: {exc}") from exc
 
-    results: list[dict[str, Any]] = []
+    import math
+
+    raw: list[dict[str, Any]] = []
     for record in resp.get("records", []):
         segment = record.get("segment", record)
         doc_id = segment.get("document_id", "")
         chunk = segment.get("content", "")
 
-        # 查映射
         mapping = (
             db.query(PlanKnowledgeMapping)
             .filter(PlanKnowledgeMapping.document_id == doc_id)
@@ -243,6 +244,7 @@ def search_knowledge(
         )
 
         plan_id = mapping.plan_id if mapping else None
+        version_id = mapping.version_id if mapping else None
         title = None
         if plan_id:
             plan = get_plan(db, plan_id)
@@ -253,13 +255,43 @@ def search_knowledge(
                     if isinstance(obj, dict):
                         title = obj.get("title")
 
-        results.append({
+        raw.append({
             "chunk_content": chunk,
             "score": record.get("score", 0.0),
             "document_id": doc_id,
             "plan_id": plan_id,
+            "version_id": version_id,
             "plan_title": title,
         })
+
+    # 按 (plan_id, version_id) 合并同一行程同一版本的 chunk
+    groups: dict[tuple, dict[str, Any]] = {}
+    for item in raw:
+        key = (item["plan_id"], item["version_id"])
+        if key in groups:
+            merged = groups[key]
+            merged["chunk_content"] += "\n---\n" + item["chunk_content"]
+            merged["_scores"].append(item["score"])
+        else:
+            groups[key] = {
+                "chunk_content": item["chunk_content"],
+                "score": item["score"],
+                "document_id": item["document_id"],
+                "plan_id": item["plan_id"],
+                "version_id": item["version_id"],
+                "plan_title": item["plan_title"],
+                "_scores": [item["score"]],
+            }
+
+    results: list[dict[str, Any]] = []
+    for g in groups.values():
+        scores = g.pop("_scores")
+        if len(scores) > 1:
+            g["score"] = math.log(sum(math.exp(s) for s in scores))
+        results.append(g)
+
+    # 按合并后分数降序
+    results.sort(key=lambda r: r["score"], reverse=True)
 
     return {"results": results}
 
