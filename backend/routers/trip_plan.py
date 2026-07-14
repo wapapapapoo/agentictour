@@ -1,3 +1,4 @@
+import json
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -5,7 +6,9 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user
 from database import get_db
+from models.knowledge import PlanLike
 from routers.operation_log import write_log
+from schemas.operation_log import PlanLikeRequest, PlanLikeResponse
 from schemas.trip_plan import (
     PlanHumanizeRequest,
     PlanHumanizeResponse,
@@ -100,3 +103,38 @@ def humanize_trip_plan(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except DifyError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.post("/{plan_id}/like", response_model=PlanLikeResponse)
+def like_trip_plan(
+    plan_id: int,
+    data: PlanLikeRequest,
+    current_user_id: int = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Any:
+    plan = trip_plan_service.get_plan(db, plan_id)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="trip plan not found")
+
+    like = PlanLike(
+        user_id=current_user_id,
+        plan_id=plan_id,
+        chunk_ids=json.dumps(data.chunk_ids, ensure_ascii=False),
+    )
+    db.add(like)
+    db.commit()
+    db.refresh(like)
+
+    write_log(
+        current_user_id,
+        "点赞",
+        f"plan_id:{plan_id} chunks:{','.join(data.chunk_ids)}",
+    )
+
+    return PlanLikeResponse(
+        id=like.id,
+        user_id=like.user_id,
+        plan_id=like.plan_id,
+        chunk_ids=data.chunk_ids,
+        created_at=like.created_at.isoformat() if like.created_at else "",
+    )

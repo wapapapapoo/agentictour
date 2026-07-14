@@ -264,30 +264,45 @@ def search_knowledge(
             "plan_title": title,
         })
 
-    # 按 (plan_id, version_id) 合并同一行程同一版本的 chunk
-    groups: dict[tuple, dict[str, Any]] = {}
+    # 按 plan_id 合并同一行程的所有 chunk
+    groups: dict[int, dict[str, Any]] = {}
     for item in raw:
-        key = (item["plan_id"], item["version_id"])
-        if key in groups:
-            merged = groups[key]
+        pid = item["plan_id"]
+        if pid is None:
+            pid = id(item)
+        if pid in groups:
+            merged = groups[pid]
             merged["chunk_content"] += "\n---\n" + item["chunk_content"]
             merged["_scores"].append(item["score"])
         else:
-            groups[key] = {
+            groups[pid] = {
                 "chunk_content": item["chunk_content"],
                 "score": item["score"],
                 "document_id": item["document_id"],
                 "plan_id": item["plan_id"],
-                "version_id": item["version_id"],
                 "plan_title": item["plan_title"],
                 "_scores": [item["score"]],
             }
+
+    # 预加载点赞计数
+    from models.knowledge import PlanLike
+    all_plan_ids = [g["plan_id"] for g in groups.values() if g["plan_id"] is not None]
+    like_counts: dict[int, int] = {}
+    if all_plan_ids:
+        likes = (
+            db.query(PlanLike.plan_id, PlanLike.id)
+            .filter(PlanLike.plan_id.in_(all_plan_ids))
+            .all()
+        )
+        for plan_id, _ in likes:
+            like_counts[plan_id] = like_counts.get(plan_id, 0) + 1
 
     results: list[dict[str, Any]] = []
     for g in groups.values():
         scores = g.pop("_scores")
         if len(scores) > 1:
             g["score"] = math.log(sum(math.exp(s) for s in scores))
+        g["like_count"] = like_counts.get(g["plan_id"], 0)
         results.append(g)
 
     # 按合并后分数降序
