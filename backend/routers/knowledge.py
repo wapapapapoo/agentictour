@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user
 from database import get_db
+from routers.operation_log import write_log
 from schemas.knowledge import (
     KnowledgeSearchRequest,
     KnowledgeSearchResponse,
@@ -59,7 +60,9 @@ def search_knowledge(
     db: Session = Depends(get_db),
 ) -> Any:
     try:
-        return knowledge_service.search_knowledge(db, data)
+        result = knowledge_service.search_knowledge(db, data)
+        write_log(current_user_id, "搜索", f"关键词:{data.query}")
+        return result
     except DifyRequestError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except RuntimeError as exc:

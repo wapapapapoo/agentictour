@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user
 from database import get_db
+from routers.operation_log import write_log
 from schemas.trip_plan import (
     PlanHumanizeRequest,
     PlanHumanizeResponse,
@@ -33,6 +34,7 @@ def generate_trip_plan(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except DifyError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+    write_log(current_user_id, "生成", f"目的地:{data.destination_city} 兴趣:{data.interests}")
     return trip_plan_service.to_response(plan)
 
 
