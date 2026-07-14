@@ -103,7 +103,7 @@ def create_knowledge(
     humanized = humanize_plan(
         db=db,
         plan_id=plan_id,
-        data=PlanHumanizeRequest(user_id=data.user_id),
+        user_id=data.user_id,
     )
     humanized_text = humanized["natural_language"]
     if not humanized_text:
