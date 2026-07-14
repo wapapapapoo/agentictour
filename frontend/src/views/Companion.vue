@@ -1,151 +1,17 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
+import { api, type Trip } from '@/services/api'
 
-const message = ref('')
-const messages = ref([
-  {
-    role: 'agent',
-    text: '你好，我是 Hikari。告诉我你现在在哪里，或直接问我旅行中的任何问题。',
-  },
-])
-const locationEnabled = ref(false)
-
-function send() {
-  if (!message.value.trim()) return
-  messages.value.push({ role: 'user', text: message.value.trim() })
-  const question = message.value.trim()
-  message.value = ''
-  globalThis.setTimeout(
-    () =>
-      messages.value.push({
-        role: 'agent',
-        text: `已记录：「${question}」。实时陪伴 Agent 的后端接口正在接入中；目前页面已预留对话、定位和情境建议入口。`,
-      }),
-    350,
-  )
-}
-
-function locate() {
-  if (!globalThis.navigator.geolocation) return
-  globalThis.navigator.geolocation.getCurrentPosition(
-    () => { locationEnabled.value = true },
-    () => { locationEnabled.value = false },
-  )
-}
+const trips = ref<Trip[]>([]); const tripId = ref<number | null>(null); const message = ref(''); const loading = ref(false); const locationEnabled = ref(false); const locationText = ref('尚未获取位置'); const error = ref('')
+const messages = ref([{ role: 'agent', text: '你好，我是 Hikari。选择一趟行程后，可以问我行程中的任何问题。' }])
+async function loadTrips() { try { trips.value = await api.listTrips(); tripId.value = trips.value[0]?.id || null } catch (cause) { error.value = cause instanceof Error ? cause.message : '无法读取行程。' } }
+async function send() { const text = message.value.trim(); if (!text) return; if (!tripId.value) { error.value = '请先创建并选择一趟行程。'; return }; error.value = ''; messages.value.push({ role: 'user', text }); message.value = ''; loading.value = true; try { const reply = await api.sendChatMessage({ trip_id: tripId.value, message: text, location_name: locationEnabled.value ? locationText.value : undefined }); messages.value.push({ role: 'agent', text: reply.reply || reply.content || '已收到你的问题。' }) } catch (cause) { error.value = cause instanceof Error ? cause.message : '暂时无法获取回复。' } finally { loading.value = false } }
+function locate() { if (!globalThis.navigator.geolocation) { error.value = '当前浏览器不支持定位。'; return }; globalThis.navigator.geolocation.getCurrentPosition(async (position) => { try { await api.updateLocation({ latitude: position.coords.latitude, longitude: position.coords.longitude, location_context: '浏览器实时定位' }); locationEnabled.value = true; locationText.value = `${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}` } catch (cause) { error.value = cause instanceof Error ? cause.message : '位置上传失败。' } }, () => { error.value = '未能获取定位权限。' }) }
+onMounted(loadTrips)
 </script>
 
-<template>
-  <div class="page companion-page">
-    <section class="companion-hero">
-      <p class="eyebrow">
-        Travel companion · Hikari
-      </p>
-      <h1 class="page-title">
-        旅程在发生，建议也该及时抵达。
-      </h1>
-      <p class="page-intro">
-        根据你的位置、时间和当下状态，给出刚刚好的下一步。
-      </p>
-    </section>
-    <div class="companion-grid">
-      <section class="card chat-card">
-        <div class="chat-header">
-          <div>
-            <span class="hikari">✦</span><b>Hikari · 旅行陪伴</b>
-            <small>轻量实时建议</small>
-          </div>
-          <span class="online">● 在线</span>
-        </div>
-        <div class="messages">
-          <div
-            v-for="(item, index) in messages"
-            :key="index"
-            class="message"
-            :class="item.role"
-          >
-            {{ item.text }}
-          </div>
-        </div>
-        <div class="quick-asks">
-          <button
-            v-for="ask in ['附近有什么值得去？', '今天需要带伞吗？', '帮我找一家餐厅']"
-            :key="ask"
-            @click="message = ask; send()"
-          >
-            {{ ask }}
-          </button>
-        </div>
-        <form
-          class="composer"
-          @submit.prevent="send"
-        >
-          <input
-            v-model="message"
-            placeholder="问问 Hikari…"
-          >
-          <button type="submit">
-            发送
-          </button>
-        </form>
-      </section>
-      <aside class="companion-side">
-        <section class="card context-card">
-          <span class="pin">⌖</span>
-          <h2>{{ locationEnabled ? '已开启位置' : '尚未获取位置' }}</h2>
-          <p>{{ locationEnabled ? 'Hikari 将据此调整附近推荐。' : '开启位置后，获得附近景点、餐饮和路线建议。' }}</p>
-          <button
-            class="secondary-button"
-            @click="locate"
-          >
-            {{ locationEnabled ? '更新位置' : '开启定位' }}
-          </button>
-        </section>
-        <section class="card future-card">
-          <p class="eyebrow">
-            Coming next
-          </p>
-          <h2>动态改线</h2>
-          <p>天气、闭馆、排队和交通延误触发行程调整。</p>
-          <span>接口预留中</span>
-        </section>
-      </aside>
-    </div>
-    <section class="companion-signals">
-      <div class="signal-heading">
-        <p class="eyebrow">
-          Signals around you
-        </p>
-        <h2>出发前，Hikari 会关注这些变化</h2>
-        <p>以下模块已按需求文档预留展示位置；数据接入后将基于当前地点、时间与行程自动更新。</p>
-      </div>
-      <div class="signal-grid">
-        <article class="card">
-          <span>☼</span>
-          <b>天气变化</b>
-          <small>降雨、体感温度与穿衣建议</small>
-          <em>等待 MCP 天气数据</em>
-        </article>
-        <article class="card">
-          <span>↗</span>
-          <b>交通与步行</b>
-          <small>拥堵、通勤时长和替代路线</small>
-          <em>等待 MCP 路线数据</em>
-        </article>
-        <article class="card">
-          <span>⌁</span>
-          <b>附近灵感</b>
-          <small>景点、餐厅与可休息的去处</small>
-          <em>开启定位后可用</em>
-        </article>
-      </div>
-    </section>
-  </div>
-</template>
+<template><div class="page companion-page"><section class="hero"><p class="eyebrow">TRAVEL COMPANION · HIKARI</p><h1>旅程在发生，建议也应及时抵达。</h1><p>基于已保存的行程、你的问题和当前位置，获得后端陪伴接口的实时回复。</p></section><div class="grid"><section class="card chat"><div class="chat-head"><div><span>✦</span><b>Hikari · 旅行陪伴</b><small>已连接聊天与定位接口</small></div><em>● 在线</em></div><div class="trip-select"><label>当前行程<select v-model="tripId"><option :value="null">请选择行程</option><option v-for="trip in trips" :key="trip.id" :value="trip.id">{{ trip.destination_city }} · {{ trip.title }}</option></select></label></div><div class="messages"><div v-for="(item, index) in messages" :key="index" class="message" :class="item.role">{{ item.text }}</div></div><div class="quick"><button v-for="ask in ['附近有什么值得去？', '今天需要带伞吗？', '帮我调整下午安排']" :key="ask" @click="message = ask; send()">{{ ask }}</button></div><form class="composer" @submit.prevent="send"><input v-model="message" :disabled="loading" placeholder="问问 Hikari…"><button :disabled="loading">{{ loading ? '发送中' : '发送' }}</button></form><p v-if="error" class="error">{{ error }}</p></section><aside><section class="card context"><span>⌖</span><h2>{{ locationEnabled ? '位置已同步' : '尚未获取位置' }}</h2><p>{{ locationEnabled ? locationText : '授权后会将经纬度同步到后端，用于对话时提供当前位置上下文。' }}</p><button class="secondary" @click="locate">{{ locationEnabled ? '更新位置' : '开启定位' }}</button></section><section class="card guide"><p class="eyebrow">HOW IT WORKS</p><h2>真实行程上下文</h2><p>该页面只使用现有的行程、聊天和定位接口；没有额外虚构的推荐或社区能力。</p></section></aside></div></div></template>
 
 <style scoped>
-.companion-hero{margin-bottom:32px}.companion-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:22px}.chat-card{overflow:hidden}.chat-header{padding:17px 20px;border-bottom:1px solid #edf1ed;display:flex;justify-content:space-between;align-items:center}.chat-header>div{display:grid;grid-template-columns:33px auto;column-gap:9px;align-items:center}.chat-header b{font-size:14px}.chat-header small{font-size:11px;color:#84918b}.hikari{grid-row:span 2;display:grid;place-items:center;width:32px;height:32px;color:#fff;border-radius:10px;background:linear-gradient(135deg,#24997b,#91d3a6)}.online{font-size:11px;color:#2d9b7b}.messages{min-height:355px;padding:21px;display:flex;flex-direction:column;gap:13px;background:linear-gradient(145deg,#fff,#fafcf9)}.message{max-width:74%;padding:11px 13px;border-radius:12px;font-size:14px;line-height:1.6}.message.agent{background:#edf8f2;color:#3d5f52;border-bottom-left-radius:3px}.message.user{margin-left:auto;background:#298d71;color:#fff;border-bottom-right-radius:3px}.quick-asks{padding:10px 16px;display:flex;gap:7px;flex-wrap:wrap}.quick-asks button{font-size:11px;padding:6px 8px;color:#52766a;background:#f7faf7;border:1px solid #e1e9e3;border-radius:14px}.composer{border-top:1px solid #edf1ed;display:flex;gap:8px;padding:13px 16px}.composer input{margin:0}.composer button{border:0;border-radius:8px;color:#fff;background:#258b70;padding:0 15px}.companion-side{display:grid;align-content:start;gap:18px}.context-card,.future-card{padding:23px}.pin{color:#309a7d;font-size:24px}.context-card h2,.future-card h2{font-size:17px;margin:10px 0 6px}.context-card p,.future-card p{font-size:13px;line-height:1.7;color:#75827c;margin:0 0 16px}.future-card{background:linear-gradient(145deg,#fbfefb,#f0f8f3)}.future-card span{font-size:11px;color:#4b9d82;background:#ddf2e6;padding:5px 8px;border-radius:10px}@media(max-width:760px){.companion-grid{grid-template-columns:1fr}.messages{min-height:280px}}
-</style>
-
-<style scoped>
-.companion-signals { display: grid; grid-template-columns: 285px 1fr; gap: 22px; align-items: center; margin-top: 28px; padding: 25px; border: 1px solid #dce9df; border-radius: 20px; background: rgba(255,255,255,.66); }.signal-heading h2 { margin: 7px 0; color: #254337; font: 700 20px/1.4 'Noto Serif SC','Microsoft YaHei',serif; }.signal-heading p:last-child { margin: 0; color: #78847e; font-size: 12px; line-height: 1.7; }.signal-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }.signal-grid article { min-height: 140px; padding: 16px; border-radius: 14px; }.signal-grid span { display: grid; width: 31px; height: 31px; place-items: center; border-radius: 9px; color: #248d70; background: #e7f6ed; }.signal-grid b, .signal-grid small, .signal-grid em { display: block; }.signal-grid b { margin-top: 12px; color: #3b554a; font-size: 13px; }.signal-grid small { margin-top: 4px; color: #85928b; font-size: 11px; line-height: 1.5; }.signal-grid em { margin-top: 10px; color: #57927d; font-size: 10px; font-style: normal; } @media(max-width:850px){.companion-signals{grid-template-columns:1fr}.signal-grid{grid-template-columns:repeat(3,1fr)}}@media(max-width:560px){.companion-signals{padding:20px 16px}.signal-grid{grid-template-columns:1fr}.signal-grid article{min-height:0}}
+.companion-page{max-width:1180px;margin:auto;padding:42px 26px 70px}.hero{margin-bottom:26px;padding:30px 35px;border:1px solid #dcebdd;border-radius:24px;background:linear-gradient(115deg,#fff,#eef9f1)}.eyebrow{margin:0 0 9px;color:#579379;letter-spacing:.13em;font-size:11px;font-weight:700}.hero h1{margin:0;color:#254838;font:700 clamp(28px,4vw,40px)/1.3 'Noto Serif SC','Microsoft YaHei',serif}.hero p:last-child{color:#728178;line-height:1.75}.grid{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:22px}.card{border:1px solid #e0e9e2;border-radius:18px;background:#fff;box-shadow:0 10px 28px rgba(39,91,66,.06)}.chat{overflow:hidden}.chat-head{display:flex;justify-content:space-between;align-items:center;padding:17px 20px;border-bottom:1px solid #edf2ee}.chat-head div{display:grid;grid-template-columns:34px auto;column-gap:9px;align-items:center}.chat-head span{grid-row:span 2;display:grid;place-items:center;width:33px;height:33px;border-radius:10px;background:#2f8869;color:white}.chat-head b{font-size:14px}.chat-head small{color:#829087;font-size:11px}.chat-head em{color:#318968;font-size:11px;font-style:normal}.trip-select{padding:12px 18px;background:#f8fbf8}.trip-select label{display:grid;grid-template-columns:72px 1fr;align-items:center;gap:8px;color:#66776d;font-size:12px;font-weight:700}.trip-select select{padding:8px;border:1px solid #dfe9e1;border-radius:8px;background:#fff;color:#3e554b}.messages{display:flex;min-height:330px;flex-direction:column;gap:12px;padding:20px;background:linear-gradient(145deg,#fff,#fafcf9)}.message{max-width:76%;padding:11px 13px;border-radius:12px;line-height:1.6;font-size:14px}.agent{align-self:start;background:#ebf7f0;color:#3f5e51}.user{align-self:end;background:#2c8769;color:#fff}.quick{display:flex;gap:7px;flex-wrap:wrap;padding:11px 16px}.quick button{border:1px solid #dfebe2;border-radius:14px;padding:6px 9px;background:#f8fbf8;color:#55766a;font-size:11px;cursor:pointer}.composer{display:flex;gap:8px;padding:13px 16px;border-top:1px solid #edf2ee}.composer input{flex:1;border:1px solid #dfe9e1;border-radius:9px;padding:10px;outline:none}.composer button,.secondary{border:0;border-radius:9px;padding:10px 14px;background:#2c775b;color:#fff;font-weight:700;cursor:pointer}.error{padding:0 16px 13px;margin:0;color:#b64b4b;font-size:12px}aside{display:grid;align-content:start;gap:18px}.context,.guide{padding:23px}.context>span{color:#2d8c6b;font-size:25px}.context h2,.guide h2{margin:9px 0;color:#315044;font-size:18px}.context p,.guide p{color:#75837b;font-size:13px;line-height:1.75}.guide{background:#f4faf5}@media(max-width:760px){.companion-page{padding:26px 16px}.hero{padding:26px 22px}.grid{grid-template-columns:1fr}.messages{min-height:250px}}
 </style>
