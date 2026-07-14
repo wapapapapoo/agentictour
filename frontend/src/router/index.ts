@@ -7,6 +7,7 @@ const router = createRouter({
     { path: '/', name: 'planner', component: () => import('@/views/Home.vue'), meta: { requiresAuth: true } },
     { path: '/companion', name: 'companion', component: () => import('@/views/Companion.vue'), meta: { requiresAuth: true } },
     { path: '/create', name: 'create', component: () => import('@/views/Create.vue'), meta: { requiresAuth: true } },
+    { path: '/search', name: 'search', component: () => import('@/views/Search.vue'), meta: { requiresAuth: true } },
     { path: '/auth', name: 'auth', component: () => import('@/views/Auth.vue'), meta: { guestOnly: true } },
   ],
 })
