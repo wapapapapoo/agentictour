@@ -116,6 +116,20 @@ def like_trip_plan(
     if plan is None:
         raise HTTPException(status_code=404, detail="trip plan not found")
 
+    existing = (
+        db.query(PlanLike)
+        .filter(PlanLike.user_id == current_user_id, PlanLike.plan_id == plan_id)
+        .first()
+    )
+    if existing is not None:
+        return PlanLikeResponse(
+            id=existing.id,
+            user_id=existing.user_id,
+            plan_id=existing.plan_id,
+            chunk_ids=json.loads(existing.chunk_ids),
+            created_at=existing.created_at.isoformat() if existing.created_at else "",
+        )
+
     like = PlanLike(
         user_id=current_user_id,
         plan_id=plan_id,
