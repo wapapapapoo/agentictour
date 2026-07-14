@@ -4,7 +4,7 @@ from typing import Any
 
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, event
-from sqlalchemy.orm import Session, declarative_base, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 load_dotenv()
 
@@ -42,7 +42,8 @@ SessionLocal = sessionmaker(
     bind=engine,
 )
 
-Base = declarative_base()
+class Base(DeclarativeBase):
+    pass
 
 
 def get_db() -> Generator[Session, None, None]:

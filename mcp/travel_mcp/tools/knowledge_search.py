@@ -14,7 +14,9 @@ async def list_knowledge_bases() -> dict[str, Any]:
 
     try:
         async with httpx.AsyncClient(timeout=settings.HTTP_TIMEOUT) as client:
-            resp = await client.get(url, headers=headers, params={"page": 1, "limit": 50})
+            resp = await client.get(
+                url, headers=headers, params={"page": 1, "limit": 50}
+            )
             resp.raise_for_status()
             data = resp.json()
     except Exception as e:

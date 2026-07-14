@@ -9,7 +9,75 @@ function search() { searched.value = true }
 </script>
 
 <template>
-  <div class="page search-page"><section class="search-hero"><p class="eyebrow">Search the community</p><h1 class="page-title">去找一段，刚好打动你的旅程。</h1><form @submit.prevent="search"><input v-model="query" autofocus placeholder="搜索城市、玩法、主题或作者" /><button class="primary-button" type="submit">⌕ 搜索</button></form><div class="suggestions"><span>试试：</span><button v-for="tag in ['杭州','美食','城市漫游','云南']" :key="tag" type="button" @click="query=tag;search()">{{ tag }}</button></div></section><section class="search-options"><span>内容类型</span><label><input v-model="contentType" value="all" type="radio" /> 全部</label><label><input v-model="contentType" value="plan" type="radio" /> 行程</label><label><input v-model="contentType" value="blog" type="radio" /> 游记</label></section><section v-if="searched || query" class="result-area"><p class="result-count">找到 {{ results.length }} 条与「{{ query || '全部内容' }}」相关的内容</p><div v-if="results.length" class="post-grid"><CommunityCard v-for="post in results" :key="post.id" :post="post" /></div><div v-else class="empty-state card">没有找到结果。你也可以换一种说法，例如输入「慢旅行」或「周末」。</div></section><section v-else class="search-tips"><article><span>⌖</span><b>按目的地找</b><p>从一座想去的城市开始。</p></article><article><span>✦</span><b>按玩法找</b><p>美食、亲子、徒步、摄影或慢旅行。</p></article><article><span>✎</span><b>按故事找</b><p>看看其他旅行者如何记录瞬间。</p></article></section></div>
+  <div class="page search-page">
+    <section class="search-hero">
+      <p class="eyebrow">
+        Search the community
+      </p><h1 class="page-title">
+        去找一段，刚好打动你的旅程。
+      </h1><form @submit.prevent="search">
+        <input
+          v-model="query"
+          autofocus
+          placeholder="搜索城市、玩法、主题或作者"
+        ><button
+          class="primary-button"
+          type="submit"
+        >
+          ⌕ 搜索
+        </button>
+      </form><div class="suggestions">
+        <span>试试：</span><button
+          v-for="tag in ['杭州','美食','城市漫游','云南']"
+          :key="tag"
+          type="button"
+          @click="query=tag;search()"
+        >
+          {{ tag }}
+        </button>
+      </div>
+    </section><section class="search-options">
+      <span>内容类型</span><label><input
+        v-model="contentType"
+        value="all"
+        type="radio"
+      > 全部</label><label><input
+        v-model="contentType"
+        value="plan"
+        type="radio"
+      > 行程</label><label><input
+        v-model="contentType"
+        value="blog"
+        type="radio"
+      > 游记</label>
+    </section><section
+      v-if="searched || query"
+      class="result-area"
+    >
+      <p class="result-count">
+        找到 {{ results.length }} 条与「{{ query || '全部内容' }}」相关的内容
+      </p><div
+        v-if="results.length"
+        class="post-grid"
+      >
+        <CommunityCard
+          v-for="post in results"
+          :key="post.id"
+          :post="post"
+        />
+      </div><div
+        v-else
+        class="empty-state card"
+      >
+        没有找到结果。你也可以换一种说法，例如输入「慢旅行」或「周末」。
+      </div>
+    </section><section
+      v-else
+      class="search-tips"
+    >
+      <article><span>⌖</span><b>按目的地找</b><p>从一座想去的城市开始。</p></article><article><span>✦</span><b>按玩法找</b><p>美食、亲子、徒步、摄影或慢旅行。</p></article><article><span>✎</span><b>按故事找</b><p>看看其他旅行者如何记录瞬间。</p></article>
+    </section>
+  </div>
 </template>
 
 <style scoped>

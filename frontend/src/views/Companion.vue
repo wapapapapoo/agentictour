@@ -1,17 +1,144 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
-const message = ref(''); const messages = ref([{ role: 'agent', text: '你好，我是 Hikari。告诉我你现在在哪里，或直接问我旅行中的任何问题。' }]); const locationEnabled = ref(false)
-function send() { if (!message.value.trim()) return; messages.value.push({ role: 'user', text: message.value.trim() }); const question = message.value.trim(); message.value = ''; globalThis.setTimeout(() => messages.value.push({ role: 'agent', text: `已记录：「${question}」。实时陪伴 Agent 的后端接口正在接入中；目前页面已预留对话、定位和情境建议入口。` }), 350) }
-function locate() { if (!globalThis.navigator.geolocation) return; globalThis.navigator.geolocation.getCurrentPosition(() => { locationEnabled.value = true }, () => { locationEnabled.value = false }) }
+const message = ref('')
+const messages = ref([
+  {
+    role: 'agent',
+    text: '你好，我是 Hikari。告诉我你现在在哪里，或直接问我旅行中的任何问题。',
+  },
+])
+const locationEnabled = ref(false)
+
+function send() {
+  if (!message.value.trim()) return
+  messages.value.push({ role: 'user', text: message.value.trim() })
+  const question = message.value.trim()
+  message.value = ''
+  globalThis.setTimeout(
+    () =>
+      messages.value.push({
+        role: 'agent',
+        text: `已记录：「${question}」。实时陪伴 Agent 的后端接口正在接入中；目前页面已预留对话、定位和情境建议入口。`,
+      }),
+    350,
+  )
+}
+
+function locate() {
+  if (!globalThis.navigator.geolocation) return
+  globalThis.navigator.geolocation.getCurrentPosition(
+    () => { locationEnabled.value = true },
+    () => { locationEnabled.value = false },
+  )
+}
 </script>
 
 <template>
-  <div class="page companion-page"><section class="companion-hero"><p class="eyebrow">Travel companion · Hikari</p><h1 class="page-title">旅程在发生，建议也该及时抵达。</h1><p class="page-intro">根据你的位置、时间和当下状态，给出刚刚好的下一步。</p></section>
-    <div class="companion-grid"><section class="card chat-card"><div class="chat-header"><div><span class="hikari">✦</span><b>Hikari · 旅行陪伴</b><small>轻量实时建议</small></div><span class="online">● 在线</span></div><div class="messages"><div v-for="(item,index) in messages" :key="index" class="message" :class="item.role">{{ item.text }}</div></div><div class="quick-asks"><button v-for="ask in ['附近有什么值得去？','今天需要带伞吗？','帮我找一家餐厅']" :key="ask" @click="message=ask;send()">{{ ask }}</button></div><form class="composer" @submit.prevent="send"><input v-model="message" placeholder="问问 Hikari…" /><button type="submit">发送</button></form></section>
-      <aside class="companion-side"><section class="card context-card"><span class="pin">⌖</span><h2>{{ locationEnabled ? '已开启位置' : '尚未获取位置' }}</h2><p>{{ locationEnabled ? 'Hikari 将据此调整附近推荐。' : '开启位置后，获得附近景点、餐饮和路线建议。' }}</p><button class="secondary-button" @click="locate">{{ locationEnabled ? '更新位置' : '开启定位' }}</button></section><section class="card future-card"><p class="eyebrow">Coming next</p><h2>动态改线</h2><p>天气、闭馆、排队和交通延误触发行程调整。</p><span>接口预留中</span></section></aside>
+  <div class="page companion-page">
+    <section class="companion-hero">
+      <p class="eyebrow">
+        Travel companion · Hikari
+      </p>
+      <h1 class="page-title">
+        旅程在发生，建议也该及时抵达。
+      </h1>
+      <p class="page-intro">
+        根据你的位置、时间和当下状态，给出刚刚好的下一步。
+      </p>
+    </section>
+    <div class="companion-grid">
+      <section class="card chat-card">
+        <div class="chat-header">
+          <div>
+            <span class="hikari">✦</span><b>Hikari · 旅行陪伴</b>
+            <small>轻量实时建议</small>
+          </div>
+          <span class="online">● 在线</span>
+        </div>
+        <div class="messages">
+          <div
+            v-for="(item, index) in messages"
+            :key="index"
+            class="message"
+            :class="item.role"
+          >
+            {{ item.text }}
+          </div>
+        </div>
+        <div class="quick-asks">
+          <button
+            v-for="ask in ['附近有什么值得去？', '今天需要带伞吗？', '帮我找一家餐厅']"
+            :key="ask"
+            @click="message = ask; send()"
+          >
+            {{ ask }}
+          </button>
+        </div>
+        <form
+          class="composer"
+          @submit.prevent="send"
+        >
+          <input
+            v-model="message"
+            placeholder="问问 Hikari…"
+          >
+          <button type="submit">
+            发送
+          </button>
+        </form>
+      </section>
+      <aside class="companion-side">
+        <section class="card context-card">
+          <span class="pin">⌖</span>
+          <h2>{{ locationEnabled ? '已开启位置' : '尚未获取位置' }}</h2>
+          <p>{{ locationEnabled ? 'Hikari 将据此调整附近推荐。' : '开启位置后，获得附近景点、餐饮和路线建议。' }}</p>
+          <button
+            class="secondary-button"
+            @click="locate"
+          >
+            {{ locationEnabled ? '更新位置' : '开启定位' }}
+          </button>
+        </section>
+        <section class="card future-card">
+          <p class="eyebrow">
+            Coming next
+          </p>
+          <h2>动态改线</h2>
+          <p>天气、闭馆、排队和交通延误触发行程调整。</p>
+          <span>接口预留中</span>
+        </section>
+      </aside>
     </div>
-    <section class="companion-signals"><div class="signal-heading"><p class="eyebrow">Signals around you</p><h2>出发前，Hikari 会关注这些变化</h2><p>以下模块已按需求文档预留展示位置；数据接入后将基于当前地点、时间与行程自动更新。</p></div><div class="signal-grid"><article class="card"><span>☼</span><b>天气变化</b><small>降雨、体感温度与穿衣建议</small><em>等待 MCP 天气数据</em></article><article class="card"><span>↗</span><b>交通与步行</b><small>拥堵、通勤时长和替代路线</small><em>等待 MCP 路线数据</em></article><article class="card"><span>⌁</span><b>附近灵感</b><small>景点、餐厅与可休息的去处</small><em>开启定位后可用</em></article></div></section>
+    <section class="companion-signals">
+      <div class="signal-heading">
+        <p class="eyebrow">
+          Signals around you
+        </p>
+        <h2>出发前，Hikari 会关注这些变化</h2>
+        <p>以下模块已按需求文档预留展示位置；数据接入后将基于当前地点、时间与行程自动更新。</p>
+      </div>
+      <div class="signal-grid">
+        <article class="card">
+          <span>☼</span>
+          <b>天气变化</b>
+          <small>降雨、体感温度与穿衣建议</small>
+          <em>等待 MCP 天气数据</em>
+        </article>
+        <article class="card">
+          <span>↗</span>
+          <b>交通与步行</b>
+          <small>拥堵、通勤时长和替代路线</small>
+          <em>等待 MCP 路线数据</em>
+        </article>
+        <article class="card">
+          <span>⌁</span>
+          <b>附近灵感</b>
+          <small>景点、餐厅与可休息的去处</small>
+          <em>开启定位后可用</em>
+        </article>
+      </div>
+    </section>
   </div>
 </template>
 

@@ -20,22 +20,130 @@ onMounted(loadHistory)
 
 <template>
   <div class="page planner-page">
-    <section class="hero"><div><p class="eyebrow">Plan with confidence</p><h1 class="page-title">把旅行的期待，变成可执行的路线</h1><p class="page-intro">告诉我你的偏好，AgenticTour 将结合实时信息，为你编排每一天。</p></div><div class="hero-orbit"><span>✦</span><i /><b /></div></section>
+    <section class="hero">
+      <div>
+        <p class="eyebrow">
+          Plan with confidence
+        </p><h1 class="page-title">
+          把旅行的期待，变成可执行的路线
+        </h1><p class="page-intro">
+          告诉我你的偏好，AgenticTour 将结合实时信息，为你编排每一天。
+        </p>
+      </div><div class="hero-orbit">
+        <span>✦</span><i /><b />
+      </div>
+    </section>
     <div class="planner-grid">
-      <section class="card plan-form"><div class="section-heading"><span class="step-number">01</span><div><h2>旅程信息</h2><p>越具体，建议就越贴合你。</p></div></div>
-        <div class="field-grid"><label>出发城市<input v-model="form.origin_city" placeholder="如：上海" /></label><label>目的地<input v-model="form.destination_city" placeholder="如：杭州" /></label><label>出发日期<input v-model="form.start_date" :min="today" type="date" /></label><label>返程日期<input v-model="form.end_date" :min="form.start_date || today" type="date" /></label><label>同行人数<select v-model="form.people_count"><option value="1">1 人</option><option value="2">2 人</option><option value="3">3–4 人</option><option value="5">5 人以上</option></select></label><label>总预算（元）<input v-model="form.budget_total" inputmode="numeric" /></label></div>
-        <div class="section-heading compact"><span class="step-number">02</span><div><h2>旅行偏好</h2></div></div>
-        <label class="wide-label">想体验什么？<textarea v-model="form.interests" rows="2" placeholder="如：历史人文、亲子、摄影、美食…" /></label>
-        <div class="chips"><button v-for="tag in ['慢节奏','美食探索','自然徒步','城市漫游','拍照出片']" :key="tag" type="button" @click="form.interests = form.interests.includes(tag) ? form.interests.replace(tag,'').replace('、、','、') : `${form.interests}、${tag}`">{{ tag }}</button></div>
-        <div class="field-grid preferences"><label>住宿标准<select v-model="form.hotel_level"><option>经济实惠</option><option>舒适型</option><option>高品质</option></select></label><label>交通偏好<select v-model="form.transport_preference"><option>高铁优先</option><option>自驾优先</option><option>公共交通</option></select></label><label>旅行节奏<select v-model="form.pace"><option>轻松</option><option>适中</option><option>充实</option></select></label></div>
-        <label class="wide-label">特别需求（可选）<textarea v-model="form.special_requirements" rows="2" placeholder="如：老人同行、避开排队、必须去的景点…" /></label>
-        <button class="primary-button generate" :disabled="loading" @click="generate">{{ loading ? '旅行智能体正在思考…' : '✦ 生成我的旅行计划' }}</button><p class="form-note">生成后会经过时间、预算与风险检查，并保留调整空间。</p><div v-if="error" class="notice error">{{ error }}</div>
+      <section class="card plan-form">
+        <div class="section-heading">
+          <span class="step-number">01</span><div><h2>旅程信息</h2><p>越具体，建议就越贴合你。</p></div>
+        </div>
+        <div class="field-grid">
+          <label>出发城市<input
+            v-model="form.origin_city"
+            placeholder="如：上海"
+          ></label><label>目的地<input
+            v-model="form.destination_city"
+            placeholder="如：杭州"
+          ></label><label>出发日期<input
+            v-model="form.start_date"
+            :min="today"
+            type="date"
+          ></label><label>返程日期<input
+            v-model="form.end_date"
+            :min="form.start_date || today"
+            type="date"
+          ></label><label>同行人数<select v-model="form.people_count"><option value="1">1 人</option><option value="2">2 人</option><option value="3">3–4 人</option><option value="5">5 人以上</option></select></label><label>总预算（元）<input
+            v-model="form.budget_total"
+            inputmode="numeric"
+          ></label>
+        </div>
+        <div class="section-heading compact">
+          <span class="step-number">02</span><div><h2>旅行偏好</h2></div>
+        </div>
+        <label class="wide-label">想体验什么？<textarea
+          v-model="form.interests"
+          rows="2"
+          placeholder="如：历史人文、亲子、摄影、美食…"
+        /></label>
+        <div class="chips">
+          <button
+            v-for="tag in ['慢节奏','美食探索','自然徒步','城市漫游','拍照出片']"
+            :key="tag"
+            type="button"
+            @click="form.interests = form.interests.includes(tag) ? form.interests.replace(tag,'').replace('、、','、') : `${form.interests}、${tag}`"
+          >
+            {{ tag }}
+          </button>
+        </div>
+        <div class="field-grid preferences">
+          <label>住宿标准<select v-model="form.hotel_level"><option>经济实惠</option><option>舒适型</option><option>高品质</option></select></label><label>交通偏好<select v-model="form.transport_preference"><option>高铁优先</option><option>自驾优先</option><option>公共交通</option></select></label><label>旅行节奏<select v-model="form.pace"><option>轻松</option><option>适中</option><option>充实</option></select></label>
+        </div>
+        <label class="wide-label">特别需求（可选）<textarea
+          v-model="form.special_requirements"
+          rows="2"
+          placeholder="如：老人同行、避开排队、必须去的景点…"
+        /></label>
+        <button
+          class="primary-button generate"
+          :disabled="loading"
+          @click="generate"
+        >
+          {{ loading ? '旅行智能体正在思考…' : '✦ 生成我的旅行计划' }}
+        </button><p class="form-note">
+          生成后会经过时间、预算与风险检查，并保留调整空间。
+        </p><div
+          v-if="error"
+          class="notice error"
+        >
+          {{ error }}
+        </div>
       </section>
-      <aside class="side-column"><section class="card workflow"><p class="eyebrow">Multi-agent workflow</p><h2>这次旅行，谁在帮你？</h2><div class="agent"><span>⌘</span><div><b>规划 Agent</b><small>拆解日程与路线</small></div><em>进行中</em></div><div class="agent"><span>⌁</span><div><b>数据 Agent</b><small>天气、交通、景点信息</small></div><em>待调用</em></div><div class="agent"><span>✓</span><div><b>审查 Agent</b><small>时间与预算风险检查</small></div><em>待检查</em></div></section>
-      <section class="card history"><div class="history-title"><h2>最近行程</h2><span>{{ histories.length }} 条</span></div><div v-if="historyLoading" class="muted small-pad">正在读取…</div><button v-for="item in histories.slice(0,3)" :key="item.id" class="history-item" @click="openHistory(item)"><span class="history-icon">⌖</span><span><b>{{ item.destination_city }} · {{ item.title || '旅行计划' }}</b><small>{{ item.start_date }} 至 {{ item.end_date }}</small></span><i>›</i></button><div v-if="!historyLoading && !histories.length" class="muted small-pad">还没有保存的行程，生成第一份吧。</div></section></aside>
+      <aside class="side-column">
+        <section class="card workflow">
+          <p class="eyebrow">
+            Multi-agent workflow
+          </p><h2>这次旅行，谁在帮你？</h2><div class="agent">
+            <span>⌘</span><div><b>规划 Agent</b><small>拆解日程与路线</small></div><em>进行中</em>
+          </div><div class="agent">
+            <span>⌁</span><div><b>数据 Agent</b><small>天气、交通、景点信息</small></div><em>待调用</em>
+          </div><div class="agent">
+            <span>✓</span><div><b>审查 Agent</b><small>时间与预算风险检查</small></div><em>待检查</em>
+          </div>
+        </section>
+        <section class="card history">
+          <div class="history-title">
+            <h2>最近行程</h2><span>{{ histories.length }} 条</span>
+          </div><div
+            v-if="historyLoading"
+            class="muted small-pad"
+          >
+            正在读取…
+          </div><button
+            v-for="item in histories.slice(0,3)"
+            :key="item.id"
+            class="history-item"
+            @click="openHistory(item)"
+          >
+            <span class="history-icon">⌖</span><span><b>{{ item.destination_city }} · {{ item.title || '旅行计划' }}</b><small>{{ item.start_date }} 至 {{ item.end_date }}</small></span><i>›</i>
+          </button><div
+            v-if="!historyLoading && !histories.length"
+            class="muted small-pad"
+          >
+            还没有保存的行程，生成第一份吧。
+          </div>
+        </section>
+      </aside>
     </div>
-    <section class="readiness" aria-label="旅行规划能力说明">
-      <div class="readiness-copy"><p class="eyebrow">Travel intelligence</p><h2>一份好行程，不只是景点清单。</h2><p>从实时信息到约束审查，AgenticTour 会把影响旅行体验的关键因素放进同一份计划里。</p></div>
+    <section
+      class="readiness"
+      aria-label="旅行规划能力说明"
+    >
+      <div class="readiness-copy">
+        <p class="eyebrow">
+          Travel intelligence
+        </p><h2>一份好行程，不只是景点清单。</h2><p>从实时信息到约束审查，AgenticTour 会把影响旅行体验的关键因素放进同一份计划里。</p>
+      </div>
       <div class="capability-grid">
         <article><span class="cap-icon weather">☼</span><div><b>天气与穿衣</b><small>行程节奏、室内备选与风险提醒</small></div><em>实时数据待接入</em></article>
         <article><span class="cap-icon place">⌖</span><div><b>景点与路线</b><small>开放信息、移动耗时与主题标签</small></div><em>实时数据待接入</em></article>
@@ -43,11 +151,87 @@ onMounted(loadHistory)
         <article><span class="cap-icon check">✓</span><div><b>计划审查</b><small>时间冲突、预算冲突与低置信提示</small></div><em>审查界面待接入</em></article>
       </div>
     </section>
-    <section v-if="plan" class="result-section"><div class="result-heading"><div><p class="eyebrow">Your itinerary · V{{ plan.latest_version?.version_no || 1 }}</p><h2>{{ String(planData.title || `${plan.destination_city}旅行计划`) }}</h2><p>{{ String(planData.summary || '已为你生成一份可调整的旅行建议。') }}</p></div><div class="result-actions"><button class="secondary-button" :disabled="loading" @click="humanize">换成自然讲解</button><button class="secondary-button" type="button" @click="window.print()">打印</button><PublishPanel :title="String(planData.title || `${plan.destination_city}旅行计划`)" content-type="plan" /></div></div><div v-if="naturalLanguage" class="natural card">{{ naturalLanguage }}</div>
-      <div v-if="planDays.length" class="day-list"><article v-for="(day, index) in planDays" :key="index" class="card day-card"><span class="day-label">DAY {{ index + 1 }}</span><h3>{{ String(day.title || day.date || `第 ${index + 1} 天`) }}</h3><p>{{ String(day.summary || day.description || '详细日程由规划 Agent 整理中。') }}</p><div v-if="Array.isArray(day.activities)" class="activities"><span v-for="(activity, itemIndex) in day.activities" :key="itemIndex">{{ typeof activity === 'string' ? activity : JSON.stringify(activity) }}</span></div></article></div>
-      <div v-else class="card raw-result"><h3>行程数据</h3><pre>{{ JSON.stringify(planData, null, 2) }}</pre></div>
-      <div v-if="Array.isArray(planData.warnings) && planData.warnings.length" class="warnings"><b>出行提醒</b><span v-for="warning in planData.warnings" :key="String(warning)">⚠ {{ warning }}</span></div>
-      <div class="revision card"><div><b>想换一种玩法？</b><small>例如：减少步行、加入夜生活、把预算压到 3000 元。</small></div><input v-model="revision" placeholder="告诉我你想怎么调整…" @keyup.enter="revise" /><button class="primary-button" :disabled="loading || !revision.trim()" @click="revise">调整计划</button></div>
+    <section
+      v-if="plan"
+      class="result-section"
+    >
+      <div class="result-heading">
+        <div>
+          <p class="eyebrow">
+            Your itinerary · V{{ plan.latest_version?.version_no || 1 }}
+          </p><h2>{{ String(planData.title || `${plan.destination_city}旅行计划`) }}</h2><p>{{ String(planData.summary || '已为你生成一份可调整的旅行建议。') }}</p>
+        </div><div class="result-actions">
+          <button
+            class="secondary-button"
+            :disabled="loading"
+            @click="humanize"
+          >
+            换成自然讲解
+          </button><button
+            class="secondary-button"
+            type="button"
+            @click="window.print()"
+          >
+            打印
+          </button><PublishPanel
+            :title="String(planData.title || `${plan.destination_city}旅行计划`)"
+            content-type="plan"
+          />
+        </div>
+      </div><div
+        v-if="naturalLanguage"
+        class="natural card"
+      >
+        {{ naturalLanguage }}
+      </div>
+      <div
+        v-if="planDays.length"
+        class="day-list"
+      >
+        <article
+          v-for="(day, index) in planDays"
+          :key="index"
+          class="card day-card"
+        >
+          <span class="day-label">DAY {{ index + 1 }}</span><h3>{{ String(day.title || day.date || `第 ${index + 1} 天`) }}</h3><p>{{ String(day.summary || day.description || '详细日程由规划 Agent 整理中。') }}</p><div
+            v-if="Array.isArray(day.activities)"
+            class="activities"
+          >
+            <span
+              v-for="(activity, itemIndex) in day.activities"
+              :key="itemIndex"
+            >{{ typeof activity === 'string' ? activity : JSON.stringify(activity) }}</span>
+          </div>
+        </article>
+      </div>
+      <div
+        v-else
+        class="card raw-result"
+      >
+        <h3>行程数据</h3><pre>{{ JSON.stringify(planData, null, 2) }}</pre>
+      </div>
+      <div
+        v-if="Array.isArray(planData.warnings) && planData.warnings.length"
+        class="warnings"
+      >
+        <b>出行提醒</b><span
+          v-for="warning in planData.warnings"
+          :key="String(warning)"
+        >⚠ {{ warning }}</span>
+      </div>
+      <div class="revision card">
+        <div><b>想换一种玩法？</b><small>例如：减少步行、加入夜生活、把预算压到 3000 元。</small></div><input
+          v-model="revision"
+          placeholder="告诉我你想怎么调整…"
+          @keyup.enter="revise"
+        ><button
+          class="primary-button"
+          :disabled="loading || !revision.trim()"
+          @click="revise"
+        >
+          调整计划
+        </button>
+      </div>
     </section>
   </div>
 </template>

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -24,7 +26,7 @@ def sync_plan_to_knowledge(
     data: PlanKnowledgeRequest,
     current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> Any:
     try:
         return knowledge_service.create_knowledge(db, plan_id, data)
     except LookupError as exc:
@@ -40,7 +42,7 @@ def trace_from_document_id(
     document_id: str = Query(..., min_length=1),
     current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> Any:
     result = knowledge_service.trace_by_document_id(db, document_id)
     if result is None:
         raise HTTPException(
@@ -55,7 +57,7 @@ def search_knowledge(
     data: KnowledgeSearchRequest,
     current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> Any:
     try:
         return knowledge_service.search_knowledge(db, data)
     except DifyRequestError as exc:

@@ -1,4 +1,15 @@
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Path, Query, UploadFile
+from typing import Any
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Path,
+    Query,
+    UploadFile,
+)
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -19,7 +30,11 @@ router = APIRouter(prefix="/api/blog", tags=["旅游博客辅助创作"])
 
 
 @router.post("/materials", response_model=BlogMaterialResponse)
-def create_material(data: BlogMaterialCreate, current_user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
+def create_material(
+    data: BlogMaterialCreate,
+    current_user_id: int = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Any:
     return blog_service.create_material(db, data)
 
 
@@ -29,7 +44,7 @@ def get_material(
     user_id: int = Query(..., gt=0),
     current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> Any:
     material = blog_service.get_material(db, material_id, user_id)
     if material is None:
         raise HTTPException(status_code=404, detail="素材不存在")
@@ -43,7 +58,7 @@ async def upload_photo(
     file: UploadFile = File(...),
     current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> Any:
     try:
         content = await file.read(blog_service.MAX_PHOTO_SIZE + 1)
         photo = blog_service.create_photo(
@@ -78,7 +93,7 @@ def get_photo_file(
     user_id: int = Query(..., gt=0),
     current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> Any:
     photo = blog_service.get_photo(db, photo_id, user_id)
     if photo is None:
         raise HTTPException(status_code=404, detail="photo not found")
@@ -95,7 +110,11 @@ def get_photo_file(
 
 
 @router.post("/generate", response_model=BlogGenerationResponse)
-def generate_blog(data: BlogGenerateRequest, current_user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
+def generate_blog(
+    data: BlogGenerateRequest,
+    current_user_id: int = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Any:
     try:
         return blog_service.create_generation(db, data)
     except LookupError:
@@ -115,7 +134,7 @@ def list_generations(
     user_id: int = Query(..., gt=0),
     current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> Any:
     return blog_service.list_generations(db, user_id)
 
 
@@ -125,7 +144,7 @@ def get_generation(
     user_id: int = Query(..., gt=0),
     current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> Any:
     generation = blog_service.get_generation(db, generation_id, user_id)
     if generation is None:
         raise HTTPException(status_code=404, detail="生成记录不存在")
@@ -138,7 +157,7 @@ def delete_generation(
     user_id: int = Query(..., gt=0),
     current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> Any:
     ok = blog_service.delete_generation(db, generation_id, user_id)
     if not ok:
         raise HTTPException(status_code=404, detail="生成记录不存在")

@@ -1,3 +1,5 @@
+from typing import Any
+
 import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -11,15 +13,19 @@ router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 
 def _hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")  # type: ignore[no-any-return]
 
 
 def _verify_password(password: str, hashed: str) -> bool:
-    return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
+    return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))  # type: ignore[no-any-return]
 
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-def register(data: UserRegister, db: Session = Depends(get_db)):
+@router.post(
+    "/register",
+    response_model=TokenResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def register(data: UserRegister, db: Session = Depends(get_db)) -> Any:
     existing = db.query(User).filter(User.username == data.username).first()
     if existing is not None:
         raise HTTPException(
@@ -47,7 +53,7 @@ def register(data: UserRegister, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(data: UserLogin, db: Session = Depends(get_db)):
+def login(data: UserLogin, db: Session = Depends(get_db)) -> Any:
     user = db.query(User).filter(User.username == data.username).first()
     if user is None or not _verify_password(data.password, user.password_hash):
         raise HTTPException(

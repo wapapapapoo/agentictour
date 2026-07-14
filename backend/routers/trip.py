@@ -11,7 +11,11 @@ router = APIRouter(prefix="/api/trips", tags=["Trips"])
 
 
 @router.post("", response_model=TripResponse, status_code=status.HTTP_201_CREATED)
-def create_trip(data: TripCreate, current_user_id: int = Depends(get_current_user), db: Session = Depends(get_db)) -> Trip:
+def create_trip(
+    data: TripCreate,
+    current_user_id: int = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Trip:
     return trip_service.create_trip(db, data)
 
 
@@ -25,7 +29,11 @@ def list_trips(
 
 
 @router.get("/{trip_id}", response_model=TripResponse)
-def get_trip(trip_id: int, current_user_id: int = Depends(get_current_user), db: Session = Depends(get_db)) -> Trip:
+def get_trip(
+    trip_id: int,
+    current_user_id: int = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Trip:
     trip = trip_service.get_trip(db, trip_id)
     if trip is None:
         raise HTTPException(status_code=404, detail="trip not found")

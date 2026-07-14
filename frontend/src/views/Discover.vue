@@ -9,7 +9,55 @@ const posts = computed(() => searchCommunityPosts(query.value, currentType.value
 </script>
 
 <template>
-  <div class="page discover-page"><section class="discover-hero"><div><p class="eyebrow">AgenticTour community</p><h1 class="page-title">从别人的旅程里，发现下一次出发。</h1><p class="page-intro">浏览真实发布接口接入前的展示样例，看看一份好行程和一篇好游记可以是什么样子。</p></div><RouterLink to="/search" class="search-link">⌕ 搜索目的地、主题或作者</RouterLink></section><div class="community-notice">社区接口预留中 · 当前展示为界面样例，接入后将替换为公开发布内容。</div><section class="feed-toolbar"><div class="filters"><button v-for="item in [{value:'all',label:'全部内容'},{value:'plan',label:'推荐行程'},{value:'blog',label:'旅行游记'}]" :key="item.value" type="button" :class="{ active: currentType === item.value }" @click="currentType = item.value as 'all' | CommunityContentType">{{ item.label }}</button></div><input v-model="query" placeholder="在当前内容中筛选" /></section><section v-if="posts.length" class="post-grid"><CommunityCard v-for="post in posts" :key="post.id" :post="post" /></section><div v-else class="empty-state card">没有找到匹配内容，换个关键词试试。</div></div>
+  <div class="page discover-page">
+    <section class="discover-hero">
+      <div>
+        <p class="eyebrow">
+          AgenticTour community
+        </p><h1 class="page-title">
+          从别人的旅程里，发现下一次出发。
+        </h1><p class="page-intro">
+          浏览真实发布接口接入前的展示样例，看看一份好行程和一篇好游记可以是什么样子。
+        </p>
+      </div><RouterLink
+        to="/search"
+        class="search-link"
+      >
+        ⌕ 搜索目的地、主题或作者
+      </RouterLink>
+    </section><div class="community-notice">
+      社区接口预留中 · 当前展示为界面样例，接入后将替换为公开发布内容。
+    </div><section class="feed-toolbar">
+      <div class="filters">
+        <button
+          v-for="item in [{value:'all',label:'全部内容'},{value:'plan',label:'推荐行程'},{value:'blog',label:'旅行游记'}]"
+          :key="item.value"
+          type="button"
+          :class="{ active: currentType === item.value }"
+          @click="currentType = item.value as 'all' | CommunityContentType"
+        >
+          {{ item.label }}
+        </button>
+      </div><input
+        v-model="query"
+        placeholder="在当前内容中筛选"
+      >
+    </section><section
+      v-if="posts.length"
+      class="post-grid"
+    >
+      <CommunityCard
+        v-for="post in posts"
+        :key="post.id"
+        :post="post"
+      />
+    </section><div
+      v-else
+      class="empty-state card"
+    >
+      没有找到匹配内容，换个关键词试试。
+    </div>
+  </div>
 </template>
 
 <style scoped>

@@ -6,8 +6,32 @@ defineProps<{ post: CommunityPost }>()
 
 <template>
   <article class="community-card card">
-    <div class="cover" :class="post.accent"><span>{{ post.type === 'plan' ? '✦ 行程' : '✎ 游记' }}</span><strong>{{ post.destination }}</strong></div>
-    <div class="card-body"><p class="content-kind">{{ post.type === 'plan' ? '推荐行程' : '旅行故事' }}</p><h3>{{ post.title }}</h3><p class="excerpt">{{ post.excerpt }}</p><div class="tags"><span v-for="tag in post.tags" :key="tag"># {{ tag }}</span></div><div class="post-footer"><span>{{ post.author }} · {{ post.readMinutes }} 分钟阅读</span><span>♡ {{ post.likes }} / ⌑ {{ post.saves }}</span></div></div>
+    <div
+      class="cover"
+      :class="post.accent"
+    >
+      <span>{{ post.type === 'plan' ? '✦ 行程' : '✎ 游记' }}</span>
+      <strong>{{ post.destination }}</strong>
+    </div>
+    <div class="card-body">
+      <p class="content-kind">
+        {{ post.type === 'plan' ? '推荐行程' : '旅行故事' }}
+      </p>
+      <h3>{{ post.title }}</h3>
+      <p class="excerpt">
+        {{ post.excerpt }}
+      </p>
+      <div class="tags">
+        <span
+          v-for="tag in post.tags"
+          :key="tag"
+        ># {{ tag }}</span>
+      </div>
+      <div class="post-footer">
+        <span>{{ post.author }} · {{ post.readMinutes }} 分钟阅读</span>
+        <span>♡ {{ post.likes }} / ⌑ {{ post.saves }}</span>
+      </div>
+    </div>
   </article>
 </template>
 

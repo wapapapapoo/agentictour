@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 from typing import Any
 
@@ -18,10 +19,8 @@ from services.trip_plan_service import (
     get_plan,
     humanize_plan,
 )
-import os
-
 from utils import dify_knowledge_client as kb_client
-from utils.dify_client import DifyError, DifyRequestError
+from utils.dify_client import DifyRequestError
 
 
 def _dataset_id(requested: str) -> str:
@@ -85,9 +84,12 @@ def create_knowledge(
         return _mapping_to_response(existing)
 
     # 确保知识库有元数据字段
-    ds_id = _dataset_id(ds_id)
+    ds_id = _dataset_id(data.dataset_id)
     if not ds_id:
-        raise RuntimeError("dataset_id 未配置，请设置 DIFY_KNOWLEDGE_DATASET_ID 环境变量或传入 dataset_id")
+        raise RuntimeError(
+            "dataset_id 未配置，"
+            "请设置 DIFY_KNOWLEDGE_DATASET_ID 环境变量或传入 dataset_id"
+        )
     field_map = _ensure_metadata_fields(ds_id)
 
     plan_obj = _loads_json(version.plan_json)
@@ -129,8 +131,16 @@ def create_knowledge(
             operation_data=[{
                 "document_id": doc_id,
                 "metadata_list": [
-                    {"id": field_map[_METADATA_PLAN_ID], "name": _METADATA_PLAN_ID, "value": str(plan_id)},
-                    {"id": field_map[_METADATA_VERSION_ID], "name": _METADATA_VERSION_ID, "value": str(version.id)},
+                    {
+                        "id": field_map[_METADATA_PLAN_ID],
+                        "name": _METADATA_PLAN_ID,
+                        "value": str(plan_id),
+                    },
+                    {
+                        "id": field_map[_METADATA_VERSION_ID],
+                        "name": _METADATA_VERSION_ID,
+                        "value": str(version.id),
+                    },
                 ],
             }],
         )

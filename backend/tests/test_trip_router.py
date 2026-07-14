@@ -4,6 +4,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
+from auth import get_current_user
 from database import Base, get_db
 from models import Trip, User  # noqa: F401 - load the complete model graph
 from routers.trip import router
@@ -31,6 +32,7 @@ def test_trip_api_create_list_get_and_update() -> None:
         yield session
 
     app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_current_user] = lambda: 42
     client = TestClient(app)
 
     try:

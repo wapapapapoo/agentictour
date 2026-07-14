@@ -47,7 +47,11 @@ def db_session() -> Session:
         db.close()
         Base.metadata.drop_all(
             bind=engine,
-            tables=[BlogGeneration.__table__, BlogPhoto.__table__, BlogMaterial.__table__],
+            tables=[
+                BlogGeneration.__table__,
+                BlogPhoto.__table__,
+                BlogMaterial.__table__,
+            ],
         )
 
 

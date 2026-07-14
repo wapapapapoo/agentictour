@@ -1,3 +1,5 @@
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -22,7 +24,7 @@ def generate_trip_plan(
     data: TripPlanGenerateRequest,
     current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> Any:
     try:
         plan = trip_plan_service.create_plan(db, data)
     except DifyError as exc:
@@ -36,7 +38,7 @@ def revise_trip_plan(
     data: TripPlanReviseRequest,
     current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> Any:
     try:
         plan = trip_plan_service.revise_plan(db, plan_id, data)
     except LookupError as exc:
@@ -51,12 +53,16 @@ def list_trip_plans(
     user_id: int | None = Query(default=None, gt=0),
     current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> Any:
     return trip_plan_service.list_plans(db, user_id)
 
 
 @router.get("/{plan_id}", response_model=TripPlanResponse)
-def get_trip_plan(plan_id: int, current_user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_trip_plan(
+    plan_id: int,
+    current_user_id: int = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Any:
     plan = trip_plan_service.get_plan(db, plan_id)
     if plan is None:
         raise HTTPException(status_code=404, detail="trip plan not found")
@@ -64,7 +70,11 @@ def get_trip_plan(plan_id: int, current_user_id: int = Depends(get_current_user)
 
 
 @router.delete("/{plan_id}")
-def delete_trip_plan(plan_id: int, current_user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
+def delete_trip_plan(
+    plan_id: int,
+    current_user_id: int = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Any:
     ok = trip_plan_service.delete_plan(db, plan_id)
     if not ok:
         raise HTTPException(status_code=404, detail="trip plan not found")
@@ -77,7 +87,7 @@ def humanize_trip_plan(
     data: PlanHumanizeRequest,
     current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> Any:
     try:
         return trip_plan_service.humanize_plan(db, plan_id, data)
     except LookupError as exc:

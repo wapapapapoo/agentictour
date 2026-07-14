@@ -1,5 +1,5 @@
 import os
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from dotenv import load_dotenv
 from fastapi import Depends, HTTPException, status
@@ -18,13 +18,13 @@ security = HTTPBearer(auto_error=not DEBUG)
 
 def create_access_token(user_id: int) -> str:
     """Create a JWT token for the given user ID."""
-    expire = datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {
         "sub": str(user_id),
         "exp": expire,
-        "iat": datetime.now(UTC),
+        "iat": datetime.now(timezone.utc),
     }
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    return str(jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM))
 
 
 def get_current_user(
@@ -52,13 +52,13 @@ def get_current_user(
     token = credentials.credentials  # type: ignore[union-attr]
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        user_id_str: str | None = payload.get("sub")
-        if user_id_str is None:
+        sub: str | None = payload.get("sub")
+        if sub is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token: missing subject",
             )
-        return int(user_id_str)
+        return int(sub)
     except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
