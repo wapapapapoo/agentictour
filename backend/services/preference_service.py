@@ -214,9 +214,11 @@ def analyze_user_preferences(db: Session, user_id: int) -> dict:
     ).delete()
     for cid in range(best_k):
         centroid = [float(v) for v in km.cluster_centers_[cid]]
+        count = int((labels == cid).sum())
         db.add(UserPreferencePrototype(
             user_id=user_id,
             vector=json.dumps(centroid, ensure_ascii=False),
+            chunk_count=count,
         ))
     db.commit()
 
@@ -229,7 +231,7 @@ def recommend_by_prototypes(db: Session, user_id: int, top_k: int, page: int, pa
     prototypes = (
         db.query(UserPreferencePrototype)
         .filter(UserPreferencePrototype.user_id == user_id)
-        .order_by(UserPreferencePrototype.id.desc())
+        .order_by(UserPreferencePrototype.chunk_count.desc())
         .limit(5)
         .all()
     )
