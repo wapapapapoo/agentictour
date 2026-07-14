@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TripPlanGenerateRequest(BaseModel):
@@ -37,6 +37,8 @@ class TripPlanReviseRequest(BaseModel):
 
 
 class TripPlanVersionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     request_id: int
     user_id: int
@@ -47,11 +49,9 @@ class TripPlanVersionResponse(BaseModel):
     plan_json: Any
     created_at: datetime
 
-    class Config:
-        from_attributes = True
-
-
 class TripPlanResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     trip_id: int
     user_id: int
@@ -70,10 +70,6 @@ class TripPlanResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime]
     latest_version: Optional[TripPlanVersionResponse]
-
-    class Config:
-        from_attributes = True
-
 
 class TripPlanListItem(BaseModel):
     id: int

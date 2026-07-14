@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -35,7 +35,7 @@ class ItineraryCreate(BaseModel):
     status: Literal["pending", "done", "cancelled"] = "pending"
 
     @model_validator(mode="after")
-    def validate_times(self):
+    def validate_times(self) -> Self:
         if self.end_time <= self.start_time:
             raise ValueError("end_time must be later than start_time")
         if self.itinerary_type == "transit" and self.reminder_time is None:

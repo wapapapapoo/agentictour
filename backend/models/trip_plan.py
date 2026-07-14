@@ -1,6 +1,10 @@
+from __future__ import annotations
+
+from datetime import datetime
+from typing import TYPE_CHECKING
+
 from sqlalchemy import (
     BigInteger,
-    Column,
     DateTime,
     ForeignKey,
     Integer,
@@ -8,10 +12,13 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from database import Base
+
+if TYPE_CHECKING:
+    from models.trip import Trip
 
 
 class TripPlanRequest(Base):
@@ -20,64 +27,78 @@ class TripPlanRequest(Base):
         UniqueConstraint("trip_id", name="uk_trip_plan_request_trip"),
     )
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    trip_id = Column(
+    id: Mapped[int] = mapped_column(
+        BigInteger, primary_key=True, autoincrement=True
+    )
+    trip_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("trips.id", ondelete="CASCADE"),
         nullable=False,
     )
-    user_id = Column(
+    user_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("users.user_id", onupdate="CASCADE"),
         nullable=False,
     )
-    action = Column(String(20), nullable=False, default="create")
+    action: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="create"
+    )
 
-    origin_city = Column(String(100), nullable=False)
-    destination_city = Column(String(100), nullable=False)
-    start_date = Column(String(20), nullable=False)
-    end_date = Column(String(20), nullable=False)
-    people_count = Column(String(20), nullable=False)
-    budget_total = Column(String(50), nullable=False)
-    interests = Column(Text, nullable=False)
-    hotel_level = Column(String(100), nullable=False)
-    transport_preference = Column(String(100), nullable=False)
-    pace = Column(String(50), nullable=False)
-    special_requirements = Column(Text, nullable=True)
+    origin_city: Mapped[str] = mapped_column(String(100), nullable=False)
+    destination_city: Mapped[str] = mapped_column(String(100), nullable=False)
+    start_date: Mapped[str] = mapped_column(String(20), nullable=False)
+    end_date: Mapped[str] = mapped_column(String(20), nullable=False)
+    people_count: Mapped[str] = mapped_column(String(20), nullable=False)
+    budget_total: Mapped[str] = mapped_column(String(50), nullable=False)
+    interests: Mapped[str] = mapped_column(Text, nullable=False)
+    hotel_level: Mapped[str] = mapped_column(String(100), nullable=False)
+    transport_preference: Mapped[str] = mapped_column(String(100), nullable=False)
+    pace: Mapped[str] = mapped_column(String(50), nullable=False)
+    special_requirements: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=True, server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
 
-    versions = relationship(
+    versions: Mapped[list[TripPlanVersion]] = relationship(
         "TripPlanVersion",
         back_populates="request",
         cascade="all, delete-orphan",
     )
-    trip = relationship("Trip", back_populates="plan_request")
+    trip: Mapped[Trip] = relationship("Trip", back_populates="plan_request")
 
 
 class TripPlanVersion(Base):
     __tablename__ = "trip_plan_versions"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    request_id = Column(
+    id: Mapped[int] = mapped_column(
+        BigInteger, primary_key=True, autoincrement=True
+    )
+    request_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("trip_plan_requests.id", ondelete="CASCADE"),
         nullable=False,
     )
-    user_id = Column(
+    user_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("users.user_id", onupdate="CASCADE"),
         nullable=False,
     )
-    version_no = Column(Integer, nullable=False)
-    revision_request = Column(Text, nullable=True)
+    version_no: Mapped[int] = mapped_column(Integer, nullable=False)
+    revision_request: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    workflow_run_id = Column(String(100), nullable=True)
-    task_id = Column(String(100), nullable=True)
-    plan_json = Column(Text, nullable=False)
-    raw_response_json = Column(Text, nullable=True)
+    workflow_run_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    task_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    plan_json: Mapped[str] = mapped_column(Text, nullable=False)
+    raw_response_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    created_at = Column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=True, server_default=func.now()
+    )
 
-    request = relationship("TripPlanRequest", back_populates="versions")
+    request: Mapped[TripPlanRequest] = relationship(
+        "TripPlanRequest", back_populates="versions"
+    )

@@ -110,7 +110,7 @@ def test_trip_domain_user_ids_are_bigint() -> None:
         assert isinstance(model.__table__.c.user_id.type, BigInteger)
 
     assert TripCreate.model_fields["user_id"].annotation is int
-    assert TripPlanGenerateRequest.model_fields["user_id"].annotation is int
+    assert "user_id" not in TripPlanGenerateRequest.model_fields
 
 
 def test_chat_session_uses_local_conversation_id() -> None:
