@@ -96,7 +96,7 @@ class Notification(Base):
     )
     user_id = Column(
         BigInteger,
-        ForeignKey("users.user_id", onupdate="CASCADE"),
+        ForeignKey("users.user_id", ondelete="CASCADE", onupdate="CASCADE"),
         nullable=False,
     )
     advice_id = Column(
@@ -123,7 +123,7 @@ class UserLocation(Base):
 
     user_id = Column(
         ID_TYPE,
-        ForeignKey("users.user_id", onupdate="CASCADE"),
+        ForeignKey("users.user_id", ondelete="CASCADE", onupdate="CASCADE"),
         primary_key=True,
     )
     latitude = Column(Float, nullable=False)
@@ -146,7 +146,7 @@ class ChatSession(Base):
     )
     user_id = Column(
         BigInteger,
-        ForeignKey("users.user_id", onupdate="CASCADE"),
+        ForeignKey("users.user_id", ondelete="CASCADE", onupdate="CASCADE"),
         nullable=False,
     )
     title = Column(String(100), nullable=True)

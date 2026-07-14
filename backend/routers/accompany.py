@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from auth import get_current_user
 from crud import accompany as crud
 from database import get_db
 from models.accompany import Notification
@@ -33,17 +34,17 @@ def _not_found(exc: Exception):
 
 
 @router.post("/memos", response_model=MemoResponse)
-def create_memo(data: MemoCreate, db: Session = Depends(get_db)):
+def create_memo(data: MemoCreate, current_user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
     return service.create_memo(db, data)
 
 
 @router.get("/trips/{trip_id}/memos", response_model=list[MemoResponse])
-def list_memos(trip_id: int, db: Session = Depends(get_db)):
+def list_memos(trip_id: int, current_user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
     return crud.list_memos(db, trip_id)
 
 
 @router.patch("/memos/{memo_id}", response_model=MemoResponse)
-def update_memo(memo_id: int, data: MemoUpdate, db: Session = Depends(get_db)):
+def update_memo(memo_id: int, data: MemoUpdate, current_user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         return service.update_memo(db, memo_id, data)
     except LookupError as exc:
@@ -51,7 +52,7 @@ def update_memo(memo_id: int, data: MemoUpdate, db: Session = Depends(get_db)):
 
 
 @router.delete("/memos/{memo_id}", status_code=204)
-def delete_memo(memo_id: int, db: Session = Depends(get_db)):
+def delete_memo(memo_id: int, current_user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         service.delete_memo(db, memo_id)
     except LookupError as exc:
@@ -59,7 +60,7 @@ def delete_memo(memo_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/itineraries", response_model=ItineraryResponse)
-def create_itinerary(data: ItineraryCreate, db: Session = Depends(get_db)):
+def create_itinerary(data: ItineraryCreate, current_user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         return service.create_itinerary(db, data)
     except ValueError as exc:
@@ -67,13 +68,13 @@ def create_itinerary(data: ItineraryCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/trips/{trip_id}/itineraries", response_model=list[ItineraryResponse])
-def list_itineraries(trip_id: int, db: Session = Depends(get_db)):
+def list_itineraries(trip_id: int, current_user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
     return crud.list_itineraries(db, trip_id)
 
 
 @router.patch("/itineraries/{itinerary_id}", response_model=ItineraryResponse)
 def update_itinerary(
-    itinerary_id: int, data: ItineraryUpdate, db: Session = Depends(get_db)
+    itinerary_id: int, data: ItineraryUpdate, current_user_id: int = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     try:
         return service.update_itinerary(db, itinerary_id, data)
@@ -84,7 +85,7 @@ def update_itinerary(
 
 
 @router.delete("/itineraries/{itinerary_id}", status_code=204)
-def delete_itinerary(itinerary_id: int, db: Session = Depends(get_db)):
+def delete_itinerary(itinerary_id: int, current_user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         service.delete_itinerary(db, itinerary_id)
     except LookupError as exc:
@@ -92,7 +93,7 @@ def delete_itinerary(itinerary_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/ai-advice/generate", response_model=AdviceResponse)
-def generate_advice(data: AdviceGenerateRequest, db: Session = Depends(get_db)):
+def generate_advice(data: AdviceGenerateRequest, current_user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         return service.advice_response(service.generate_advice(db, data))
     except DifyError as exc:
@@ -100,12 +101,12 @@ def generate_advice(data: AdviceGenerateRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/trips/{trip_id}/ai-advice", response_model=list[AdviceResponse])
-def list_advice(trip_id: int, db: Session = Depends(get_db)):
+def list_advice(trip_id: int, current_user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
     return [service.advice_response(x) for x in crud.list_advice(db, trip_id)]
 
 
 @router.post("/ai-advice/{advice_id}/action", response_model=AdviceResponse)
-def act(advice_id: int, data: AdviceActionRequest, db: Session = Depends(get_db)):
+def act(advice_id: int, data: AdviceActionRequest, current_user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         return service.advice_response(
             service.act_on_advice(
@@ -121,7 +122,7 @@ def act(advice_id: int, data: AdviceActionRequest, db: Session = Depends(get_db)
 
 
 @router.post("/chat/messages", response_model=ChatResponse)
-def chat(data: ChatRequest, db: Session = Depends(get_db)):
+def chat(data: ChatRequest, current_user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         return service.chat(db, data)
     except DifyError as exc:
@@ -129,7 +130,7 @@ def chat(data: ChatRequest, db: Session = Depends(get_db)):
 
 
 @router.put("/locations", response_model=LocationResponse)
-def update_location(data: LocationUpdate, db: Session = Depends(get_db)):
+def update_location(data: LocationUpdate, current_user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
     return service.upsert_location(db, data)
 
 
@@ -137,6 +138,7 @@ def update_location(data: LocationUpdate, db: Session = Depends(get_db)):
 def notifications(
     user_id: int,
     unread_only: bool = Query(default=True),
+    current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     return crud.list_notifications(db, user_id, unread_only)
@@ -146,7 +148,7 @@ def notifications(
     "/notifications/{notification_id}/read", response_model=NotificationResponse
 )
 def mark_notification_read(
-    notification_id: int, user_id: int, db: Session = Depends(get_db)
+    notification_id: int, user_id: int, current_user_id: int = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     row = (
         db.query(Notification)

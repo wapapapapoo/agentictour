@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
 
     CONSTRAINT fk_chat_session_user
         FOREIGN KEY (user_id) REFERENCES users(user_id)
-        ON UPDATE CASCADE
+        ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='会话表';
 
 
@@ -166,17 +166,17 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 CREATE TABLE IF NOT EXISTS notifications (
     notification_id BIGINT PRIMARY KEY AUTO_INCREMENT,
     trip_id BIGINT NOT NULL,
-    user_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL COMMENT '用户ID，对应 users.user_id',
     advice_id BIGINT DEFAULT NULL,
     category VARCHAR(30) NOT NULL,
     content TEXT NOT NULL,
     read_at DATETIME DEFAULT NULL COMMENT 'UTC',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'UTC',
     KEY idx_notifications_unread (user_id, read_at, created_at),
-    CONSTRAINT fk_notification_user FOREIGN KEY (user_id)
-        REFERENCES users(user_id) ON UPDATE CASCADE,
     CONSTRAINT fk_notification_trip FOREIGN KEY (trip_id)
         REFERENCES trips(id) ON DELETE CASCADE,
+    CONSTRAINT fk_notification_user FOREIGN KEY (user_id)
+        REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT fk_notification_advice FOREIGN KEY (advice_id)
         REFERENCES ai_advice(advice_id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户通知表';
@@ -187,7 +187,7 @@ CREATE TABLE IF NOT EXISTS agent_job_states (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Agent周期任务状态';
 
 CREATE TABLE IF NOT EXISTS user_locations (
-    user_id BIGINT PRIMARY KEY,
+    user_id BIGINT PRIMARY KEY COMMENT '用户ID，对应 users.user_id',
     latitude DOUBLE NOT NULL,
     longitude DOUBLE NOT NULL,
     city VARCHAR(100) DEFAULT NULL,
@@ -196,5 +196,5 @@ CREATE TABLE IF NOT EXISTS user_locations (
     updated_at DATETIME NOT NULL COMMENT 'UTC',
     KEY idx_user_locations_updated (updated_at),
     CONSTRAINT fk_user_location_user FOREIGN KEY (user_id)
-        REFERENCES users(user_id) ON UPDATE CASCADE
+        REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户最新位置';
