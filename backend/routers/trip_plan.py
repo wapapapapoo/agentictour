@@ -26,7 +26,11 @@ def generate_trip_plan(
     db: Session = Depends(get_db),
 ) -> Any:
     try:
-        plan = trip_plan_service.create_plan(db, data)
+        plan = trip_plan_service.create_plan(db, data, current_user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except DifyError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return trip_plan_service.to_response(plan)
@@ -40,7 +44,7 @@ def revise_trip_plan(
     db: Session = Depends(get_db),
 ) -> Any:
     try:
-        plan = trip_plan_service.revise_plan(db, plan_id, data)
+        plan = trip_plan_service.revise_plan(db, plan_id, data, current_user_id)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except DifyError as exc:
@@ -89,7 +93,7 @@ def humanize_trip_plan(
     db: Session = Depends(get_db),
 ) -> Any:
     try:
-        return trip_plan_service.humanize_plan(db, plan_id, data)
+        return trip_plan_service.humanize_plan(db, plan_id, current_user_id)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except DifyError as exc:
