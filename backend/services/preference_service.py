@@ -327,20 +327,11 @@ def recommend_by_prototypes(db: Session, user_id: int, top_k: int, page: int, pa
         .all()
     }
 
-    # 去重用户已点赞的 plan_id
-    liked_plan_ids: set[int] = {
-        l.plan_id for l in db.query(PlanLike.plan_id)
-        .filter(PlanLike.user_id == user_id)
-        .all()
-    }
-
     groups: dict[tuple, dict] = {}
     for r in raw:
         m = mappings.get(r["document_id"])
         if m is None:
             continue
-        if m.plan_id in liked_plan_ids:
-            continue  # 去重：已点赞的行程不再出现
         key = (m.plan_id, m.version_id)
         if key in groups:
             g = groups[key]
