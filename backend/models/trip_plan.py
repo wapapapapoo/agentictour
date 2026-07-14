@@ -1,4 +1,13 @@
-from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    BigInteger,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -7,9 +16,21 @@ from database import Base
 
 class TripPlanRequest(Base):
     __tablename__ = "trip_plan_requests"
+    __table_args__ = (
+        UniqueConstraint("trip_id", name="uk_trip_plan_request_trip"),
+    )
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    user_id = Column(String(64), nullable=False)
+    trip_id = Column(
+        BigInteger,
+        ForeignKey("trips.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    user_id = Column(
+        BigInteger,
+        ForeignKey("users.user_id", onupdate="CASCADE"),
+        nullable=False,
+    )
     action = Column(String(20), nullable=False, default="create")
 
     origin_city = Column(String(100), nullable=False)
@@ -32,6 +53,7 @@ class TripPlanRequest(Base):
         back_populates="request",
         cascade="all, delete-orphan",
     )
+    trip = relationship("Trip", back_populates="plan_request")
 
 
 class TripPlanVersion(Base):
@@ -43,7 +65,11 @@ class TripPlanVersion(Base):
         ForeignKey("trip_plan_requests.id", ondelete="CASCADE"),
         nullable=False,
     )
-    user_id = Column(String(64), nullable=False)
+    user_id = Column(
+        BigInteger,
+        ForeignKey("users.user_id", onupdate="CASCADE"),
+        nullable=False,
+    )
     version_no = Column(Integer, nullable=False)
     revision_request = Column(Text, nullable=True)
 

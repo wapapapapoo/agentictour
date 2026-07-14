@@ -4,6 +4,7 @@ from sqlalchemy import (
     Column,
     Date,
     DateTime,
+    ForeignKey,
     Index,
     Integer,
     String,
@@ -31,7 +32,11 @@ class Trip(Base):
     )
 
     id = Column(ID_TYPE, primary_key=True, autoincrement=True)
-    user_id = Column(BigInteger, nullable=False)
+    user_id = Column(
+        BigInteger,
+        ForeignKey("users.user_id", onupdate="CASCADE"),
+        nullable=False,
+    )
     title = Column(String(100), nullable=False)
     origin_city = Column(String(100), nullable=False)
     destination_city = Column(String(100), nullable=False)
@@ -77,4 +82,12 @@ class Trip(Base):
         back_populates="trip",
         cascade="all, delete-orphan",
         passive_deletes=True,
+    )
+    plan_request = relationship(
+        "TripPlanRequest",
+        back_populates="trip",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        uselist=False,
+        single_parent=True,
     )

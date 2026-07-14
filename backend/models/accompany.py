@@ -94,7 +94,11 @@ class Notification(Base):
         ForeignKey("trips.id", ondelete="CASCADE"),
         nullable=False,
     )
-    user_id = Column(BigInteger, nullable=False)
+    user_id = Column(
+        BigInteger,
+        ForeignKey("users.user_id", onupdate="CASCADE"),
+        nullable=False,
+    )
     advice_id = Column(
         BigInteger,
         ForeignKey("ai_advice.advice_id", ondelete="SET NULL"),
@@ -117,7 +121,11 @@ class AgentJobState(Base):
 class UserLocation(Base):
     __tablename__ = "user_locations"
 
-    user_id = Column(ID_TYPE, primary_key=True)
+    user_id = Column(
+        ID_TYPE,
+        ForeignKey("users.user_id", onupdate="CASCADE"),
+        primary_key=True,
+    )
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
     city = Column(String(100), nullable=True)
@@ -136,7 +144,11 @@ class ChatSession(Base):
         nullable=False,
         unique=True,
     )
-    user_id = Column(BigInteger, nullable=False)
+    user_id = Column(
+        BigInteger,
+        ForeignKey("users.user_id", onupdate="CASCADE"),
+        nullable=False,
+    )
     title = Column(String(100), nullable=True)
     status = Column(String(20), nullable=False, default="active")
     dify_conversation_id = Column(String(100), nullable=True)

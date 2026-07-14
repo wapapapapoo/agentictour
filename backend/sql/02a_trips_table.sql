@@ -15,6 +15,9 @@ CREATE TABLE IF NOT EXISTS trips (
 
     KEY idx_trips_user_status (user_id, status),
     KEY idx_trips_dates (start_date, end_date),
+    CONSTRAINT fk_trips_user
+        FOREIGN KEY (user_id) REFERENCES users(user_id)
+        ON UPDATE CASCADE,
     CONSTRAINT chk_trip_date_range CHECK (end_date >= start_date),
     CONSTRAINT chk_trip_status
         CHECK (status IN ('planned', 'ongoing', 'completed', 'cancelled'))

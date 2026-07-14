@@ -124,6 +124,10 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
     CONSTRAINT fk_chat_session_trip
         FOREIGN KEY (trip_id) REFERENCES trips(id)
         ON DELETE CASCADE
+        ON UPDATE CASCADE,
+
+    CONSTRAINT fk_chat_session_user
+        FOREIGN KEY (user_id) REFERENCES users(user_id)
         ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='会话表';
 
@@ -169,6 +173,8 @@ CREATE TABLE IF NOT EXISTS notifications (
     read_at DATETIME DEFAULT NULL COMMENT 'UTC',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'UTC',
     KEY idx_notifications_unread (user_id, read_at, created_at),
+    CONSTRAINT fk_notification_user FOREIGN KEY (user_id)
+        REFERENCES users(user_id) ON UPDATE CASCADE,
     CONSTRAINT fk_notification_trip FOREIGN KEY (trip_id)
         REFERENCES trips(id) ON DELETE CASCADE,
     CONSTRAINT fk_notification_advice FOREIGN KEY (advice_id)
@@ -188,5 +194,7 @@ CREATE TABLE IF NOT EXISTS user_locations (
     place_name VARCHAR(200) DEFAULT NULL,
     location_context TEXT DEFAULT NULL,
     updated_at DATETIME NOT NULL COMMENT 'UTC',
-    KEY idx_user_locations_updated (updated_at)
+    KEY idx_user_locations_updated (updated_at),
+    CONSTRAINT fk_user_location_user FOREIGN KEY (user_id)
+        REFERENCES users(user_id) ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户最新位置';

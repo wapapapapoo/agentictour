@@ -23,6 +23,10 @@ def generate_trip_plan(
 ):
     try:
         plan = trip_plan_service.create_plan(db, data)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except DifyError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return trip_plan_service.to_response(plan)
@@ -45,7 +49,7 @@ def revise_trip_plan(
 
 @router.get("", response_model=list[TripPlanListItem])
 def list_trip_plans(
-    user_id: str | None = Query(default=None),
+    user_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
 ):
     return trip_plan_service.list_plans(db, user_id)

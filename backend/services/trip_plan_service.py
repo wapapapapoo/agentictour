@@ -7,6 +7,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from models.trip import Trip
 from models.trip_plan import TripPlanRequest, TripPlanVersion
 from schemas.trip_plan import (
     PlanHumanizeRequest,
@@ -26,7 +27,18 @@ DEFAULT_EMPTY_PLAN = {
 
 
 def create_plan(db: Session, data: TripPlanGenerateRequest) -> TripPlanRequest:
+    if db.get(Trip, data.trip_id) is None:
+        raise LookupError("trip not found")
+    if (
+        db.query(TripPlanRequest)
+        .filter(TripPlanRequest.trip_id == data.trip_id)
+        .first()
+        is not None
+    ):
+        raise ValueError("trip already has a plan request")
+
     request = TripPlanRequest(
+        trip_id=data.trip_id,
         user_id=data.user_id,
         action="create",
         origin_city=data.origin_city,
@@ -72,6 +84,7 @@ def revise_plan(
         raise LookupError("trip plan version not found")
 
     generate_request = TripPlanGenerateRequest(
+        trip_id=request.trip_id,
         action="revise",
         user_id=data.user_id,
         origin_city=request.origin_city,
@@ -117,7 +130,7 @@ def get_latest_version(db: Session, plan_id: int) -> TripPlanVersion | None:
     )
 
 
-def list_plans(db: Session, user_id: str | None = None) -> list[dict[str, Any]]:
+def list_plans(db: Session, user_id: int | None = None) -> list[dict[str, Any]]:
     query = db.query(TripPlanRequest).order_by(TripPlanRequest.created_at.desc())
     if user_id:
         query = query.filter(TripPlanRequest.user_id == user_id)
@@ -130,6 +143,7 @@ def list_plans(db: Session, user_id: str | None = None) -> list[dict[str, Any]]:
         items.append(
             {
                 "id": request.id,
+                "trip_id": request.trip_id,
                 "user_id": request.user_id,
                 "origin_city": request.origin_city,
                 "destination_city": request.destination_city,
@@ -181,7 +195,7 @@ def humanize_plan(
     )
     try:
         response = client.run_workflow(
-            user=data.user_id,
+            user=str(data.user_id),
             inputs={
                 "input_json": plan_json,
                 "original_user_prompt": original_prompt,
@@ -228,6 +242,7 @@ def to_response(request: TripPlanRequest) -> dict[str, Any]:
     )
     return {
         "id": request.id,
+        "trip_id": request.trip_id,
         "user_id": request.user_id,
         "action": request.action,
         "origin_city": request.origin_city,
@@ -257,7 +272,7 @@ def _run_trip_plan_workflow(data: TripPlanGenerateRequest) -> dict[str, Any]:
     )
     try:
         return client.run_workflow(
-            user=data.user_id,
+            user=str(data.user_id),
             inputs=_to_dify_inputs(data),
         )
     except DifyError:
@@ -267,7 +282,7 @@ def _run_trip_plan_workflow(data: TripPlanGenerateRequest) -> dict[str, Any]:
 def _to_dify_inputs(data: TripPlanGenerateRequest) -> dict[str, str]:
     return {
         "action": data.action,
-        "user_id": data.user_id,
+        "user_id": str(data.user_id),
         "origin_city": data.origin_city,
         "destination_city": data.destination_city,
         "start_date": data.start_date,
@@ -287,7 +302,7 @@ def _to_dify_inputs(data: TripPlanGenerateRequest) -> dict[str, str]:
 def _build_version(
     *,
     request_id: int,
-    user_id: str,
+    user_id: int,
     version_no: int,
     revision_request: str,
     workflow_response: dict[str, Any],

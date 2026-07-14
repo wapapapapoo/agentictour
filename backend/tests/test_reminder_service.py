@@ -8,6 +8,7 @@ from sqlalchemy.pool import StaticPool
 from database import Base
 from models.accompany import AIAdvice, Memo, Notification
 from models.trip import Trip
+from models.user import User
 from services import reminder_service
 from services.ai_gateway import AuditedOutput
 
@@ -26,6 +27,8 @@ def db() -> Session:
 
     Base.metadata.create_all(engine)
     session = Session(engine)
+    session.add(User(user_id=1, username="test-user-1", password_hash="test"))
+    session.commit()
     try:
         yield session
     finally:
