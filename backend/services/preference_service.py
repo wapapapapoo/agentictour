@@ -43,6 +43,43 @@ def _parse_liked_plan_ids(log_path: str) -> tuple[list[int], list[str]]:
     return list(plan_ids), liked_lines
 
 
+def _decode_embedding(raw: bytes) -> list[float] | None:
+    """尝试多种方式解码 Dify embeddings 表的 bytea 向量."""
+    # 方式1: 纯 float32
+    if len(raw) % 4 == 0:
+        try:
+            dim = len(raw) // 4
+            return list(struct.unpack(f"<{dim}f", raw))
+        except struct.error:
+            pass
+    # 方式2: numpy .tobytes() — 用 numpy.frombuffer
+    try:
+        return np.frombuffer(raw, dtype=np.float32).tolist()
+    except Exception:
+        pass
+    # 方式3: 跳过前 8 字节头部再解
+    if len(raw) > 8:
+        body = raw[8:]
+        if len(body) % 4 == 0:
+            try:
+                dim = len(body) // 4
+                return list(struct.unpack(f"<{dim}f", body))
+            except struct.error:
+                pass
+        try:
+            return np.frombuffer(body, dtype=np.float32).tolist()
+        except Exception:
+            pass
+    # 方式4: base64 编码的文本
+    try:
+        import base64
+        decoded = base64.b64decode(raw.decode())
+        return _decode_embedding(decoded)
+    except Exception:
+        pass
+    return None
+
+
 def analyze_user_preferences(db: Session, user_id: int) -> dict:
     debug: dict = {"steps": []}
 
@@ -134,11 +171,13 @@ def analyze_user_preferences(db: Session, user_id: int) -> dict:
                     "hash_source": source,
                 }
                 if emb_bytes is not None:
-                    dim = len(emb_bytes) // 4
-                    floats = list(struct.unpack(f"<{dim}f", emb_bytes))
-                    vectors.append(floats)
-                    seg_info["vector_dim"] = dim
-                    seg_info["vector_preview"] = floats[:5]
+                    floats = _decode_embedding(emb_bytes)
+                    if floats is not None:
+                        vectors.append(floats)
+                        seg_info["vector_dim"] = len(floats)
+                        seg_info["vector_preview"] = floats[:5]
+                    else:
+                        seg_info["decode_error"] = f"raw_len={len(emb_bytes)}"
                 segment_details.append(seg_info)
         cur.close()
     finally:
