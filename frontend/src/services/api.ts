@@ -25,6 +25,7 @@ export interface Notification { notification_id: number; trip_id: number; conten
 export interface KnowledgeSearchResult { chunk_content: string; score: number; document_id: string; plan_id?: number | null; plan_title?: string | null; like_count: number }
 export interface KnowledgeSearchResponse { results: KnowledgeSearchResult[] }
 export interface PlanLikeResponse { id: number; user_id: number; plan_id: number; chunk_ids: string[]; created_at: string }
+export interface PlanKnowledgeResponse { plan_id: number; version_id: number; humanized_text: string; dataset_id: string; document_name: string; document_id?: string | null; indexing_status?: string | null }
 
 function detailMessage(detail: unknown, fallback: string) {
   if (typeof detail === 'string') return detail
@@ -89,6 +90,7 @@ export const api = {
   searchKnowledge: (query: string, dataset_id = '') => request<KnowledgeSearchResponse>('/trip-plans/knowledge/search', { method: 'POST', body: JSON.stringify({ query, dataset_id }) }),
   likePlan: (planId: number, chunkIds: string[]) => request<PlanLikeResponse>(`/trip-plans/${planId}/like`, { method: 'POST', body: JSON.stringify({ chunk_ids: chunkIds }) }),
   unlikePlan: (planId: number) => request<{ message: string }>(`/trip-plans/${planId}/like`, { method: 'DELETE' }),
+  syncPlanToKnowledge: (planId: number) => request<PlanKnowledgeResponse>(`/trip-plans/${planId}/knowledge`, { method: 'POST', body: JSON.stringify({ user_id: requireUserId(), chunk_size: 4000 }) }),
   sendChatMessage: (payload: { trip_id: number; message: string; city?: string; nearby_context?: string; latitude?: number; longitude?: number; location_name?: string }) => request<ChatReply>('/chat/messages', { method: 'POST', body: JSON.stringify({ ...payload, user_id: requireUserId() }) }),
   updateLocation: (payload: { latitude: number; longitude: number; city?: string; place_name?: string; location_context?: string }) => request('/locations', { method: 'PUT', body: JSON.stringify({ ...payload, user_id: requireUserId() }) }),
 }
