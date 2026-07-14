@@ -5,9 +5,8 @@ from pydantic import BaseModel, Field
 
 
 class TripPlanGenerateRequest(BaseModel):
-    trip_id: int = Field(gt=0)
+    trip_id: int = Field(default=0, ge=0)
     action: str = Field(default="create", max_length=20)
-    user_id: int = Field(gt=0)
     origin_city: str = Field(..., max_length=100)
     destination_city: str = Field(..., max_length=100)
     start_date: str = Field(..., max_length=20)
@@ -24,7 +23,7 @@ class TripPlanGenerateRequest(BaseModel):
 
 
 class PlanHumanizeRequest(BaseModel):
-    user_id: int = Field(gt=0)
+    pass
 
 
 class PlanHumanizeResponse(BaseModel):
@@ -34,7 +33,6 @@ class PlanHumanizeResponse(BaseModel):
 
 
 class TripPlanReviseRequest(BaseModel):
-    user_id: int = Field(gt=0)
     revision_request: str
 
 

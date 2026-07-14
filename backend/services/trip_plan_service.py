@@ -11,7 +11,6 @@ from models.trip import Trip
 from models.trip_plan import TripPlanRequest, TripPlanVersion
 from models.user import User
 from schemas.trip_plan import (
-    PlanHumanizeRequest,
     TripPlanGenerateRequest,
     TripPlanReviseRequest,
 )
@@ -32,20 +31,39 @@ def _get_username(db: Session, user_id: int) -> str:
     return user.username if user else str(user_id)
 
 
-def create_plan(db: Session, data: TripPlanGenerateRequest) -> TripPlanRequest:
-    if db.get(Trip, data.trip_id) is None:
-        raise LookupError("trip not found")
-    if (
+def _get_or_create_trip(
+    db: Session, data: TripPlanGenerateRequest, user_id: int
+) -> int:
+    if data.trip_id > 0 and db.get(Trip, data.trip_id) is not None:
+        return data.trip_id
+    trip = Trip(
+        user_id=user_id,
+        title=f"{data.destination_city} {data.start_date} ~ {data.end_date}",
+        origin_city=data.origin_city,
+        destination_city=data.destination_city,
+        start_date=data.start_date,
+        end_date=data.end_date,
+    )
+    db.add(trip)
+    db.flush()
+    return trip.id
+
+
+def create_plan(
+    db: Session, data: TripPlanGenerateRequest, user_id: int
+) -> TripPlanRequest:
+    trip_id = _get_or_create_trip(db, data, user_id)
+    existing = (
         db.query(TripPlanRequest)
-        .filter(TripPlanRequest.trip_id == data.trip_id)
+        .filter(TripPlanRequest.trip_id == trip_id)
         .first()
-        is not None
-    ):
+    )
+    if existing is not None:
         raise ValueError("trip already has a plan request")
 
     request = TripPlanRequest(
-        trip_id=data.trip_id,
-        user_id=data.user_id,
+        trip_id=trip_id,
+        user_id=user_id,
         action="create",
         origin_city=data.origin_city,
         destination_city=data.destination_city,
@@ -62,11 +80,11 @@ def create_plan(db: Session, data: TripPlanGenerateRequest) -> TripPlanRequest:
     db.add(request)
     db.flush()
 
-    username = _get_username(db, data.user_id)
+    username = _get_username(db, user_id)
     response = _run_trip_plan_workflow(data, username)
     version = _build_version(
         request_id=request.id,
-        user_id=data.user_id,
+        user_id=user_id,
         version_no=1,
         revision_request=data.revision_request,
         workflow_response=response,
@@ -81,6 +99,7 @@ def revise_plan(
     db: Session,
     plan_id: int,
     data: TripPlanReviseRequest,
+    user_id: int,
 ) -> TripPlanRequest:
     request = get_plan(db, plan_id)
     if request is None:
@@ -93,7 +112,6 @@ def revise_plan(
     generate_request = TripPlanGenerateRequest(
         trip_id=request.trip_id,
         action="revise",
-        user_id=data.user_id,
         origin_city=request.origin_city,
         destination_city=request.destination_city,
         start_date=request.start_date,
@@ -110,12 +128,12 @@ def revise_plan(
     )
 
     response = _run_trip_plan_workflow(
-        generate_request, _get_username(db, data.user_id)
+        generate_request, _get_username(db, user_id)
     )
     next_version_no = latest_version.version_no + 1
     version = _build_version(
         request_id=request.id,
-        user_id=data.user_id,
+        user_id=user_id,
         version_no=next_version_no,
         revision_request=data.revision_request,
         workflow_response=response,
@@ -170,7 +188,7 @@ def list_plans(db: Session, user_id: int | None = None) -> list[dict[str, Any]]:
 def humanize_plan(
     db: Session,
     plan_id: int,
-    data: PlanHumanizeRequest,
+    user_id: int,
 ) -> dict[str, Any]:
     request = get_plan(db, plan_id)
     if request is None:
@@ -204,7 +222,7 @@ def humanize_plan(
     )
     try:
         response = client.run_workflow(
-            user=_get_username(db, data.user_id),
+            user=_get_username(db, user_id),
             inputs={
                 "input_json": plan_json,
                 "original_user_prompt": original_prompt,
