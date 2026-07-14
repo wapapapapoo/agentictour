@@ -152,3 +152,30 @@ def like_trip_plan(
         chunk_ids=data.chunk_ids,
         created_at=like.created_at.isoformat() if like.created_at else "",
     )
+
+
+@router.delete("/{plan_id}/like")
+def unlike_trip_plan(
+    plan_id: int,
+    current_user_id: int = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Any:
+    like = (
+        db.query(PlanLike)
+        .filter(PlanLike.user_id == current_user_id, PlanLike.plan_id == plan_id)
+        .first()
+    )
+    if like is None:
+        raise HTTPException(status_code=404, detail="like not found")
+
+    chunk_ids = json.loads(like.chunk_ids)
+    db.delete(like)
+    db.commit()
+
+    write_log(
+        current_user_id,
+        "取消点赞",
+        f"plan_id:{plan_id} chunks:{','.join(chunk_ids)}",
+    )
+
+    return {"message": "unliked"}
