@@ -34,11 +34,17 @@ def _parse_liked_plan_ids(log_path: str) -> tuple[list[int], list[str]]:
     plan_ids: set[int] = set()
     liked_lines: list[str] = []
     for line in lines:
-        if "点赞" in line:
+        if "点赞" in line and "取消点赞" not in line:
             liked_lines.append(line.strip())
             m = re.search(r"plan_id:(\d+)", line)
             if m:
                 plan_ids.add(int(m.group(1)))
+        elif "取消点赞" in line:
+            liked_lines.append(line.strip())
+            m = re.search(r"plan_id:(\d+)", line)
+            if m:
+                # 取消点赞从集合中移除
+                plan_ids.discard(int(m.group(1)))
     return list(plan_ids), liked_lines
 
 
@@ -228,6 +234,8 @@ def analyze_user_preferences(db: Session, user_id: int) -> dict:
 
 
 def recommend_by_prototypes(db: Session, user_id: int, top_k: int, page: int, page_size: int) -> dict:
+    import random
+
     prototypes = (
         db.query(UserPreferencePrototype)
         .filter(UserPreferencePrototype.user_id == user_id)
@@ -236,16 +244,14 @@ def recommend_by_prototypes(db: Session, user_id: int, top_k: int, page: int, pa
         .all()
     )
     if not prototypes:
-        return {"message": "no prototypes found for this user", "clusters": []}
+        return {"results": []}
 
     centroids = np.array([json.loads(p.vector) for p in prototypes])
 
     import psycopg2
     import pickle
     conn = psycopg2.connect(DIFY_DB)
-    contents: list[str] = []
-    doc_ids: list[str] = []
-    vecs: list[list[float]] = []
+    raw = []  # (content, doc_id, score)
     offset = page * page_size
     try:
         cur = conn.cursor()
@@ -258,46 +264,120 @@ def recommend_by_prototypes(db: Session, user_id: int, top_k: int, page: int, pa
             "LIMIT %s OFFSET %s",
             (page_size, offset),
         )
-        for content, doc_id, emb_bytes in cur.fetchall():
-            arr = pickle.loads(bytes(emb_bytes))
-            if isinstance(arr, list) and len(arr) > 0:
-                contents.append(content)
-                doc_ids.append(doc_id)
-                vecs.append([float(v) for v in arr])
+        rows = cur.fetchall()
         cur.close()
     finally:
         conn.close()
 
-    if not vecs:
-        return {"message": f"no embeddings on page {page}", "clusters": []}
+    if not rows:
+        return {"results": []}
 
-    all_vecs = np.array(vecs)
+    contents = []
+    doc_ids = []
+    vec_list = []
+    for content, doc_id, emb_bytes in rows:
+        arr = pickle.loads(bytes(emb_bytes))
+        if isinstance(arr, list) and len(arr) > 0:
+            contents.append(content)
+            doc_ids.append(doc_id)
+            vec_list.append([float(v) for v in arr])
+
+    if not vec_list:
+        return {"results": []}
+
+    all_vecs = np.array(vec_list)
     cn = centroids / (np.linalg.norm(centroids, axis=1, keepdims=True) + 1e-10)
     an = all_vecs / (np.linalg.norm(all_vecs, axis=1, keepdims=True) + 1e-10)
-    sim = cn @ an.T
+    sim = cn @ an.T  # (n_centroids, n_chunks)
 
-    clusters = []
-    for i, p in enumerate(prototypes):
+    # 每个簇取 top_k，收集 (content, doc_id, score)
+    seen_doc_ids: set[str] = set()
+    raw = []
+    for i in range(len(prototypes)):
         scores = sim[i]
-        top_idx = np.argsort(scores)[::-1][:top_k]
-        results = []
+        top_idx = np.argsort(scores)[::-1]
+        taken = 0
         for idx in top_idx:
-            results.append({
-                "content_preview": contents[idx][:200],
-                "document_id": doc_ids[idx],
-                "similarity": round(float(scores[idx]), 6),
+            if taken >= top_k:
+                break
+            did = doc_ids[idx]
+            if did in seen_doc_ids:
+                continue  # 去重：同一个 doc 不跨簇重复出现
+            seen_doc_ids.add(did)
+            raw.append({
+                "chunk_content": contents[idx],
+                "score": float(scores[idx]),
+                "document_id": did,
             })
-        clusters.append({
-            "cluster_id": i,
-            "centroid_preview": json.loads(p.vector)[:5],
-            "results": results,
-        })
+            taken += 1
 
-    return {
-        "user_id": user_id,
-        "prototypes_used": len(prototypes),
-        "page": page,
-        "page_size": page_size,
-        "chunks_on_page": len(vecs),
-        "clusters": clusters,
+    if not raw:
+        return {"results": []}
+
+    # 按 (plan_id, version_id) 合并，同搜索接口
+    from models.knowledge import PlanKnowledgeMapping, PlanLike
+    from services.trip_plan_service import _loads_json, get_plan, get_latest_version
+
+    # 反查 mapping
+    all_doc_ids = [r["document_id"] for r in raw]
+    mappings = {
+        m.document_id: m
+        for m in db.query(PlanKnowledgeMapping)
+        .filter(PlanKnowledgeMapping.document_id.in_(all_doc_ids))
+        .all()
     }
+
+    # 去重用户已点赞的 plan_id
+    liked_plan_ids: set[int] = {
+        l.plan_id for l in db.query(PlanLike.plan_id)
+        .filter(PlanLike.user_id == user_id)
+        .all()
+    }
+
+    groups: dict[tuple, dict] = {}
+    for r in raw:
+        m = mappings.get(r["document_id"])
+        if m is None:
+            continue
+        if m.plan_id in liked_plan_ids:
+            continue  # 去重：已点赞的行程不再出现
+        key = (m.plan_id, m.version_id)
+        if key in groups:
+            g = groups[key]
+            g["chunk_content"] += "\n---\n" + r["chunk_content"]
+            g["_scores"].append(r["score"])
+        else:
+            title = None
+            plan = get_plan(db, m.plan_id)
+            if plan:
+                version = get_latest_version(db, m.plan_id)
+                if version and version.plan_json:
+                    obj = _loads_json(version.plan_json)
+                    if isinstance(obj, dict):
+                        title = obj.get("title")
+            groups[key] = {
+                "chunk_content": r["chunk_content"],
+                "score": r["score"],
+                "document_id": r["document_id"],
+                "plan_id": m.plan_id,
+                "plan_title": title,
+                "_scores": [r["score"]],
+            }
+
+    # 点赞计数
+    all_pids = [g["plan_id"] for g in groups.values() if g["plan_id"] is not None]
+    like_counts: dict[int, int] = {}
+    if all_pids:
+        for pid, _ in db.query(PlanLike.plan_id, PlanLike.id).filter(PlanLike.plan_id.in_(all_pids)).all():
+            like_counts[pid] = like_counts.get(pid, 0) + 1
+
+    results = []
+    for g in groups.values():
+        scores = g.pop("_scores")
+        if len(scores) > 1:
+            g["score"] = math.log(sum(math.exp(s) for s in scores))
+        g["like_count"] = like_counts.get(g["plan_id"], 0)
+        results.append(g)
+
+    random.shuffle(results)
+    return {"results": results}
