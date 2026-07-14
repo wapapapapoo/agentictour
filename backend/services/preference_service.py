@@ -43,15 +43,14 @@ def _parse_liked_plan_ids(log_path: str) -> tuple[list[int], list[str]]:
 
 
 def _decode_embedding(raw: bytes) -> list[float] | None:
-    """Dify embeddings 表 bytea: 2B pgvector dim header + float32 array."""
-    # 2 字节维度头 + float32 数据 (9234 = 2 + 2308*4)
-    if len(raw) > 2:
-        body = raw[2:]
-        if len(body) % 4 == 0:
-            return np.frombuffer(body, dtype=np.float32).tolist()
-    # fallback: 从头解 float32
-    if len(raw) % 4 == 0:
-        return np.frombuffer(raw, dtype=np.float32).tolist()
+    """Dify 用 pickle.dumps(numpy_array) 存 bytea, pickle protocol 5."""
+    import pickle
+    try:
+        arr = pickle.loads(raw)
+        if isinstance(arr, np.ndarray):
+            return arr.astype(np.float32).flatten().tolist()
+    except Exception:
+        pass
     return None
 
 
