@@ -11,6 +11,7 @@ const navItems = [
   { to: '/', label: '旅行规划', icon: '✦' },
   { to: '/companion', label: '旅途陪伴', icon: '◌' },
   { to: '/create', label: '旅行创作', icon: '✎' },
+  { to: '/search', label: '行程搜索', icon: '⌕' },
 ]
 
 function refreshDatePlaceholder(input: { value: string; classList: DOMTokenList }) {
