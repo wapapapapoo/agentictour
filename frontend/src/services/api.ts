@@ -88,6 +88,7 @@ export const api = {
   markNotificationRead: (id: number) => request<Notification>(`/notifications/${id}/read?user_id=${requireUserId()}`, { method: 'POST' }),
   searchKnowledge: (query: string, dataset_id = '') => request<KnowledgeSearchResponse>('/trip-plans/knowledge/search', { method: 'POST', body: JSON.stringify({ query, dataset_id }) }),
   likePlan: (planId: number, chunkIds: string[]) => request<PlanLikeResponse>(`/trip-plans/${planId}/like`, { method: 'POST', body: JSON.stringify({ chunk_ids: chunkIds }) }),
+  unlikePlan: (planId: number) => request<{ message: string }>(`/trip-plans/${planId}/like`, { method: 'DELETE' }),
   sendChatMessage: (payload: { trip_id: number; message: string; city?: string; nearby_context?: string; latitude?: number; longitude?: number; location_name?: string }) => request<ChatReply>('/chat/messages', { method: 'POST', body: JSON.stringify({ ...payload, user_id: requireUserId() }) }),
   updateLocation: (payload: { latitude: number; longitude: number; city?: string; place_name?: string; location_context?: string }) => request('/locations', { method: 'PUT', body: JSON.stringify({ ...payload, user_id: requireUserId() }) }),
 }
