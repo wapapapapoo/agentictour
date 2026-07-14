@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+import requests
 from sqlalchemy.orm import Session
 
 from models.blog import BlogGeneration, BlogMaterial, BlogPhoto
@@ -13,11 +14,18 @@ from schemas.blog import (
     BlogMaterialCreate,
     BlogWritingStyle,
 )
-from utils.dify_client import DifyClient, DifyResponseError
+from utils.dify_client import (
+    DifyClient,
+    DifyConfigError,
+    DifyRequestError,
+    DifyResponseError,
+    DifyTimeoutError,
+)
 
 VALID_CONTENT_TYPES = {item.value for item in BlogContentType}
 VALID_WRITING_STYLES = {item.value for item in BlogWritingStyle}
 MAX_PHOTO_SIZE = 10 * 1024 * 1024
+MAX_PHOTOS_PER_MATERIAL = 3
 DEFAULT_PHOTO_DIR = Path(__file__).resolve().parents[1] / "uploads" / "blog"
 
 
@@ -50,6 +58,13 @@ def create_photo(
 ) -> BlogPhoto:
     if get_material(db, material_id, user_id) is None:
         raise LookupError("material not found")
+    photo_count = (
+        db.query(BlogPhoto)
+        .filter(BlogPhoto.material_id == material_id, BlogPhoto.user_id == user_id)
+        .count()
+    )
+    if photo_count >= MAX_PHOTOS_PER_MATERIAL:
+        raise ValueError("each material can contain at most 3 photos")
     if not content:
         raise ValueError("image file is empty")
     if len(content) > MAX_PHOTO_SIZE:
@@ -118,7 +133,8 @@ def get_photo_path(photo: BlogPhoto) -> Path:
 def _to_dify_inputs(
     material: BlogMaterial,
     req: BlogGenerateRequest,
-) -> dict[str, str]:
+    photos: list[dict[str, str]] | None = None,
+) -> dict[str, Any]:
     def text(value: Any) -> str:
         return "" if value is None else str(value)
 
@@ -137,6 +153,58 @@ def _to_dify_inputs(
         "feeling_text": text(material.feeling_text),
         "content_type": req.content_type.value,
         "writing_style": req.writing_style.value,
+        "photos": photos or [],
+    }
+
+
+def _upload_photo_to_dify(
+    client: DifyClient,
+    photo: BlogPhoto,
+    user: str,
+) -> dict[str, str]:
+    upload_url = os.getenv("DIFY_BLOG_FILE_UPLOAD_URL")
+    if not upload_url:
+        if "/workflows/run" not in client.url:
+            raise DifyConfigError("Dify workflow URL must end with /workflows/run.")
+        upload_url = client.url.replace("/workflows/run", "/files/upload", 1)
+
+    try:
+        file_path = get_photo_path(photo)
+    except FileNotFoundError as exc:
+        raise DifyResponseError(f"Photo file {photo.id} was not found.") from exc
+
+    try:
+        with file_path.open("rb") as image_file:
+            response = client.session.post(
+                upload_url,
+                headers={"Authorization": f"Bearer {client.api_key}"},
+                files={
+                    "file": (
+                        photo.original_filename,
+                        image_file,
+                        photo.content_type,
+                    )
+                },
+                data={"user": user},
+                timeout=client.timeout,
+            )
+    except requests.exceptions.Timeout as exc:
+        raise DifyTimeoutError("Dify file upload timed out.") from exc
+    except requests.exceptions.RequestException as exc:
+        raise DifyRequestError(f"Dify file upload failed: {exc}") from exc
+
+    if response.status_code >= 400:
+        client._raise_http_error(response)
+
+    body = client._parse_json(response)
+    upload_file_id = body.get("id") if isinstance(body, dict) else None
+    if not isinstance(upload_file_id, str) or not upload_file_id:
+        raise DifyResponseError("Dify file upload response is missing id.")
+
+    return {
+        "type": "image",
+        "transfer_method": "local_file",
+        "upload_file_id": upload_file_id,
     }
 
 
@@ -178,9 +246,14 @@ def _generate_blog_content(
         url=os.getenv("DIFY_BLOG_URL") or os.getenv("DIFY_URL"),
         timeout=float(os.getenv("DIFY_TIMEOUT", "120")),
     )
+    user = str(req.user_id)
+    photos = sorted(material.photos, key=lambda photo: photo.id)[
+        :MAX_PHOTOS_PER_MATERIAL
+    ]
+    dify_photos = [_upload_photo_to_dify(client, photo, user) for photo in photos]
     response = client.run_workflow(
-        user=str(req.user_id),
-        inputs=_to_dify_inputs(material, req),
+        user=user,
+        inputs=_to_dify_inputs(material, req, dify_photos),
     )
     return _extract_generation_result(response)
 
