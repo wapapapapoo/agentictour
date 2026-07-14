@@ -1,8 +1,10 @@
 import os
+from collections.abc import Generator
+from typing import Any
 
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, event
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 load_dotenv()
 
@@ -25,7 +27,7 @@ engine = create_engine(
 
 
 @event.listens_for(engine, "connect")
-def set_mysql_utc(dbapi_connection, _connection_record) -> None:
+def set_mysql_utc(dbapi_connection: Any, _connection_record: Any) -> None:
     """Keep MySQL DATETIME defaults and comparisons on UTC for every connection."""
     cursor = dbapi_connection.cursor()
     try:
@@ -43,7 +45,7 @@ SessionLocal = sessionmaker(
 Base = declarative_base()
 
 
-def get_db():
+def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
         yield db

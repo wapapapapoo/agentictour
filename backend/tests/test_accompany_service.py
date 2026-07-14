@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import create_engine
@@ -7,6 +7,7 @@ from sqlalchemy.pool import StaticPool
 
 from database import Base
 from models.accompany import AIAdvice, ItineraryItem
+from models.trip import Trip
 from schemas.accompany import ItineraryCreate, MemoCreate
 from services import accompany_service, ai_gateway
 
@@ -20,6 +21,20 @@ def db() -> Session:
     )
     Base.metadata.create_all(engine)
     session = Session(engine)
+    session.add(
+        Trip(
+            id=1,
+            user_id=1,
+            title="测试旅行",
+            origin_city="杭州",
+            destination_city="上海",
+            start_date=date(2026, 7, 20),
+            end_date=date(2026, 7, 22),
+            timezone="Asia/Shanghai",
+            status="planned",
+        )
+    )
+    session.commit()
     try:
         yield session
     finally:
@@ -29,7 +44,7 @@ def db() -> Session:
 
 def _item(start: datetime, end: datetime, **kwargs) -> ItineraryCreate:
     return ItineraryCreate(
-        tour_id=1,
+        trip_id=1,
         title=kwargs.pop("title", "行程"),
         place_name="地点",
         start_time=start,
@@ -65,7 +80,7 @@ def test_short_previous_item_uses_five_minutes_or_end(db: Session) -> None:
     start = datetime(2026, 7, 20, 8)
     db.add(
         ItineraryItem(
-            tour_id=1,
+            trip_id=1,
             title="短行程",
             place_name="地点",
             start_time=start,
@@ -141,7 +156,7 @@ def test_gateway_stops_after_first_successful_audit(monkeypatch) -> None:
 def test_memo_reminder_is_stored_as_utc(db: Session) -> None:
     local_time = datetime(2026, 7, 20, 8, tzinfo=timezone(timedelta(hours=8)))
     memo = accompany_service.create_memo(
-        db, MemoCreate(tour_id=1, memo_text="带证件", reminder_time=local_time)
+        db, MemoCreate(trip_id=1, memo_text="带证件", reminder_time=local_time)
     )
     assert memo.reminder_time == datetime(2026, 7, 20, 0, tzinfo=None)
 
@@ -185,7 +200,7 @@ def test_update_reorders_initial_and_validates_reminder(db: Session) -> None:
 
 def test_accept_advice_inserts_structured_itinerary(db: Session) -> None:
     advice = AIAdvice(
-        tour_id=1,
+        trip_id=1,
         advice_type="replan",
         advice_text="推荐替代行程",
         proposed_itinerary_json=(
@@ -198,7 +213,7 @@ def test_accept_advice_inserts_structured_itinerary(db: Session) -> None:
     db.commit()
     db.refresh(advice)
 
-    result = accompany_service.act_on_advice(db, advice.advice_id, "accept", "u1", "")
+    result = accompany_service.act_on_advice(db, advice.advice_id, "accept", 1, "")
 
     assert result.result == "accepted"
     inserted = db.query(ItineraryItem).one()
@@ -208,7 +223,7 @@ def test_accept_advice_inserts_structured_itinerary(db: Session) -> None:
 
 def test_revise_advice_stores_one_combined_input(db: Session, monkeypatch) -> None:
     old = AIAdvice(
-        tour_id=1,
+        trip_id=1,
         advice_type="replan",
         input_text="景点临时闭馆",
         reason_text="景点临时闭馆",
@@ -222,7 +237,7 @@ def test_revise_advice_stores_one_combined_input(db: Session, monkeypatch) -> No
     def fake_generate(session, data):
         captured["reason"] = data.reason
         generated = AIAdvice(
-            tour_id=data.tour_id,
+            trip_id=data.trip_id,
             advice_type="replan",
             input_text=data.reason,
             reason_text=data.reason,
@@ -235,7 +250,7 @@ def test_revise_advice_stores_one_combined_input(db: Session, monkeypatch) -> No
 
     monkeypatch.setattr(accompany_service, "generate_advice", fake_generate)
     new = accompany_service.act_on_advice(
-        db, old.advice_id, "revise", "u1", "不要安排博物馆"
+        db, old.advice_id, "revise", 1, "不要安排博物馆"
     )
 
     assert captured["reason"] == (

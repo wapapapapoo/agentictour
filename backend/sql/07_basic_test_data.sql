@@ -5,8 +5,8 @@
 --   1. 01_user_tables.sql
 --   2. 02_blog_tables.sql
 --   3. 03_trip_plan_tables.sql
---   4. 04_accompany_tables.sql
---   5. 05_hikari_atlas_migration.sql
+--   4. 03a_trips_table.sql
+--   5. 04_accompany_tables.sql
 --   6. 06_plan_knowledge_mappings.sql
 --
 -- 特性：
@@ -63,6 +63,9 @@ SET @seed_user_2_id = LAST_INSERT_ID();
 DELETE FROM blog_materials
 WHERE user_id IN ('seed-user-001', 'seed-user-002');
 
+DELETE FROM trips
+WHERE user_id IN (@seed_user_1_id, @seed_user_2_id);
+
 DELETE FROM trip_plan_requests
 WHERE user_id IN ('seed-user-001', 'seed-user-002');
 
@@ -81,7 +84,7 @@ INSERT INTO trip_plan_requests (
     '同行者膝盖不适，单日步行尽量控制在8000步以内。',
     '2026-07-01 09:10:00', '2026-07-01 10:00:00'
 );
-SET @trip_1_id = LAST_INSERT_ID();
+SET @plan_request_1_id = LAST_INSERT_ID();
 
 INSERT INTO trip_plan_requests (
     user_id, action, origin_city, destination_city,
@@ -95,7 +98,7 @@ INSERT INTO trip_plan_requests (
     '有一名8岁儿童，希望午后预留休息时间。',
     '2026-07-02 10:10:00', '2026-07-02 10:20:00'
 );
-SET @trip_2_id = LAST_INSERT_ID();
+SET @plan_request_2_id = LAST_INSERT_ID();
 
 -- ------------------------------------------------------------
 -- 3. 旅行计划版本
@@ -105,7 +108,7 @@ INSERT INTO trip_plan_versions (
     request_id, user_id, version_no, revision_request,
     workflow_run_id, task_id, plan_json, raw_response_json, created_at
 ) VALUES (
-    @trip_1_id, 'seed-user-001', 1, NULL,
+    @plan_request_1_id, 'seed-user-001', 1, NULL,
     'seed-workflow-shanghai-v1', 'seed-task-shanghai-v1',
     JSON_OBJECT(
         'title', '上海经典慢游 3 日计划（初版）',
@@ -122,7 +125,7 @@ INSERT INTO trip_plan_versions (
     JSON_OBJECT('workflow_run_id', 'seed-workflow-shanghai-v1', 'status', 'succeeded', 'source', 'seed'),
     '2026-07-01 09:15:00'
 ), (
-    @trip_1_id, 'seed-user-001', 2, '减少步行，增加休息点，并把每日步数控制在8000步以内。',
+    @plan_request_1_id, 'seed-user-001', 2, '减少步行，增加休息点，并把每日步数控制在8000步以内。',
     'seed-workflow-shanghai-v2', 'seed-task-shanghai-v2',
     JSON_OBJECT(
         'title', '上海舒适慢游 3 日计划',
@@ -139,7 +142,7 @@ INSERT INTO trip_plan_versions (
     JSON_OBJECT('workflow_run_id', 'seed-workflow-shanghai-v2', 'status', 'succeeded', 'source', 'seed'),
     '2026-07-01 10:00:00'
 ), (
-    @trip_2_id, 'seed-user-002', 1, NULL,
+    @plan_request_2_id, 'seed-user-002', 1, NULL,
     'seed-workflow-suzhou-v1', 'seed-task-suzhou-v1',
     JSON_OBJECT(
         'title', '苏州园林亲子 3 日计划',
@@ -158,10 +161,34 @@ INSERT INTO trip_plan_versions (
 );
 
 -- ------------------------------------------------------------
--- 4. 行程项
+-- 4. 旅行主记录
+-- 与上面的计划测试数据表达同一旅行，但本脚本不建立数据库层关联。
+-- ------------------------------------------------------------
+INSERT INTO trips (
+    user_id, title, origin_city, destination_city,
+    start_date, end_date, timezone, status, created_at, updated_at
+) VALUES (
+    @seed_user_1_id, '上海舒适慢游 3 日计划', '杭州', '上海',
+    '2026-07-20', '2026-07-22', 'Asia/Shanghai', 'planned',
+    '2026-07-01 09:10:00', '2026-07-01 10:00:00'
+);
+SET @trip_1_id = LAST_INSERT_ID();
+
+INSERT INTO trips (
+    user_id, title, origin_city, destination_city,
+    start_date, end_date, timezone, status, created_at, updated_at
+) VALUES (
+    @seed_user_2_id, '苏州园林亲子 3 日计划', '南京', '苏州',
+    '2026-08-08', '2026-08-10', 'Asia/Shanghai', 'planned',
+    '2026-07-02 10:10:00', '2026-07-02 10:20:00'
+);
+SET @trip_2_id = LAST_INSERT_ID();
+
+-- ------------------------------------------------------------
+-- 5. 行程项
 -- ------------------------------------------------------------
 INSERT INTO itinerary_items (
-    tour_id, title, place_name, start_time, end_time, status, created_at, updated_at
+    trip_id, title, place_name, start_time, end_time, status, created_at, updated_at
 ) VALUES
 (@trip_1_id, '抵达上海并办理入住', '上海虹桥站', '2026-07-20 10:00:00', '2026-07-20 11:30:00', 'done',      '2026-07-01 10:01:00', '2026-07-20 11:30:00'),
 (@trip_1_id, '外滩观景',             '外滩',       '2026-07-20 16:30:00', '2026-07-20 18:30:00', 'pending',   '2026-07-01 10:01:00', '2026-07-01 10:01:00'),
@@ -172,26 +199,26 @@ INSERT INTO itinerary_items (
 (@trip_2_id, '原定夜游活动',         '山塘街',     '2026-08-09 19:00:00', '2026-08-09 21:00:00', 'cancelled', '2026-07-02 10:21:00', '2026-07-05 18:00:00');
 
 -- ------------------------------------------------------------
--- 5. AI 建议与备忘录
+-- 6. AI 建议与备忘录
 -- ------------------------------------------------------------
 INSERT INTO ai_advice (
-    tour_id, reason_text, advice_text, result, created_at, updated_at
+    trip_id, reason_text, advice_text, result, created_at, updated_at
 ) VALUES
 (@trip_1_id, '检测到同行者膝盖不适，原行程步行距离偏长。', '将田子坊替换为酒店休息，并在外滩行程后安排打车返回。', 'accepted', '2026-07-01 09:40:00', '2026-07-01 09:50:00'),
 (@trip_1_id, '7月上海午后可能炎热。', '室外行程尽量安排在上午或傍晚，午后优先参观室内场馆。', 'pending', '2026-07-01 10:05:00', '2026-07-01 10:05:00'),
 (@trip_2_id, '亲子出行且天气炎热。', '随身准备儿童防晒用品和饮用水，每日下午安排至少一小时休息。', 'accepted', '2026-07-02 10:25:00', '2026-07-02 10:30:00'),
 (@trip_2_id, '山塘街夜间客流较大。', '可改为酒店附近散步，避免儿童过度疲劳。', 'rejected', '2026-07-02 10:26:00', '2026-07-05 18:00:00');
 
-INSERT INTO memos (tour_id, memo_text, created_at, updated_at) VALUES
+INSERT INTO memos (trip_id, memo_text, created_at, updated_at) VALUES
 (@trip_1_id, '提前购买杭州东至上海虹桥往返高铁票。', '2026-07-01 10:10:00', '2026-07-01 10:10:00'),
 (@trip_1_id, '携带护膝、常用药和轻便雨伞。',             '2026-07-01 10:11:00', '2026-07-01 10:11:00'),
 (@trip_2_id, '预约拙政园与苏州博物馆上午场。',         '2026-07-02 10:31:00', '2026-07-02 10:31:00');
 
 -- ------------------------------------------------------------
--- 6. 会话与消息
+-- 7. 会话与消息
 -- ------------------------------------------------------------
 INSERT INTO chat_sessions (
-    tour_id, user_id, title, status, last_message_at, created_at, updated_at
+    trip_id, user_id, title, status, last_message_at, created_at, updated_at
 ) VALUES (
     @trip_1_id, @seed_user_1_id, '上海慢游计划调整', 'active',
     '2026-07-01 10:00:00', '2026-07-01 09:30:00', '2026-07-01 10:00:00'
@@ -199,7 +226,7 @@ INSERT INTO chat_sessions (
 SET @session_1_id = LAST_INSERT_ID();
 
 INSERT INTO chat_sessions (
-    tour_id, user_id, title, status, last_message_at, created_at, updated_at
+    trip_id, user_id, title, status, last_message_at, created_at, updated_at
 ) VALUES (
     @trip_2_id, @seed_user_2_id, '苏州亲子行程咨询', 'closed',
     '2026-07-02 10:30:00', '2026-07-02 10:22:00', '2026-07-02 10:30:00'
@@ -221,7 +248,7 @@ INSERT INTO chat_messages (
 (@session_2_id, 'ai',     '建议通过景区官方平台或正规旅行平台预约门票。',               4, 'pass',    NULL,                         '2026-07-02 10:30:00', '2026-07-02 10:30:00');
 
 -- ------------------------------------------------------------
--- 7. 博客素材与生成结果
+-- 8. 博客素材与生成结果
 -- ------------------------------------------------------------
 INSERT INTO blog_materials (
     user_id, title, destination, start_date, end_date, people_count,
@@ -284,18 +311,18 @@ INSERT INTO blog_generations (
 
 -- Hikari Atlas UTC/reminder/advice-pair/notification seed extension.
 UPDATE chat_sessions AS session
-JOIN trip_plan_requests AS request ON request.id = session.tour_id
-SET session.user_id = request.user_id
-WHERE session.tour_id IN (@trip_1_id, @trip_2_id);
+JOIN trips AS trip ON trip.id = session.trip_id
+SET session.user_id = trip.user_id
+WHERE session.trip_id IN (@trip_1_id, @trip_2_id);
 
 UPDATE itinerary_items
 SET itinerary_type = 'play', reminder_time = start_time,
     is_initial = 1, reminded_at = NULL
-WHERE tour_id IN (@trip_1_id, @trip_2_id);
+WHERE trip_id IN (@trip_1_id, @trip_2_id);
 
 UPDATE itinerary_items AS current_item
 JOIN itinerary_items AS previous_item
-  ON previous_item.tour_id = current_item.tour_id
+  ON previous_item.trip_id = current_item.trip_id
  AND DATE(previous_item.start_time) = DATE(current_item.start_time)
  AND previous_item.start_time < current_item.start_time
 SET current_item.is_initial = 0,
@@ -310,15 +337,15 @@ SET current_item.is_initial = 0,
 UPDATE ai_advice
 SET advice_type = 'replan', input_text = reason_text,
     audit_status = 'pass', generation_stopped = (result = 'rejected')
-WHERE tour_id IN (@trip_1_id, @trip_2_id);
+WHERE trip_id IN (@trip_1_id, @trip_2_id);
 
 UPDATE ai_advice AS revised
 JOIN (
-    SELECT tour_id, MIN(advice_id) AS original_advice_id
+    SELECT trip_id, MIN(advice_id) AS original_advice_id
     FROM ai_advice
-    WHERE tour_id IN (@trip_1_id, @trip_2_id)
-    GROUP BY tour_id
-) AS original ON original.tour_id = revised.tour_id
+    WHERE trip_id IN (@trip_1_id, @trip_2_id)
+    GROUP BY trip_id
+) AS original ON original.trip_id = revised.trip_id
 SET revised.parent_advice_id = original.original_advice_id,
     revised.input_text = CONCAT(
         '原输入：', revised.reason_text, '\n',
@@ -333,15 +360,15 @@ SET reminder_time = CASE memo_id % 2
     ELSE '2026-07-20 00:30:00'
 END,
 reminded_at = NULL
-WHERE tour_id IN (@trip_1_id, @trip_2_id);
+WHERE trip_id IN (@trip_1_id, @trip_2_id);
 
 INSERT INTO notifications (
-    tour_id, user_id, advice_id, category, content, read_at, created_at
+    trip_id, user_id, advice_id, category, content, read_at, created_at
 )
-SELECT a.tour_id, r.user_id, a.advice_id, 'replan', a.advice_text, NULL, a.created_at
+SELECT a.trip_id, trip.user_id, a.advice_id, 'replan', a.advice_text, NULL, a.created_at
 FROM ai_advice AS a
-JOIN trip_plan_requests AS r ON r.id = a.tour_id
-WHERE a.tour_id IN (@trip_1_id, @trip_2_id);
+JOIN trips AS trip ON trip.id = a.trip_id
+WHERE a.trip_id IN (@trip_1_id, @trip_2_id);
 
 INSERT INTO agent_job_states (job_name, last_run_at) VALUES
 ('hourly_itinerary_check', '2026-07-13 00:00:00'),
@@ -350,13 +377,13 @@ INSERT INTO agent_job_states (job_name, last_run_at) VALUES
 INSERT INTO user_locations (
     user_id, latitude, longitude, city, place_name, location_context, updated_at
 ) VALUES
-('seed-user-001', 31.2400, 121.4900, '上海', '外滩', '前端最近一次上报位置', '2026-07-13 00:00:00'),
-('seed-user-002', 31.3240, 120.6290, '苏州', '平江路', '前端最近一次上报位置', '2026-07-13 00:00:00');
+(@seed_user_1_id, 31.2400, 121.4900, '上海', '外滩', '前端最近一次上报位置', '2026-07-13 00:00:00'),
+(@seed_user_2_id, 31.3240, 120.6290, '苏州', '平江路', '前端最近一次上报位置', '2026-07-13 00:00:00');
 
 COMMIT;
 
 -- ------------------------------------------------------------
--- 8. 执行结果概览
+-- 9. 执行结果概览
 -- ------------------------------------------------------------
 SELECT 'users' AS table_name, COUNT(*) AS seed_row_count
 FROM users WHERE username IN ('seed-user-001', 'seed-user-002')
@@ -365,13 +392,15 @@ SELECT 'trip_plan_requests', COUNT(*) FROM trip_plan_requests WHERE user_id IN (
 UNION ALL
 SELECT 'trip_plan_versions', COUNT(*) FROM trip_plan_versions WHERE user_id IN ('seed-user-001', 'seed-user-002')
 UNION ALL
-SELECT 'itinerary_items', COUNT(*) FROM itinerary_items WHERE tour_id IN (@trip_1_id, @trip_2_id)
+SELECT 'trips', COUNT(*) FROM trips WHERE user_id IN (@seed_user_1_id, @seed_user_2_id)
 UNION ALL
-SELECT 'ai_advice', COUNT(*) FROM ai_advice WHERE tour_id IN (@trip_1_id, @trip_2_id)
+SELECT 'itinerary_items', COUNT(*) FROM itinerary_items WHERE trip_id IN (@trip_1_id, @trip_2_id)
 UNION ALL
-SELECT 'memos', COUNT(*) FROM memos WHERE tour_id IN (@trip_1_id, @trip_2_id)
+SELECT 'ai_advice', COUNT(*) FROM ai_advice WHERE trip_id IN (@trip_1_id, @trip_2_id)
 UNION ALL
-SELECT 'chat_sessions', COUNT(*) FROM chat_sessions WHERE tour_id IN (@trip_1_id, @trip_2_id)
+SELECT 'memos', COUNT(*) FROM memos WHERE trip_id IN (@trip_1_id, @trip_2_id)
+UNION ALL
+SELECT 'chat_sessions', COUNT(*) FROM chat_sessions WHERE trip_id IN (@trip_1_id, @trip_2_id)
 UNION ALL
 SELECT 'chat_messages', COUNT(*) FROM chat_messages WHERE session_id IN (@session_1_id, @session_2_id)
 UNION ALL

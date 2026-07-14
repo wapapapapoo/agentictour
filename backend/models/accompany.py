@@ -9,6 +9,7 @@ from sqlalchemy import (
     String,
     Text,
 )
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from database import Base
@@ -20,9 +21,9 @@ class ItineraryItem(Base):
     __tablename__ = "itinerary_items"
 
     itinerary_id = Column(ID_TYPE, primary_key=True, autoincrement=True)
-    tour_id = Column(
+    trip_id = Column(
         BigInteger,
-        ForeignKey("trip_plan_requests.id", ondelete="CASCADE"),
+        ForeignKey("trips.id", ondelete="CASCADE"),
         nullable=False,
     )
     title = Column(String(100), nullable=False)
@@ -36,15 +37,16 @@ class ItineraryItem(Base):
     status = Column(String(20), nullable=False, default="pending")
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    trip = relationship("Trip", back_populates="itinerary_items")
 
 
 class Memo(Base):
     __tablename__ = "memos"
 
     memo_id = Column(ID_TYPE, primary_key=True, autoincrement=True)
-    tour_id = Column(
+    trip_id = Column(
         BigInteger,
-        ForeignKey("trip_plan_requests.id", ondelete="CASCADE"),
+        ForeignKey("trips.id", ondelete="CASCADE"),
         nullable=False,
     )
     memo_text = Column(Text, nullable=False)
@@ -52,15 +54,16 @@ class Memo(Base):
     reminded_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    trip = relationship("Trip", back_populates="memos")
 
 
 class AIAdvice(Base):
     __tablename__ = "ai_advice"
 
     advice_id = Column(ID_TYPE, primary_key=True, autoincrement=True)
-    tour_id = Column(
+    trip_id = Column(
         BigInteger,
-        ForeignKey("trip_plan_requests.id", ondelete="CASCADE"),
+        ForeignKey("trips.id", ondelete="CASCADE"),
         nullable=False,
     )
     advice_type = Column(String(30), nullable=False, default="recommendation")
@@ -79,18 +82,19 @@ class AIAdvice(Base):
     generation_stopped = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    trip = relationship("Trip", back_populates="advice")
 
 
 class Notification(Base):
     __tablename__ = "notifications"
 
     notification_id = Column(ID_TYPE, primary_key=True, autoincrement=True)
-    tour_id = Column(
+    trip_id = Column(
         BigInteger,
-        ForeignKey("trip_plan_requests.id", ondelete="CASCADE"),
+        ForeignKey("trips.id", ondelete="CASCADE"),
         nullable=False,
     )
-    user_id = Column(String(64), nullable=False)
+    user_id = Column(BigInteger, nullable=False)
     advice_id = Column(
         BigInteger,
         ForeignKey("ai_advice.advice_id", ondelete="SET NULL"),
@@ -100,6 +104,7 @@ class Notification(Base):
     content = Column(Text, nullable=False)
     read_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
+    trip = relationship("Trip", back_populates="notifications")
 
 
 class AgentJobState(Base):
@@ -112,7 +117,7 @@ class AgentJobState(Base):
 class UserLocation(Base):
     __tablename__ = "user_locations"
 
-    user_id = Column(String(64), primary_key=True)
+    user_id = Column(ID_TYPE, primary_key=True)
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
     city = Column(String(100), nullable=True)
@@ -125,19 +130,20 @@ class ChatSession(Base):
     __tablename__ = "chat_sessions"
 
     session_id = Column(ID_TYPE, primary_key=True, autoincrement=True)
-    tour_id = Column(
+    trip_id = Column(
         BigInteger,
-        ForeignKey("trip_plan_requests.id", ondelete="CASCADE"),
+        ForeignKey("trips.id", ondelete="CASCADE"),
         nullable=False,
         unique=True,
     )
-    user_id = Column(String(64), nullable=False)
+    user_id = Column(BigInteger, nullable=False)
     title = Column(String(100), nullable=True)
     status = Column(String(20), nullable=False, default="active")
     dify_conversation_id = Column(String(100), nullable=True)
     last_message_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    trip = relationship("Trip", back_populates="chat_session")
 
 
 class ChatMessage(Base):

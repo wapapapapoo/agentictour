@@ -1,0 +1,22 @@
+{
+  "features": [
+    {
+      "id": "feat-001",
+      "name": "Trips schema and relationship contract",
+      "status": "in_progress",
+      "passes": false
+    },
+    {
+      "id": "feat-002",
+      "name": "Backend Trip model and companion integration",
+      "status": "pending",
+      "passes": false
+    },
+    {
+      "id": "feat-003",
+      "name": "Migration and regression verification",
+      "status": "pending",
+      "passes": false
+    }
+  ]
+}
