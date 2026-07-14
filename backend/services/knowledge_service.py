@@ -12,7 +12,6 @@ from sqlalchemy.orm import Session
 from models.knowledge import PlanKnowledgeMapping
 from models.trip_plan import TripPlanRequest
 from schemas.knowledge import PlanKnowledgeRequest
-from schemas.trip_plan import PlanHumanizeRequest
 from services.trip_plan_service import (
     _loads_json,
     get_latest_version,

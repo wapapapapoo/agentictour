@@ -1,3 +1,4 @@
+import json
 import logging
 from datetime import UTC, datetime, timedelta
 
@@ -24,16 +25,16 @@ def _location_inputs(db: Session, user_id: int) -> dict[str, str | float]:
     )
     if location is None:
         return {
+            "city_adcode": "",
             "latitude": "",
             "longitude": "",
             "location_name": "",
-            "location_context": "",
         }
     return {
+        "city_adcode": location.city or "",
         "latitude": location.latitude,
         "longitude": location.longitude,
         "location_name": location.place_name or "",
-        "location_context": location.location_context or "",
     }
 
 PROMPTS = {
@@ -59,7 +60,6 @@ def _emit(
             "user_query": original,
             "trigger_type": "system_auto_remind",
             "tour_id": trip_id,
-            "city": "",
             **_location_inputs(db, user_id),
         },
     )
@@ -104,7 +104,6 @@ def _agent_check(
             "user_query": detail,
             "trigger_type": trigger_type,
             "tour_id": trip.id,
-            "city": trip.destination_city,
             **_location_inputs(db, trip.user_id),
         },
     )
@@ -113,6 +112,7 @@ def _agent_check(
         if trigger_type == "system_auto_advice"
         else "itinerary_check"
     )
+    should_notify = trigger_type != "system_auto_check" or _should_notify(audited)
     advice = create(
         db,
         AIAdvice,
@@ -122,24 +122,70 @@ def _agent_check(
             "input_text": detail,
             "reason_text": detail,
             "advice_text": audited.content,
-            "result": "pending",
+            "result": "pending" if should_notify else "not_required",
             "audit_status": "pass" if audited.passed else "failed",
             "audit_reason": audited.reason,
         },
     )
     db.flush()
-    create(
-        db,
-        Notification,
-        {
-            "trip_id": trip.id,
-            "user_id": trip.user_id,
-            "advice_id": advice.advice_id,
-            "category": category,
-            "content": audited.content,
-        },
-    )
+    if should_notify:
+        create(
+            db,
+            Notification,
+            {
+                "trip_id": trip.id,
+                "user_id": trip.user_id,
+                "advice_id": advice.advice_id,
+                "category": category,
+                "content": audited.content,
+            },
+        )
     return advice
+
+
+def _explicit_bool(value: object) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized == "true":
+            return True
+        if normalized == "false":
+            return False
+    return None
+
+
+def _decision_from(value: object) -> bool | None:
+    direct = _explicit_bool(value)
+    if direct is not None:
+        return direct
+    if isinstance(value, dict):
+        for key in ("need_notify", "should_notify", "notify", "result"):
+            if key in value:
+                decision = _explicit_bool(value[key])
+                if decision is not None:
+                    return decision
+    return None
+
+
+def _should_notify(audited: object) -> bool:
+    main_response = getattr(audited, "main_response", {})
+    outputs = (
+        main_response.get("data", {}).get("outputs", {})
+        if isinstance(main_response, dict)
+        else {}
+    )
+    for source in (outputs, getattr(audited, "structured_output", None)):
+        decision = _decision_from(source)
+        if decision is not None:
+            return decision
+    content = getattr(audited, "content", "")
+    try:
+        parsed_content = json.loads(content)
+    except (json.JSONDecodeError, TypeError):
+        parsed_content = content
+    decision = _decision_from(parsed_content)
+    return True if decision is None else decision
 
 
 def scan_due_reminders(db: Session, now: datetime | None = None) -> int:

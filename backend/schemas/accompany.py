@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -35,7 +35,7 @@ class ItineraryCreate(BaseModel):
     status: Literal["pending", "done", "cancelled"] = "pending"
 
     @model_validator(mode="after")
-    def validate_times(self):
+    def validate_times(self) -> Self:
         if self.end_time <= self.start_time:
             raise ValueError("end_time must be later than start_time")
         if self.itinerary_type == "transit" and self.reminder_time is None:
@@ -66,13 +66,11 @@ class AdviceGenerateRequest(BaseModel):
     trip_id: int
     user_id: int = Field(gt=0)
     reason: str = Field(min_length=1)
-    city: str = ""
-    current_itinerary: Any = None
+    city_adcode: str = ""
     additional_requirement: str = ""
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
     location_name: str = ""
-    location_context: str = ""
 
 
 class AdviceActionRequest(BaseModel):
@@ -113,8 +111,7 @@ class ChatRequest(BaseModel):
     trip_id: int
     user_id: int = Field(gt=0)
     message: str = Field(min_length=1)
-    city: str = ""
-    nearby_context: str = ""
+    city_adcode: str = ""
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
     location_name: str = ""
@@ -124,12 +121,16 @@ class LocationUpdate(BaseModel):
     user_id: int = Field(gt=0)
     latitude: float = Field(ge=-90, le=90)
     longitude: float = Field(ge=-180, le=180)
-    city: str = Field(default="", max_length=100)
+    city_adcode: str = Field(default="", max_length=100)
     place_name: str = Field(default="", max_length=200)
-    location_context: str = ""
 
 
-class LocationResponse(LocationUpdate):
+class LocationResponse(BaseModel):
+    user_id: int
+    latitude: float
+    longitude: float
+    city_adcode: str = Field(default="", validation_alias="city")
+    place_name: str = ""
     updated_at: datetime
     model_config = {"from_attributes": True}
 
@@ -141,4 +142,26 @@ class ChatResponse(BaseModel):
     reply: str
     audit_status: str
     audit_reason: str | None
-    conversation_id: str | None = None
+    conversation_id: str
+
+
+class ChatMessageResponse(BaseModel):
+    message_id: int
+    session_id: int
+    sender_type: str
+    content: str
+    message_order: int
+    audit_status: str
+    audit_reason: str | None
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+class ChatHistoryResponse(BaseModel):
+    conversation_id: str
+    session_id: int
+    trip_id: int
+    user_id: int
+    title: str | None
+    status: str
+    messages: list[ChatMessageResponse]

@@ -8,6 +8,13 @@ from typing import Any
 import requests
 
 
+def _response_json(response: requests.Response) -> dict[str, Any]:
+    body = response.json()
+    if not isinstance(body, dict):
+        raise ValueError("Dify Knowledge API response must be a JSON object")
+    return body
+
+
 def _base_url() -> str:
     return (
         os.getenv("DIFY_KNOWLEDGE_URL")
@@ -60,7 +67,7 @@ def create_document_by_text(
             f"{resp.status_code} {resp.reason}: {resp.text[:500]}",
             response=resp,
         )
-    return resp.json()
+    return _response_json(resp)
 
 
 def get_indexing_status(
@@ -70,7 +77,7 @@ def get_indexing_status(
     url = f"{_base_url()}/datasets/{dataset_id}/documents/{batch}/indexing-status"
     resp = requests.get(url, headers=_headers(), timeout=_timeout())
     resp.raise_for_status()
-    return resp.json()
+    return _response_json(resp)
 
 
 # ---- Retrieval ----
@@ -92,7 +99,7 @@ def retrieve_chunks(
             f"{resp.status_code} {resp.reason}: {resp.text[:500]}",
             response=resp,
         )
-    return resp.json()
+    return _response_json(resp)
 
 
 # ---- Metadata ----
@@ -111,14 +118,14 @@ def create_metadata_field(
         timeout=_timeout(),
     )
     resp.raise_for_status()
-    return resp.json()
+    return _response_json(resp)
 
 
 def list_metadata_fields(dataset_id: str) -> dict[str, Any]:
     url = f"{_base_url()}/datasets/{dataset_id}/metadata"
     resp = requests.get(url, headers=_headers(), timeout=_timeout())
     resp.raise_for_status()
-    return resp.json()
+    return _response_json(resp)
 
 
 def update_document_metadata(
@@ -134,4 +141,4 @@ def update_document_metadata(
         timeout=_timeout(),
     )
     resp.raise_for_status()
-    return resp.json()
+    return _response_json(resp)

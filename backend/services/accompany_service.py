@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
@@ -33,9 +34,8 @@ def upsert_location(db: Session, data: LocationUpdate) -> UserLocation:
     values = {
         "latitude": data.latitude,
         "longitude": data.longitude,
-        "city": data.city or None,
+        "city": data.city_adcode or None,
         "place_name": data.place_name or None,
-        "location_context": data.location_context or None,
         "updated_at": datetime.now(UTC).replace(tzinfo=None),
     }
     if row is None:
@@ -57,10 +57,8 @@ def _save_request_location(db: Session, data: Any) -> None:
             user_id=data.user_id,
             latitude=data.latitude,
             longitude=data.longitude,
-            city=data.city,
+            city_adcode=data.city_adcode,
             place_name=data.location_name,
-            location_context=getattr(data, "location_context", "")
-            or getattr(data, "nearby_context", ""),
         ),
     )
 
@@ -294,12 +292,10 @@ def generate_advice(db: Session, data: AdviceGenerateRequest) -> AIAdvice:
             "user_query": original,
             "trigger_type": "user_accident",
             "tour_id": data.trip_id,
-            "city": data.city,
-            "current_itinerary": json.dumps(data.current_itinerary, ensure_ascii=False),
+            "city_adcode": data.city_adcode,
             "latitude": data.latitude if data.latitude is not None else "",
             "longitude": data.longitude if data.longitude is not None else "",
             "location_name": data.location_name,
-            "location_context": data.location_context,
         },
     )
     proposed = audited.structured_output
@@ -374,7 +370,6 @@ def act_on_advice(
                 trip_id=row.trip_id,
                 user_id=user_id,
                 reason=combined_input,
-                current_itinerary=_json_or_none(row.proposed_itinerary_json or ""),
             ),
         )
         generated.parent_advice_id = row.advice_id
@@ -398,8 +393,13 @@ def chat(db: Session, data: ChatRequest) -> dict[str, Any]:
                 "trip_id": data.trip_id,
                 "user_id": data.user_id,
                 "title": data.message[:100],
+                "conversation_id": str(uuid4()),
             },
         )
+    elif not session.conversation_id:
+        session.conversation_id = str(uuid4())
+        db.flush()
+    history = _chat_history(db, session.session_id)
     order = (
         db.query(ChatMessage)
         .filter(ChatMessage.session_id == session.session_id)
@@ -422,8 +422,9 @@ def chat(db: Session, data: ChatRequest) -> dict[str, Any]:
             "user_query": data.message,
             "trigger_type": "user_input",
             "tour_id": data.trip_id,
-            "city": data.city,
-            "nearby_context": data.nearby_context,
+            "conversation_id": session.conversation_id,
+            "conversation_history": json.dumps(history, ensure_ascii=False),
+            "city_adcode": data.city_adcode,
             "latitude": data.latitude if data.latitude is not None else "",
             "longitude": data.longitude if data.longitude is not None else "",
             "location_name": data.location_name,
@@ -442,9 +443,6 @@ def chat(db: Session, data: ChatRequest) -> dict[str, Any]:
         },
     )
     session.last_message_at = datetime.now(UTC).replace(tzinfo=None)
-    conversation_id = audited.main_response.get("conversation_id")
-    if conversation_id:
-        session.dify_conversation_id = conversation_id
     db.commit()
     db.refresh(user_msg)
     db.refresh(ai_msg)
@@ -455,5 +453,62 @@ def chat(db: Session, data: ChatRequest) -> dict[str, Any]:
         "reply": ai_msg.content,
         "audit_status": ai_msg.audit_status,
         "audit_reason": ai_msg.audit_reason,
-        "conversation_id": session.dify_conversation_id,
+        "conversation_id": session.conversation_id,
+    }
+
+
+def _chat_history(db: Session, session_id: int) -> list[dict[str, str]]:
+    messages = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.session_id == session_id)
+        .order_by(ChatMessage.message_order, ChatMessage.message_id)
+        .all()
+    )
+    role_by_sender = {"ai": "assistant", "user": "user", "system": "system"}
+    return [
+        {
+            "role": role_by_sender.get(message.sender_type, message.sender_type),
+            "content": message.content,
+        }
+        for message in messages
+    ]
+
+
+def list_chat_messages(db: Session, conversation_id: str) -> list[ChatMessage]:
+    session = (
+        db.query(ChatSession)
+        .filter(ChatSession.conversation_id == conversation_id)
+        .first()
+    )
+    if session is None:
+        raise LookupError("conversation not found")
+    return (
+        db.query(ChatMessage)
+        .filter(ChatMessage.session_id == session.session_id)
+        .order_by(ChatMessage.message_order, ChatMessage.message_id)
+        .all()
+    )
+
+
+def chat_history(
+    db: Session, conversation_id: str, user_id: int
+) -> dict[str, Any]:
+    session = (
+        db.query(ChatSession)
+        .filter(
+            ChatSession.conversation_id == conversation_id,
+            ChatSession.user_id == user_id,
+        )
+        .first()
+    )
+    if session is None:
+        raise LookupError("conversation not found")
+    return {
+        "conversation_id": session.conversation_id,
+        "session_id": session.session_id,
+        "trip_id": session.trip_id,
+        "user_id": session.user_id,
+        "title": session.title,
+        "status": session.status,
+        "messages": list_chat_messages(db, conversation_id),
     }
