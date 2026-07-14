@@ -5,5 +5,6 @@ CREATE TABLE IF NOT EXISTS plan_likes (
     chunk_ids TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (plan_id) REFERENCES trip_plan_requests(id) ON DELETE CASCADE
+    FOREIGN KEY (plan_id) REFERENCES trip_plan_requests(id) ON DELETE CASCADE,
+    UNIQUE KEY uk_plan_like_user (user_id, plan_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
