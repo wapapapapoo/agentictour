@@ -80,6 +80,19 @@ def get_indexing_status(
     return _response_json(resp)
 
 
+# ---- Delete ----
+
+def delete_document(*, dataset_id: str, document_id: str) -> dict[str, Any]:
+    url = f"{_base_url()}/datasets/{dataset_id}/documents/{document_id}"
+    resp = requests.delete(url, headers=_headers(), timeout=_timeout())
+    if resp.status_code >= 400 and resp.status_code != 404:
+        raise requests.HTTPError(
+            f"{resp.status_code} {resp.reason}: {resp.text[:500]}",
+            response=resp,
+        )
+    return _response_json(resp) if resp.text else {"result": "deleted"}
+
+
 # ---- Retrieval ----
 
 def retrieve_chunks(
