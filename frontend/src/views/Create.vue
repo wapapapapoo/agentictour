@@ -1,225 +1,33 @@
 <script setup lang="ts">
+/* global File, Event, HTMLInputElement */
 import { ref } from 'vue'
 import { api, type BlogGeneration } from '@/services/api'
-import PublishPanel from '@/components/PublishPanel.vue'
 
-const form = ref({
-  title: '',
-  destination: '',
-  start_date: '',
-  end_date: '',
-  people_count: 1,
-  itinerary_text: '',
-  food_text: '',
-  photo_text: '',
-  expense_text: '',
-  feeling_text: '',
-})
-const contentType = ref('blog')
-const writingStyle = ref('casual')
-const loading = ref(false)
-const error = ref('')
-const result = ref<BlogGeneration | null>(null)
-
-async function create() {
-  error.value = ''
-  result.value = null
-  if (!form.value.title || !form.value.destination || !form.value.itinerary_text) {
-    error.value = '请至少填写标题、目的地和行程记录。'
-    return
-  }
-  loading.value = true
-  try {
-    const material = await api.createMaterial(
-      form.value as unknown as Record<string, unknown>,
-    )
-    result.value = await api.generateBlog(
-      material.id,
-      contentType.value,
-      writingStyle.value,
-    )
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : '创作失败，请稍后重试。'
-  } finally {
-    loading.value = false
-  }
-}
+const form = ref({ title: '', destination: '', start_date: '', end_date: '', people_count: 1, itinerary_text: '', food_text: '', photo_text: '', expense_text: '', feeling_text: '' })
+const contentType = ref('blog'); const writingStyle = ref('casual'); const selectedPhotos = ref<File[]>([]); const loading = ref(false); const error = ref(''); const result = ref<BlogGeneration | null>(null)
+function selectPhotos(event: Event) { selectedPhotos.value = Array.from((event.target as HTMLInputElement).files || []) }
+async function create() { error.value = ''; result.value = null; if (!form.value.title || !form.value.destination || !form.value.itinerary_text) { error.value = '请至少填写标题、目的地和行程记录。'; return }; if (form.value.start_date && form.value.end_date && form.value.end_date < form.value.start_date) { error.value = '返程日期不能早于出发日期。'; return }; loading.value = true; try { const material = await api.createMaterial(form.value as unknown as Record<string, unknown>); await Promise.all(selectedPhotos.value.map((file) => api.uploadMaterialPhoto(material.id, file))); result.value = await api.generateBlog(material.id, contentType.value, writingStyle.value) } catch (cause) { error.value = cause instanceof Error ? cause.message : '创作失败，请稍后重试。' } finally { loading.value = false } }
 </script>
 
 <template>
   <div class="page create-page">
-    <section class="create-head">
-      <div>
-        <p class="eyebrow">
-          Travel story studio
-        </p>
-        <h1 class="page-title">
-          把走过的路，写成属于你的故事。
-        </h1>
-        <p class="page-intro">
-          丢进零散的记录，创作 Agent 帮你整理成游记、社媒文案或标题灵感。
-        </p>
-      </div>
-      <span class="paper-plane">✎</span>
-    </section>
-    <div class="create-grid">
-      <section class="card material-card">
+    <section class="head"><div><p class="eyebrow">TRAVEL STORY STUDIO</p><h1>把走过的路，写成属于你的故事。</h1><p>素材、日期、照片和感受会先保存，再由后端生成游记、社交文案或标题标签。</p></div><span>✎</span></section>
+    <div class="grid">
+      <section class="card material">
         <h2>收集旅行素材</h2>
-        <p class="sub">
-          不必完整，片段和感受同样珍贵。
-        </p>
-        <div class="basic-grid">
-          <label>这篇的标题
-            <input
-              v-model="form.title"
-              placeholder="如：在大理慢下来的三天"
-            >
-          </label>
-          <label>目的地
-            <input
-              v-model="form.destination"
-              placeholder="如：大理"
-            >
-          </label>
-        </div>
-        <label>行程记录 <b>*</b>
-          <textarea
-            v-model="form.itinerary_text"
-            rows="4"
-            placeholder="按时间、地点记录去过哪里，发生了什么…"
-          />
-        </label>
-        <div class="material-grid">
-          <label>吃了什么
-            <textarea
-              v-model="form.food_text"
-              rows="3"
-              placeholder="一碗米线、一个惊喜小店…"
-            />
-          </label>
-          <label>照片画面
-            <textarea
-              v-model="form.photo_text"
-              rows="3"
-              placeholder="洱海的晨雾、朋友的笑脸…"
-            />
-          </label>
-          <label>花费摘要
-            <textarea
-              v-model="form.expense_text"
-              rows="3"
-              placeholder="交通、住宿、门票等"
-            />
-          </label>
-          <label>此刻感受
-            <textarea
-              v-model="form.feeling_text"
-              rows="3"
-              placeholder="想留下的情绪和瞬间…"
-            />
-          </label>
-        </div>
+        <div class="two"><label>标题<input v-model="form.title" placeholder="如：在大理慢下来的三天"></label><label>目的地<input v-model="form.destination" placeholder="如：大理"></label></div>
+        <div class="two date-fields"><label>出发日期（可选）<input v-model="form.start_date" type="date"></label><label>返程日期（可选）<input v-model="form.end_date" :min="form.start_date || undefined" type="date"></label></div>
+        <p class="date-note">填写日期后，创作内容会保留这趟旅行的时间范围。</p>
+        <label>行程记录 <b>*</b><textarea v-model="form.itinerary_text" rows="5" placeholder="按时间和地点记录去过哪里、发生了什么"></textarea></label>
+        <div class="two"><label>吃了什么<textarea v-model="form.food_text" rows="3"></textarea></label><label>照片画面描述<textarea v-model="form.photo_text" rows="3"></textarea></label><label>花费摘要<textarea v-model="form.expense_text" rows="3"></textarea></label><label>此刻感受<textarea v-model="form.feeling_text" rows="3"></textarea></label></div>
+        <label class="upload">上传旅行照片（可选）<input accept="image/*" multiple type="file" @change="selectPhotos"><small>{{ selectedPhotos.length ? `已选择 ${selectedPhotos.length} 张照片` : '支持多张图片，文件将通过素材照片接口上传。' }}</small></label>
       </section>
-      <aside class="card settings-card">
-        <p class="eyebrow">
-          Create with intent
-        </p>
-        <h2>选择输出方式</h2>
-        <label>想生成什么？
-          <select v-model="contentType">
-            <option value="blog">
-              完整游记
-            </option>
-            <option value="social_post">
-              社交平台文案
-            </option>
-            <option value="title_tags">
-              标题与标签
-            </option>
-          </select>
-        </label>
-        <label>文字风格
-          <select v-model="writingStyle">
-            <option value="guide">
-              攻略型
-            </option>
-            <option value="story">
-              故事型
-            </option>
-            <option value="casual">
-              轻松分享型
-            </option>
-            <option value="promotion">
-              种草型
-            </option>
-          </select>
-        </label>
-        <button
-          class="primary-button"
-          :disabled="loading"
-          @click="create"
-        >
-          {{ loading ? '创作 Agent 正在落笔…' : '✦ 开始创作' }}
-        </button>
-        <p>生成内容会标注可能需要你确认的信息。</p>
-        <div
-          v-if="error"
-          class="notice error"
-        >
-          {{ error }}
-        </div>
-      </aside>
+      <aside class="card settings"><p class="eyebrow">CREATE WITH INTENT</p><h2>选择输出方式</h2><label>内容类型<select v-model="contentType"><option value="blog">完整游记</option><option value="social_post">社交平台文案</option><option value="title_tags">标题与标签</option></select></label><label>文字风格<select v-model="writingStyle"><option value="guide">攻略型</option><option value="story">故事型</option><option value="casual">轻松分享型</option><option value="promotion">种草型</option></select></label><button class="primary" :disabled="loading" @click="create">{{ loading ? '正在创作…' : '开始创作 →' }}</button><p v-if="error" class="error">{{ error }}</p></aside>
     </div>
-    <section
-      v-if="result"
-      class="card creation-result"
-    >
-      <div class="draft-heading">
-        <div>
-          <p class="eyebrow">
-            Draft ready
-          </p>
-          <h2>{{ result.generated_title || '旅行初稿' }}</h2>
-        </div>
-        <PublishPanel
-          :title="result.generated_title || '旅行初稿'"
-          content-type="blog"
-        />
-      </div>
-      <div class="created-content">
-        {{ result.generated_content }}
-      </div>
-      <div
-        v-if="result.tags"
-        class="tags"
-      >
-        {{ result.tags }}
-      </div>
-      <p
-        v-if="result.risk_note"
-        class="risk"
-      >
-        ⚠ {{ result.risk_note }}
-      </p>
-    </section>
+    <section v-if="result" class="card result"><p class="eyebrow">DRAFT READY</p><h2>{{ result.generated_title || '旅行初稿' }}</h2><div class="content">{{ result.generated_content }}</div><p v-if="result.tags" class="tags">{{ result.tags }}</p><p v-if="result.risk_note" class="risk">提示：{{ result.risk_note }}</p></section>
   </div>
 </template>
 
 <style scoped>
-.create-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:31px}.paper-plane{font-size:72px;color:#a6d9bb;transform:rotate(-18deg)}.create-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:22px}.material-card,.settings-card{padding:27px}.material-card h2,.settings-card h2{font-size:18px;margin:0}.sub{font-size:12px;color:#87928d;margin:5px 0 20px}.basic-grid,.material-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:15px}.material-card>label{margin-bottom:15px}.material-card b{color:#d16e60}.settings-card label{margin:18px 0}.settings-card .primary-button{width:100%;margin-top:8px}.settings-card>p:last-of-type{font-size:11px;line-height:1.6;color:#87928d;text-align:center;margin:12px 0 0}.creation-result{margin-top:24px;padding:28px}.creation-result h2{font:700 24px 'Noto Serif SC','Microsoft YaHei',serif;margin:5px 0 18px}.created-content{white-space:pre-wrap;line-height:1.9;color:#425a50}.tags{display:inline-block;color:#258b70;background:#eaf8f1;border-radius:14px;padding:6px 10px;margin-top:18px;font-size:12px}.risk{font-size:12px;color:#937127;background:#fff8df;padding:10px;border-radius:7px}@media(max-width:760px){.create-grid{grid-template-columns:1fr}.paper-plane{display:none}}@media(max-width:480px){.basic-grid,.material-grid{grid-template-columns:1fr}}
-</style>
-
-<style scoped>
-.draft-heading { display: flex; justify-content: space-between; gap: 16px; align-items: start; }
-@media(max-width:480px){.draft-heading{align-items:stretch;flex-direction:column}}
-</style>
-
-<style scoped>
-.create-head { min-height: 142px; padding: 25px 30px; border: 1px solid #dcebdd; border-radius: 23px; background: linear-gradient(115deg, rgba(255,255,255,.92), rgba(232,247,237,.85)); box-shadow: 0 14px 32px rgba(35,97,68,.06); }.create-head .page-title { font-size: 32px; }
-.paper-plane { display: grid; width: 76px; height: 76px; place-items: center; border: 1px solid #d1e8d9; border-radius: 24px 24px 24px 7px; background: rgba(255,255,255,.58); box-shadow: 0 10px 22px rgba(37,121,85,.08); }
-.create-grid { gap: 24px; align-items: start; }.material-card { position: relative; padding: 31px; overflow: hidden; }.material-card::before { position: absolute; top: 0; left: 30px; right: 30px; height: 3px; border-radius: 0 0 5px 5px; background: linear-gradient(90deg,#31a27e,#9bd4a9); content: ''; }.material-card h2 { color: #213f35; font-size: 19px; }.sub { margin: 6px 0 23px; }
-.basic-grid, .material-grid { gap: 12px; margin-bottom: 13px; }.material-card > label, .material-card .basic-grid label, .material-card .material-grid label { display: block; min-height: 78px; padding: 10px 12px 9px; border: 1px solid #e1eae3; border-radius: 12px; color: #68766f; background: #fbfdfb; font-size: 11px; font-weight: 700; letter-spacing: .25px; transition: border-color .18s, box-shadow .18s, background .18s; }.material-card > label { min-height: 139px; margin: 0 0 13px; }.material-card > label:focus-within, .material-card .basic-grid label:focus-within, .material-card .material-grid label:focus-within { border-color: #72bd9f; background: #fff; box-shadow: 0 0 0 4px rgba(64,165,124,.11); }
-.material-card input, .material-card textarea { display: block; width: 100%; margin-top: 3px; padding: 3px 0 0; border: 0; border-radius: 0; outline: 0; color: #253b32; background: transparent; box-shadow: none; font-size: 14px; font-weight: 500; line-height: 1.55; }.material-card input:focus, .material-card textarea:focus { border: 0; box-shadow: none; }.material-card input::placeholder, .material-card textarea::placeholder { color: #adb8b1; font-weight: 400; }.material-card textarea { resize: vertical; }.material-card > label textarea { min-height: 91px; }
-.material-card b { display: inline-grid; width: 15px; height: 15px; place-items: center; border-radius: 50%; color: #bf6857; background: #fff0ec; font-size: 11px; }.settings-card { padding: 24px; border-radius: 18px; background: linear-gradient(160deg,rgba(255,255,255,.98),rgba(242,250,245,.98)); }.settings-card h2 { color: #254237; }.settings-card label { display: block; min-height: 75px; padding: 10px 12px; border: 1px solid #e1eae3; border-radius: 12px; color: #68766f; background: #fbfdfb; font-size: 11px; font-weight: 700; }.settings-card select { width: 100%; margin-top: 3px; padding: 3px 0 0; border: 0; outline: 0; color: #253b32; background: transparent; font-size: 14px; font-weight: 500; }.settings-card label:focus-within { border-color: #72bd9f; box-shadow: 0 0 0 4px rgba(64,165,124,.11); background: #fff; }
-@media(max-width:760px){.create-head{padding:24px 20px}.material-card{padding:24px 18px}.material-card::before{left:18px;right:18px}}@media(max-width:480px){.basic-grid,.material-grid{grid-template-columns:1fr}}
+.create-page{max-width:1180px;margin:auto;padding:42px 26px 70px}.head{display:flex;justify-content:space-between;align-items:center;margin-bottom:26px;padding:30px 36px;border:1px solid #dcebdd;border-radius:24px;background:linear-gradient(115deg,#fff,#eaf7ef)}.eyebrow{margin:0 0 9px;color:#59947a;letter-spacing:.13em;font-size:11px;font-weight:700}.head h1,.result h2{margin:0;color:#254838;font:700 clamp(28px,4vw,40px)/1.3 'Noto Serif SC','Microsoft YaHei',serif}.head p:last-child{color:#728178;line-height:1.75}.head>span{display:grid;place-items:center;width:74px;height:74px;border-radius:22px;background:#2d785d;color:#fff;font-size:32px}.grid{display:grid;grid-template-columns:minmax(0,1fr) 292px;gap:22px}.card{border:1px solid #e0e9e2;border-radius:18px;background:white;box-shadow:0 10px 28px rgba(39,91,66,.06)}.material,.settings,.result{padding:29px}.material h2,.settings h2{margin:0 0 18px;color:#294a3b;font-size:19px}.two{display:grid;grid-template-columns:1fr 1fr;gap:13px}.date-fields{margin-top:2px}.date-note{margin:-3px 0 14px;color:#87958e;font-size:11px;line-height:1.5}.material label,.settings label{display:grid;gap:7px;margin-bottom:13px;color:#66776d;font-size:12px;font-weight:700}.material input,.material textarea,.settings select{box-sizing:border-box;width:100%;border:1px solid #dfe8e1;border-radius:10px;padding:10px;background:#fbfdfb;color:#2d4439;outline:0}.material textarea{resize:vertical}.material b{color:#bb5c51}.upload{padding:13px;border:1px dashed #aacdb6;border-radius:11px;background:#f7fbf8}.upload input{border:0;padding:5px 0;background:transparent}.upload small{color:#849189;font-weight:400}.settings{align-self:start;background:linear-gradient(150deg,#fff,#f2faf4)}.primary{width:100%;border:0;border-radius:10px;padding:12px;background:#2c775b;color:white;font-weight:700;cursor:pointer}.primary:disabled{opacity:.6;cursor:wait}.error{color:#b64b4b;font-size:13px;line-height:1.6}.result{margin-top:24px}.result h2{font-size:26px}.content{white-space:pre-wrap;color:#405c50;line-height:1.9}.tags{display:inline-block;padding:6px 10px;border-radius:12px;background:#eaf7ee;color:#287458;font-size:12px}.risk{color:#8a6d29;font-size:12px}@media(max-width:760px){.create-page{padding:26px 16px}.head{padding:26px 22px}.head>span{display:none}.grid,.two{grid-template-columns:1fr}}
 </style>
