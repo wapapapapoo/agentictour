@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, model_validator
 
 
 class MemoCreate(BaseModel):
-    tour_id: int
+    trip_id: int
     memo_text: str = Field(min_length=1)
     reminder_time: datetime | None = None
 
@@ -24,7 +24,7 @@ class MemoResponse(MemoCreate):
 
 
 class ItineraryCreate(BaseModel):
-    tour_id: int
+    trip_id: int
     title: str = Field(min_length=1, max_length=100)
     place_name: str = Field(min_length=1, max_length=100)
     start_time: datetime
@@ -63,8 +63,8 @@ class ItineraryResponse(ItineraryCreate):
 
 
 class AdviceGenerateRequest(BaseModel):
-    tour_id: int
-    user_id: str = Field(min_length=1, max_length=64)
+    trip_id: int
+    user_id: int = Field(gt=0)
     reason: str = Field(min_length=1)
     city: str = ""
     current_itinerary: Any = None
@@ -77,13 +77,13 @@ class AdviceGenerateRequest(BaseModel):
 
 class AdviceActionRequest(BaseModel):
     action: Literal["accept", "reject", "revise"]
-    user_id: str
+    user_id: int = Field(gt=0)
     additional_requirement: str = ""
 
 
 class AdviceResponse(BaseModel):
     advice_id: int
-    tour_id: int
+    trip_id: int
     advice_type: str
     parent_advice_id: int | None
     input_text: str | None
@@ -99,8 +99,8 @@ class AdviceResponse(BaseModel):
 
 class NotificationResponse(BaseModel):
     notification_id: int
-    tour_id: int
-    user_id: str
+    trip_id: int
+    user_id: int
     advice_id: int | None
     category: str
     content: str
@@ -110,8 +110,8 @@ class NotificationResponse(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    tour_id: int
-    user_id: str = Field(min_length=1, max_length=64)
+    trip_id: int
+    user_id: int = Field(gt=0)
     message: str = Field(min_length=1)
     city: str = ""
     nearby_context: str = ""
@@ -121,7 +121,7 @@ class ChatRequest(BaseModel):
 
 
 class LocationUpdate(BaseModel):
-    user_id: str = Field(min_length=1, max_length=64)
+    user_id: int = Field(gt=0)
     latitude: float = Field(ge=-90, le=90)
     longitude: float = Field(ge=-180, le=180)
     city: str = Field(default="", max_length=100)

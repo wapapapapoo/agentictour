@@ -58,7 +58,7 @@ class BlogBaseModel(BaseModel):
 
 
 class BlogMaterialCreate(BlogBaseModel):
-    user_id: str = Field(..., max_length=64)
+    user_id: int = Field(..., gt=0)
     title: str = Field(..., max_length=255)
     destination: str = Field(..., max_length=100)
     start_date: Optional[date] = None
@@ -80,7 +80,7 @@ class BlogMaterialCreate(BlogBaseModel):
 
 class BlogMaterialResponse(BaseModel):
     id: int
-    user_id: str
+    user_id: int
     title: str
     destination: str
     start_date: Optional[date]
@@ -100,7 +100,7 @@ class BlogMaterialResponse(BaseModel):
 class BlogPhotoResponse(BaseModel):
     id: int
     material_id: int
-    user_id: str
+    user_id: int
     original_filename: str
     content_type: str
     file_size: int
@@ -110,7 +110,7 @@ class BlogPhotoResponse(BaseModel):
 
 class BlogGenerateRequest(BlogBaseModel):
     material_id: int = Field(..., gt=0)
-    user_id: str
+    user_id: int = Field(..., gt=0)
     content_type: BlogContentType = Field(..., description="blog/social_post/title_tags")
     writing_style: BlogWritingStyle = Field(..., description="guide/story/casual/promotion")
 
@@ -118,7 +118,7 @@ class BlogGenerateRequest(BlogBaseModel):
 class BlogGenerationResponse(BaseModel):
     id: int
     material_id: int
-    user_id: str
+    user_id: int
     content_type: str
     writing_style: str
     generated_title: Optional[str]

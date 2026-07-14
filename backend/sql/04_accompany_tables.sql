@@ -4,7 +4,7 @@
 CREATE TABLE IF NOT EXISTS itinerary_items (
     itinerary_id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '行程ID',
 
-    tour_id BIGINT NOT NULL COMMENT '旅行计划ID，对应 trip_plan_requests.id',
+    trip_id BIGINT NOT NULL COMMENT '旅行ID，对应 trips.id',
 
     title VARCHAR(100) NOT NULL COMMENT '行程标题',
     place_name VARCHAR(100) NOT NULL COMMENT '地点名称',
@@ -22,11 +22,11 @@ CREATE TABLE IF NOT EXISTS itinerary_items (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
 
-    KEY idx_itinerary_tour_id (tour_id),
-    KEY idx_itinerary_time (tour_id, start_time),
+    KEY idx_itinerary_trip_id (trip_id),
+    KEY idx_itinerary_trip_time (trip_id, start_time),
 
-    CONSTRAINT fk_itinerary_tour
-        FOREIGN KEY (tour_id) REFERENCES trip_plan_requests(id)
+    CONSTRAINT fk_itinerary_trip
+        FOREIGN KEY (trip_id) REFERENCES trips(id)
         ON DELETE CASCADE
         ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='行程项表';
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS itinerary_items (
 CREATE TABLE IF NOT EXISTS ai_advice (
     advice_id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT 'AI建议ID',
 
-    tour_id BIGINT NOT NULL COMMENT '旅行计划ID，对应 trip_plan_requests.id',
+    trip_id BIGINT NOT NULL COMMENT '旅行ID，对应 trips.id',
 
     reason_text TEXT DEFAULT NULL COMMENT '建议原因',
     advice_text TEXT NOT NULL COMMENT 'AI建议内容',
@@ -57,11 +57,11 @@ CREATE TABLE IF NOT EXISTS ai_advice (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
 
-    KEY idx_ai_advice_tour_id (tour_id),
+    KEY idx_ai_advice_trip_id (trip_id),
     KEY idx_ai_advice_parent (parent_advice_id),
 
-    CONSTRAINT fk_ai_advice_tour
-        FOREIGN KEY (tour_id) REFERENCES trip_plan_requests(id)
+    CONSTRAINT fk_ai_advice_trip
+        FOREIGN KEY (trip_id) REFERENCES trips(id)
         ON DELETE CASCADE
         ON UPDATE CASCADE,
 
@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS ai_advice (
 CREATE TABLE IF NOT EXISTS memos (
     memo_id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '备忘录ID',
 
-    tour_id BIGINT NOT NULL COMMENT '旅行计划ID，对应 trip_plan_requests.id',
+    trip_id BIGINT NOT NULL COMMENT '旅行ID，对应 trips.id',
 
     memo_text TEXT NOT NULL COMMENT '备忘录内容',
 
@@ -89,10 +89,10 @@ CREATE TABLE IF NOT EXISTS memos (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
 
-    KEY idx_memos_tour_id (tour_id),
+    KEY idx_memos_trip_id (trip_id),
 
-    CONSTRAINT fk_memo_tour
-        FOREIGN KEY (tour_id) REFERENCES trip_plan_requests(id)
+    CONSTRAINT fk_memo_trip
+        FOREIGN KEY (trip_id) REFERENCES trips(id)
         ON DELETE CASCADE
         ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='备忘录表';
@@ -105,8 +105,8 @@ CREATE TABLE IF NOT EXISTS memos (
 CREATE TABLE IF NOT EXISTS chat_sessions (
     session_id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '会话ID',
 
-    tour_id BIGINT NOT NULL COMMENT '旅行计划ID，对应 trip_plan_requests.id',
-    user_id VARCHAR(64) NOT NULL COMMENT '后端用户标识',
+    trip_id BIGINT NOT NULL COMMENT '旅行ID，对应 trips.id',
+    user_id BIGINT NOT NULL COMMENT '用户ID，对应 users.user_id',
 
     title VARCHAR(100) DEFAULT NULL COMMENT '会话标题',
 
@@ -118,11 +118,11 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
 
-    UNIQUE KEY uk_chat_session_tour (tour_id),
+    UNIQUE KEY uk_chat_session_trip (trip_id),
     KEY idx_chat_sessions_user_id (user_id),
 
-    CONSTRAINT fk_chat_session_tour
-        FOREIGN KEY (tour_id) REFERENCES trip_plan_requests(id)
+    CONSTRAINT fk_chat_session_trip
+        FOREIGN KEY (trip_id) REFERENCES trips(id)
         ON DELETE CASCADE
         ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='会话表';
@@ -161,16 +161,16 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 
 CREATE TABLE IF NOT EXISTS notifications (
     notification_id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    tour_id BIGINT NOT NULL,
-    user_id VARCHAR(64) NOT NULL,
+    trip_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
     advice_id BIGINT DEFAULT NULL,
     category VARCHAR(30) NOT NULL,
     content TEXT NOT NULL,
     read_at DATETIME DEFAULT NULL COMMENT 'UTC',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'UTC',
     KEY idx_notifications_unread (user_id, read_at, created_at),
-    CONSTRAINT fk_notification_tour FOREIGN KEY (tour_id)
-        REFERENCES trip_plan_requests(id) ON DELETE CASCADE,
+    CONSTRAINT fk_notification_trip FOREIGN KEY (trip_id)
+        REFERENCES trips(id) ON DELETE CASCADE,
     CONSTRAINT fk_notification_advice FOREIGN KEY (advice_id)
         REFERENCES ai_advice(advice_id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户通知表';
@@ -181,7 +181,7 @@ CREATE TABLE IF NOT EXISTS agent_job_states (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Agent周期任务状态';
 
 CREATE TABLE IF NOT EXISTS user_locations (
-    user_id VARCHAR(64) PRIMARY KEY,
+    user_id BIGINT PRIMARY KEY,
     latitude DOUBLE NOT NULL,
     longitude DOUBLE NOT NULL,
     city VARCHAR(100) DEFAULT NULL,

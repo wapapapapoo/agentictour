@@ -37,9 +37,9 @@ def create_memo(data: MemoCreate, db: Session = Depends(get_db)):
     return service.create_memo(db, data)
 
 
-@router.get("/tours/{tour_id}/memos", response_model=list[MemoResponse])
-def list_memos(tour_id: int, db: Session = Depends(get_db)):
-    return crud.list_memos(db, tour_id)
+@router.get("/trips/{trip_id}/memos", response_model=list[MemoResponse])
+def list_memos(trip_id: int, db: Session = Depends(get_db)):
+    return crud.list_memos(db, trip_id)
 
 
 @router.patch("/memos/{memo_id}", response_model=MemoResponse)
@@ -66,9 +66,9 @@ def create_itinerary(data: ItineraryCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
-@router.get("/tours/{tour_id}/itineraries", response_model=list[ItineraryResponse])
-def list_itineraries(tour_id: int, db: Session = Depends(get_db)):
-    return crud.list_itineraries(db, tour_id)
+@router.get("/trips/{trip_id}/itineraries", response_model=list[ItineraryResponse])
+def list_itineraries(trip_id: int, db: Session = Depends(get_db)):
+    return crud.list_itineraries(db, trip_id)
 
 
 @router.patch("/itineraries/{itinerary_id}", response_model=ItineraryResponse)
@@ -99,9 +99,9 @@ def generate_advice(data: AdviceGenerateRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
-@router.get("/tours/{tour_id}/ai-advice", response_model=list[AdviceResponse])
-def list_advice(tour_id: int, db: Session = Depends(get_db)):
-    return [service.advice_response(x) for x in crud.list_advice(db, tour_id)]
+@router.get("/trips/{trip_id}/ai-advice", response_model=list[AdviceResponse])
+def list_advice(trip_id: int, db: Session = Depends(get_db)):
+    return [service.advice_response(x) for x in crud.list_advice(db, trip_id)]
 
 
 @router.post("/ai-advice/{advice_id}/action", response_model=AdviceResponse)
@@ -135,7 +135,7 @@ def update_location(data: LocationUpdate, db: Session = Depends(get_db)):
 
 @router.get("/notifications", response_model=list[NotificationResponse])
 def notifications(
-    user_id: str,
+    user_id: int,
     unread_only: bool = Query(default=True),
     db: Session = Depends(get_db),
 ):
@@ -146,7 +146,7 @@ def notifications(
     "/notifications/{notification_id}/read", response_model=NotificationResponse
 )
 def mark_notification_read(
-    notification_id: int, user_id: str, db: Session = Depends(get_db)
+    notification_id: int, user_id: int, db: Session = Depends(get_db)
 ):
     row = (
         db.query(Notification)

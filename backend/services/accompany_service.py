@@ -99,7 +99,7 @@ def _previous_itinerary(db: Session, data: ItineraryCreate) -> ItineraryItem | N
     return (
         db.query(ItineraryItem)
         .filter(
-            ItineraryItem.tour_id == data.tour_id,
+            ItineraryItem.trip_id == data.trip_id,
             ItineraryItem.end_time <= data.start_time,
         )
         .order_by(ItineraryItem.end_time.desc())
@@ -130,13 +130,13 @@ def _default_play_reminder(db: Session, data: ItineraryCreate) -> datetime:
     return min(max(candidate, previous.start_time), previous.end_time)
 
 
-def _recalculate_day(db: Session, tour_id: int, day: datetime) -> None:
+def _recalculate_day(db: Session, trip_id: int, day: datetime) -> None:
     day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
     day_end = day_start + timedelta(days=1)
     items = (
         db.query(ItineraryItem)
         .filter(
-            ItineraryItem.tour_id == tour_id,
+            ItineraryItem.trip_id == trip_id,
             ItineraryItem.start_time >= day_start,
             ItineraryItem.start_time < day_end,
         )
@@ -172,7 +172,7 @@ def create_itinerary(
     day_has_item = (
         db.query(ItineraryItem)
         .filter(
-            ItineraryItem.tour_id == data.tour_id,
+            ItineraryItem.trip_id == data.trip_id,
             ItineraryItem.start_time >= day_start,
             ItineraryItem.start_time < day_end,
         )
@@ -195,7 +195,7 @@ def create_itinerary(
             "reminder_time must be within the previous itinerary start and end time"
         )
     row = crud.create(db, ItineraryItem, values)
-    _recalculate_day(db, data.tour_id, data.start_time)
+    _recalculate_day(db, data.trip_id, data.start_time)
     if commit:
         db.commit()
         db.refresh(row)
@@ -228,9 +228,9 @@ def update_itinerary(
         raise ValueError("transit itinerary requires reminder_time")
     crud.update(row, values)
     db.flush()
-    _recalculate_day(db, row.tour_id, old_day)
+    _recalculate_day(db, row.trip_id, old_day)
     if row.start_time.date() != old_day.date():
-        _recalculate_day(db, row.tour_id, row.start_time)
+        _recalculate_day(db, row.trip_id, row.start_time)
     db.commit()
     db.refresh(row)
     return row
@@ -240,10 +240,10 @@ def delete_itinerary(db: Session, itinerary_id: int) -> None:
     row = crud.get_or_none(db, ItineraryItem, "itinerary_id", itinerary_id)
     if row is None:
         raise LookupError("itinerary not found")
-    day, tour_id = row.start_time, row.tour_id
+    day, trip_id = row.start_time, row.trip_id
     crud.delete(db, row)
     db.flush()
-    _recalculate_day(db, tour_id, day)
+    _recalculate_day(db, trip_id, day)
     db.commit()
 
 
@@ -257,7 +257,7 @@ def _json_or_none(content: str) -> Any:
 def advice_response(row: AIAdvice) -> dict[str, Any]:
     return {
         "advice_id": row.advice_id,
-        "tour_id": row.tour_id,
+        "trip_id": row.trip_id,
         "advice_type": row.advice_type,
         "parent_advice_id": row.parent_advice_id,
         "input_text": row.input_text,
@@ -282,12 +282,12 @@ def generate_advice(db: Session, data: AdviceGenerateRequest) -> AIAdvice:
         else ""
     )
     audited = run_hikari_once_audited(
-        user=data.user_id,
+        user=str(data.user_id),
         original_input=original,
         inputs={
             "user_query": original,
             "trigger_type": "user_accident",
-            "tour_id": data.tour_id,
+            "tour_id": data.trip_id,
             "city": data.city,
             "current_itinerary": json.dumps(data.current_itinerary, ensure_ascii=False),
             "latitude": data.latitude if data.latitude is not None else "",
@@ -305,7 +305,7 @@ def generate_advice(db: Session, data: AdviceGenerateRequest) -> AIAdvice:
         db,
         AIAdvice,
         {
-            "tour_id": data.tour_id,
+            "trip_id": data.trip_id,
             "advice_type": "replan",
             "input_text": original,
             "reason_text": data.reason,
@@ -323,7 +323,7 @@ def generate_advice(db: Session, data: AdviceGenerateRequest) -> AIAdvice:
 
 
 def act_on_advice(
-    db: Session, advice_id: int, action: str, user_id: str, additional: str
+    db: Session, advice_id: int, action: str, user_id: int, additional: str
 ) -> AIAdvice:
     row = crud.get_or_none(db, AIAdvice, "advice_id", advice_id)
     if row is None:
@@ -345,7 +345,7 @@ def act_on_advice(
                 if not isinstance(item, dict):
                     raise ValueError("each proposed itinerary item must be an object")
                 payload = dict(item)
-                payload["tour_id"] = row.tour_id
+                payload["trip_id"] = row.trip_id
                 create_itinerary(
                     db, ItineraryCreate.model_validate(payload), commit=False
                 )
@@ -365,7 +365,7 @@ def act_on_advice(
         generated = generate_advice(
             db,
             AdviceGenerateRequest(
-                tour_id=row.tour_id,
+                trip_id=row.trip_id,
                 user_id=user_id,
                 reason=combined_input,
                 current_itinerary=_json_or_none(row.proposed_itinerary_json or ""),
@@ -383,13 +383,13 @@ def act_on_advice(
 
 def chat(db: Session, data: ChatRequest) -> dict[str, Any]:
     _save_request_location(db, data)
-    session = db.query(ChatSession).filter(ChatSession.tour_id == data.tour_id).first()
+    session = db.query(ChatSession).filter(ChatSession.trip_id == data.trip_id).first()
     if session is None:
         session = crud.create(
             db,
             ChatSession,
             {
-                "tour_id": data.tour_id,
+                "trip_id": data.trip_id,
                 "user_id": data.user_id,
                 "title": data.message[:100],
             },
@@ -410,12 +410,12 @@ def chat(db: Session, data: ChatRequest) -> dict[str, Any]:
         },
     )
     audited = run_hikari_once_audited(
-        user=data.user_id,
+        user=str(data.user_id),
         original_input=data.message,
         inputs={
             "user_query": data.message,
             "trigger_type": "user_input",
-            "tour_id": data.tour_id,
+            "tour_id": data.trip_id,
             "city": data.city,
             "nearby_context": data.nearby_context,
             "latitude": data.latitude if data.latitude is not None else "",

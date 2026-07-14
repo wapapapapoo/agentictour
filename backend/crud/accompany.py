@@ -14,32 +14,32 @@ def get_or_none(db: Session, model, pk_name: str, pk: int):
     return db.query(model).filter(getattr(model, pk_name) == pk).first()
 
 
-def list_memos(db: Session, tour_id: int) -> list[Memo]:
+def list_memos(db: Session, trip_id: int) -> list[Memo]:
     return (
-        db.query(Memo).filter(Memo.tour_id == tour_id).order_by(Memo.created_at).all()
+        db.query(Memo).filter(Memo.trip_id == trip_id).order_by(Memo.created_at).all()
     )
 
 
-def list_itineraries(db: Session, tour_id: int) -> list[ItineraryItem]:
+def list_itineraries(db: Session, trip_id: int) -> list[ItineraryItem]:
     return (
         db.query(ItineraryItem)
-        .filter(ItineraryItem.tour_id == tour_id)
+        .filter(ItineraryItem.trip_id == trip_id)
         .order_by(ItineraryItem.start_time)
         .all()
     )
 
 
-def list_advice(db: Session, tour_id: int) -> list[AIAdvice]:
+def list_advice(db: Session, trip_id: int) -> list[AIAdvice]:
     return (
         db.query(AIAdvice)
-        .filter(AIAdvice.tour_id == tour_id)
+        .filter(AIAdvice.trip_id == trip_id)
         .order_by(AIAdvice.created_at.desc())
         .all()
     )
 
 
 def list_notifications(
-    db: Session, user_id: str, unread_only: bool = True
+    db: Session, user_id: int, unread_only: bool = True
 ) -> list[Notification]:
     query = db.query(Notification).filter(Notification.user_id == user_id)
     if unread_only:

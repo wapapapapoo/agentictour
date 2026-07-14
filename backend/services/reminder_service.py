@@ -12,13 +12,13 @@ from models.accompany import (
     Notification,
     UserLocation,
 )
-from models.trip_plan import TripPlanRequest
+from models.trip import Trip
 from services.ai_gateway import run_hikari_once_audited
 
 logger = logging.getLogger(__name__)
 
 
-def _location_inputs(db: Session, user_id: str) -> dict[str, str | float]:
+def _location_inputs(db: Session, user_id: int) -> dict[str, str | float]:
     location = (
         db.query(UserLocation).filter(UserLocation.user_id == user_id).first()
     )
@@ -49,16 +49,16 @@ PROMPTS = {
 
 
 def _emit(
-    db: Session, tour_id: int, user_id: str, category: str, detail: str
+    db: Session, trip_id: int, user_id: int, category: str, detail: str
 ) -> AIAdvice:
     original = f"{PROMPTS[category]}\n{detail}"
     audited = run_hikari_once_audited(
-        user=user_id,
+        user=str(user_id),
         original_input=original,
         inputs={
             "user_query": original,
             "trigger_type": "system_auto_remind",
-            "tour_id": tour_id,
+            "tour_id": trip_id,
             "city": "",
             **_location_inputs(db, user_id),
         },
@@ -67,7 +67,7 @@ def _emit(
         db,
         AIAdvice,
         {
-            "tour_id": tour_id,
+            "trip_id": trip_id,
             "advice_type": category,
             "reason_text": detail,
             "advice_text": audited.content,
@@ -81,7 +81,7 @@ def _emit(
         db,
         Notification,
         {
-            "tour_id": tour_id,
+            "trip_id": trip_id,
             "user_id": user_id,
             "advice_id": advice.advice_id,
             "category": category,
@@ -93,19 +93,19 @@ def _emit(
 
 def _agent_check(
     db: Session,
-    plan: TripPlanRequest,
+    trip: Trip,
     trigger_type: str,
     detail: str,
 ) -> AIAdvice:
     audited = run_hikari_once_audited(
-        user=plan.user_id,
+        user=str(trip.user_id),
         original_input=detail,
         inputs={
             "user_query": detail,
             "trigger_type": trigger_type,
-            "tour_id": plan.id,
-            "city": plan.destination_city,
-            **_location_inputs(db, plan.user_id),
+            "tour_id": trip.id,
+            "city": trip.destination_city,
+            **_location_inputs(db, trip.user_id),
         },
     )
     category = (
@@ -117,7 +117,7 @@ def _agent_check(
         db,
         AIAdvice,
         {
-            "tour_id": plan.id,
+            "trip_id": trip.id,
             "advice_type": category,
             "input_text": detail,
             "reason_text": detail,
@@ -132,8 +132,8 @@ def _agent_check(
         db,
         Notification,
         {
-            "tour_id": plan.id,
-            "user_id": plan.user_id,
+            "trip_id": trip.id,
+            "user_id": trip.user_id,
             "advice_id": advice.advice_id,
             "category": category,
             "content": audited.content,
@@ -157,13 +157,16 @@ def scan_due_reminders(db: Session, now: datetime | None = None) -> int:
     for memo in due_memos:
         try:
             with db.begin_nested():
-                plan = (
-                    db.query(TripPlanRequest)
-                    .filter(TripPlanRequest.id == memo.tour_id)
+                trip = (
+                    db.query(Trip)
+                    .filter(
+                        Trip.id == memo.trip_id,
+                        Trip.status.in_(("planned", "ongoing")),
+                    )
                     .first()
                 )
-                if plan:
-                    _emit(db, memo.tour_id, plan.user_id, "memo", memo.memo_text)
+                if trip:
+                    _emit(db, memo.trip_id, trip.user_id, "memo", memo.memo_text)
                     memo.reminded_at = now
                     count += 1
         except Exception:
@@ -181,12 +184,15 @@ def scan_due_reminders(db: Session, now: datetime | None = None) -> int:
     for item in due_items:
         try:
             with db.begin_nested():
-                plan = (
-                    db.query(TripPlanRequest)
-                    .filter(TripPlanRequest.id == item.tour_id)
+                trip = (
+                    db.query(Trip)
+                    .filter(
+                        Trip.id == item.trip_id,
+                        Trip.status.in_(("planned", "ongoing")),
+                    )
                     .first()
                 )
-                if not plan:
+                if not trip:
                     continue
                 category = "initial_start" if item.is_initial else "next_itinerary"
                 detail = (
@@ -197,7 +203,7 @@ def scan_due_reminders(db: Session, now: datetime | None = None) -> int:
                     unscheduled = (
                         db.query(Memo)
                         .filter(
-                            Memo.tour_id == item.tour_id,
+                            Memo.trip_id == item.trip_id,
                             Memo.reminder_time.is_(None),
                             Memo.reminded_at.is_(None),
                         )
@@ -209,10 +215,10 @@ def scan_due_reminders(db: Session, now: datetime | None = None) -> int:
                         )
                         for memo in unscheduled:
                             memo.reminded_at = now
-                _emit(db, item.tour_id, plan.user_id, category, detail)
+                _emit(db, item.trip_id, trip.user_id, category, detail)
                 _agent_check(
                     db,
-                    plan,
+                    trip,
                     "system_auto_check",
                     f"行程提醒触发的实时信息检查：{detail}",
                 )
@@ -243,17 +249,18 @@ def run_periodic_agent_jobs(db: Session, now: datetime | None = None) -> int:
             and now - state.last_run_at < interval
         ):
             continue
-        plans = (
-            db.query(TripPlanRequest)
-            .join(ItineraryItem, ItineraryItem.tour_id == TripPlanRequest.id)
+        trips = (
+            db.query(Trip)
+            .join(ItineraryItem, ItineraryItem.trip_id == Trip.id)
             .filter(
+                Trip.status.in_(("planned", "ongoing")),
                 ItineraryItem.status == "pending",
                 ItineraryItem.end_time >= now,
             )
             .distinct()
             .all()
         )
-        for plan in plans:
+        for trip in trips:
             detail = (
                 "每小时行程外部信息巡检，请判断未来行程是否需要变化。"
                 if trigger == "system_auto_check"
@@ -261,13 +268,13 @@ def run_periodic_agent_jobs(db: Session, now: datetime | None = None) -> int:
             )
             try:
                 with db.begin_nested():
-                    _agent_check(db, plan, trigger, detail)
+                    _agent_check(db, trip, trigger, detail)
                     executed += 1
             except Exception:
                 logger.exception(
-                    "periodic agent job failed: job=%s tour_id=%s",
+                    "periodic agent job failed: job=%s trip_id=%s",
                     job_name,
-                    plan.id,
+                    trip.id,
                 )
         if state is None:
             state = AgentJobState(job_name=job_name)

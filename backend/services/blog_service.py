@@ -32,7 +32,7 @@ def create_material(db: Session, data: BlogMaterialCreate) -> BlogMaterial:
 def get_material(
     db: Session,
     material_id: int,
-    user_id: str | None = None,
+    user_id: int | None = None,
 ) -> BlogMaterial | None:
     query = db.query(BlogMaterial).filter(BlogMaterial.id == material_id)
     if user_id is not None:
@@ -44,7 +44,7 @@ def create_photo(
     db: Session,
     *,
     material_id: int,
-    user_id: str,
+    user_id: int,
     original_filename: str,
     content: bytes,
 ) -> BlogPhoto:
@@ -99,7 +99,7 @@ def _detect_image_type(content: bytes) -> tuple[str, str] | None:
     return None
 
 
-def get_photo(db: Session, photo_id: int, user_id: str) -> BlogPhoto | None:
+def get_photo(db: Session, photo_id: int, user_id: int) -> BlogPhoto | None:
     return (
         db.query(BlogPhoto)
         .filter(BlogPhoto.id == photo_id, BlogPhoto.user_id == user_id)
@@ -124,7 +124,7 @@ def _to_dify_inputs(
 
     return {
         "material_id": text(material.id),
-        "user_id": req.user_id,
+        "user_id": str(req.user_id),
         "title": material.title,
         "destination": material.destination,
         "start_date": text(material.start_date),
@@ -179,7 +179,7 @@ def _generate_blog_content(
         timeout=float(os.getenv("DIFY_TIMEOUT", "120")),
     )
     response = client.run_workflow(
-        user=req.user_id,
+        user=str(req.user_id),
         inputs=_to_dify_inputs(material, req),
     )
     return _extract_generation_result(response)
@@ -214,7 +214,7 @@ def create_generation(db: Session, req: BlogGenerateRequest) -> BlogGeneration:
     return generation
 
 
-def list_generations(db: Session, user_id: str) -> list[dict]:
+def list_generations(db: Session, user_id: int) -> list[dict]:
     rows = (
         db.query(BlogGeneration, BlogMaterial)
         .join(BlogMaterial, BlogGeneration.material_id == BlogMaterial.id)
@@ -241,7 +241,7 @@ def list_generations(db: Session, user_id: str) -> list[dict]:
 def get_generation(
     db: Session,
     generation_id: int,
-    user_id: str | None = None,
+    user_id: int | None = None,
 ) -> BlogGeneration | None:
     query = db.query(BlogGeneration).filter(BlogGeneration.id == generation_id)
     if user_id is not None:
@@ -249,7 +249,7 @@ def get_generation(
     return query.first()
 
 
-def delete_generation(db: Session, generation_id: int, user_id: str) -> bool:
+def delete_generation(db: Session, generation_id: int, user_id: int) -> bool:
     generation = get_generation(db, generation_id, user_id)
     if generation is None:
         return False

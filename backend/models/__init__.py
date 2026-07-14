@@ -8,6 +8,7 @@ from models.accompany import (
     Notification,
     UserLocation,
 )
+from models.trip import Trip
 
 __all__ = [
     "AIAdvice",
@@ -18,4 +19,5 @@ __all__ = [
     "Memo",
     "Notification",
     "UserLocation",
+    "Trip",
 ]

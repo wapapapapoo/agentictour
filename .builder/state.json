@@ -1,0 +1,15 @@
+{
+  "project_name": "agentictour-trips-aggregate",
+  "current_phase": "test",
+  "current_feature": "feat-001",
+  "tech_stack": {
+    "language": "Python/SQL",
+    "framework": "FastAPI/SQLAlchemy",
+    "runtime": "Python 3/MySQL 8"
+  },
+  "completed_features": [],
+  "pending_features": ["feat-001", "feat-002", "feat-003"],
+  "session_count": 1,
+  "last_activity": "2026-07-14T09:27:00+08:00",
+  "governed_run_id": "20260714T012020Z-5d727e52"
+}
