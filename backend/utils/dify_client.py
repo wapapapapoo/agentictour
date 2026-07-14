@@ -8,6 +8,7 @@
 """
 from __future__ import annotations
 
+import json as _json
 import os
 from collections.abc import Mapping, Sequence
 from typing import Any, Literal, Protocol
@@ -98,11 +99,12 @@ class DifyClient:
 
     def post_json(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         """Post a JSON payload to the configured Dify endpoint URL."""
+        body = _json.dumps(dict(payload), ensure_ascii=False).encode("utf-8")
         try:
             response = self.session.post(
                 self.url,
                 headers=self._headers(),
-                json=dict(payload),
+                data=body,
                 timeout=self.timeout,
             )
         except requests.exceptions.Timeout as exc:
@@ -176,7 +178,7 @@ class DifyClient:
     def _headers(self) -> dict[str, str]:
         return {
             "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
+            "Content-Type": "application/json; charset=utf-8",
         }
 
     def _raise_http_error(self, response: Any) -> None:

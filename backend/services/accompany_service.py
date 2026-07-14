@@ -15,6 +15,7 @@ from models.accompany import (
     Memo,
     UserLocation,
 )
+from models.user import User
 from schemas.accompany import (
     AdviceGenerateRequest,
     ChatRequest,
@@ -274,6 +275,11 @@ def advice_response(row: AIAdvice) -> dict[str, Any]:
     }
 
 
+def _get_username(db: Session, user_id: int) -> str:
+    user = db.query(User).filter(User.user_id == user_id).first()
+    return user.username if user else str(user_id)
+
+
 def generate_advice(db: Session, data: AdviceGenerateRequest) -> AIAdvice:
     _save_request_location(db, data)
     original = data.reason + (
@@ -282,7 +288,7 @@ def generate_advice(db: Session, data: AdviceGenerateRequest) -> AIAdvice:
         else ""
     )
     audited = run_hikari_once_audited(
-        user=str(data.user_id),
+        user=_get_username(db, data.user_id),
         original_input=original,
         inputs={
             "user_query": original,
@@ -410,7 +416,7 @@ def chat(db: Session, data: ChatRequest) -> dict[str, Any]:
         },
     )
     audited = run_hikari_once_audited(
-        user=str(data.user_id),
+        user=_get_username(db, data.user_id),
         original_input=data.message,
         inputs={
             "user_query": data.message,
