@@ -43,15 +43,28 @@ def _parse_liked_plan_ids(log_path: str) -> tuple[list[int], list[str]]:
 
 
 def _decode_embedding(raw: bytes) -> list[float] | None:
-    """Dify embeddings 表 bytea: 2B pgvector dim header + float32 array."""
-    # 2 字节维度头 + float32 数据 (9234 = 2 + 2308*4)
-    if len(raw) > 2:
-        body = raw[2:]
-        if len(body) % 4 == 0:
-            return np.frombuffer(body, dtype=np.float32).tolist()
-    # fallback: 从头解 float32
-    if len(raw) % 4 == 0:
-        return np.frombuffer(raw, dtype=np.float32).tolist()
+    """尝试多种偏移/格式解码，返回第一个无 NaN 的结果."""
+    candidates: list[tuple[int, str, list[float]]] = []
+    total = len(raw)
+
+    # 试不同偏移 skip 0,2,4,6,8,10,12
+    for skip in [0, 2, 4, 6, 8, 10, 12]:
+        body = raw[skip:]
+        if len(body) % 4 == 0 and len(body) > 0:
+            arr = np.frombuffer(body, dtype=np.float32)
+            candidates.append((skip, "f32", arr.tolist()))
+    # 试 float16 (skip 0)
+    if total % 2 == 0:
+        arr = np.frombuffer(raw, dtype=np.float16).astype(np.float32)
+        candidates.append((0, "f16", arr.tolist()))
+
+    for skip, fmt, vals in candidates:
+        if vals and not any(math.isnan(v) for v in vals):
+            return vals
+    # 都没完美结果，返回第一个有效的（可能含 NaN）
+    for skip, fmt, vals in candidates:
+        if vals:
+            return vals
     return None
 
 
