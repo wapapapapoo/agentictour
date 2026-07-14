@@ -58,7 +58,7 @@ def list_trip_plans(
     current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
-    return trip_plan_service.list_plans(db, user_id)
+    return trip_plan_service.list_plans(db, user_id or current_user_id)
 
 
 @router.get("/{plan_id}", response_model=TripPlanResponse)
