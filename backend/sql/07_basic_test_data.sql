@@ -4,8 +4,8 @@
 -- 前置条件：请先依次执行以下建表脚本：
 --   1. 01_user_tables.sql
 --   2. 02_blog_tables.sql
---   3. 03_trip_plan_tables.sql
---   4. 03a_trips_table.sql
+--   3. 02a_trips_table.sql
+--   4. 03_trip_plan_tables.sql
 --   5. 04_accompany_tables.sql
 --   6. 06_plan_knowledge_mappings.sql
 --
@@ -67,102 +67,10 @@ DELETE FROM trips
 WHERE user_id IN (@seed_user_1_id, @seed_user_2_id);
 
 DELETE FROM trip_plan_requests
-WHERE user_id IN ('seed-user-001', 'seed-user-002');
+WHERE user_id IN (@seed_user_1_id, @seed_user_2_id);
 
 -- ------------------------------------------------------------
--- 2. 旅行计划请求
--- ------------------------------------------------------------
-INSERT INTO trip_plan_requests (
-    user_id, action, origin_city, destination_city,
-    start_date, end_date, people_count, budget_total,
-    interests, hotel_level, transport_preference, pace,
-    special_requirements, created_at, updated_at
-) VALUES (
-    'seed-user-001', 'create', '杭州', '上海',
-    '2026-07-20', '2026-07-22', '2', '5000元',
-    '城市漫步、历史建筑、本地美食、摄影', '舒适型', '高铁+地铁，必要时打车', '轻松',
-    '同行者膝盖不适，单日步行尽量控制在8000步以内。',
-    '2026-07-01 09:10:00', '2026-07-01 10:00:00'
-);
-SET @plan_request_1_id = LAST_INSERT_ID();
-
-INSERT INTO trip_plan_requests (
-    user_id, action, origin_city, destination_city,
-    start_date, end_date, people_count, budget_total,
-    interests, hotel_level, transport_preference, pace,
-    special_requirements, created_at, updated_at
-) VALUES (
-    'seed-user-002', 'create', '南京', '苏州',
-    '2026-08-08', '2026-08-10', '3', '4200元',
-    '园林、昆曲、江南美食、亲子体验', '经济型/舒适型', '高铁+公共交通', '普通',
-    '有一名8岁儿童，希望午后预留休息时间。',
-    '2026-07-02 10:10:00', '2026-07-02 10:20:00'
-);
-SET @plan_request_2_id = LAST_INSERT_ID();
-
--- ------------------------------------------------------------
--- 3. 旅行计划版本
--- 第一条计划包含两个版本，可用于验证“获取最新版本”逻辑。
--- ------------------------------------------------------------
-INSERT INTO trip_plan_versions (
-    request_id, user_id, version_no, revision_request,
-    workflow_run_id, task_id, plan_json, raw_response_json, created_at
-) VALUES (
-    @plan_request_1_id, 'seed-user-001', 1, NULL,
-    'seed-workflow-shanghai-v1', 'seed-task-shanghai-v1',
-    JSON_OBJECT(
-        'title', '上海经典慢游 3 日计划（初版）',
-        'summary', '从杭州出发，覆盖外滩、豫园、武康路等经典区域。',
-        'days', JSON_ARRAY(
-            JSON_OBJECT('day', 1, 'date', '2026-07-20', 'theme', '外滩与城市天际线'),
-            JSON_OBJECT('day', 2, 'date', '2026-07-21', 'theme', '老城厢与海派文化'),
-            JSON_OBJECT('day', 3, 'date', '2026-07-22', 'theme', '梧桐区慢生活')
-        ),
-        'budget', JSON_OBJECT('transport', 900, 'hotel', 1600, 'food', 1200, 'tickets', 400, 'other', 500, 'total', 4600),
-        'warnings', JSON_ARRAY('暑期出行建议提前预约热门场馆。'),
-        'route_summary', JSON_OBJECT('transport', '高铁+地铁', 'estimated_steps_per_day', '10000步')
-    ),
-    JSON_OBJECT('workflow_run_id', 'seed-workflow-shanghai-v1', 'status', 'succeeded', 'source', 'seed'),
-    '2026-07-01 09:15:00'
-), (
-    @plan_request_1_id, 'seed-user-001', 2, '减少步行，增加休息点，并把每日步数控制在8000步以内。',
-    'seed-workflow-shanghai-v2', 'seed-task-shanghai-v2',
-    JSON_OBJECT(
-        'title', '上海舒适慢游 3 日计划',
-        'summary', '在初版基础上缩短步行距离，增加咖啡馆和酒店休息时段。',
-        'days', JSON_ARRAY(
-            JSON_OBJECT('day', 1, 'date', '2026-07-20', 'theme', '外滩轻松游', 'rest', '15:00 酒店休息'),
-            JSON_OBJECT('day', 2, 'date', '2026-07-21', 'theme', '豫园与博物馆', 'rest', '14:30 茶馆休息'),
-            JSON_OBJECT('day', 3, 'date', '2026-07-22', 'theme', '武康路短线漫步', 'rest', '午后返程')
-        ),
-        'budget', JSON_OBJECT('transport', 1100, 'hotel', 1600, 'food', 1200, 'tickets', 400, 'other', 500, 'total', 4800),
-        'warnings', JSON_ARRAY('豫园建议避开周末上午客流高峰。', '如有不适可将步行路段改为打车。'),
-        'route_summary', JSON_OBJECT('transport', '高铁+地铁+短途打车', 'estimated_steps_per_day', '6500-8000步')
-    ),
-    JSON_OBJECT('workflow_run_id', 'seed-workflow-shanghai-v2', 'status', 'succeeded', 'source', 'seed'),
-    '2026-07-01 10:00:00'
-), (
-    @plan_request_2_id, 'seed-user-002', 1, NULL,
-    'seed-workflow-suzhou-v1', 'seed-task-suzhou-v1',
-    JSON_OBJECT(
-        'title', '苏州园林亲子 3 日计划',
-        'summary', '以园林、古城和亲子文化体验为主，午后安排休息。',
-        'days', JSON_ARRAY(
-            JSON_OBJECT('day', 1, 'date', '2026-08-08', 'theme', '拙政园与苏州博物馆'),
-            JSON_OBJECT('day', 2, 'date', '2026-08-09', 'theme', '平江路与昆曲体验'),
-            JSON_OBJECT('day', 3, 'date', '2026-08-10', 'theme', '虎丘与返程')
-        ),
-        'budget', JSON_OBJECT('transport', 700, 'hotel', 1200, 'food', 1000, 'tickets', 600, 'other', 400, 'total', 3900),
-        'warnings', JSON_ARRAY('园林门票建议提前预约。', '高温天气注意儿童防晒补水。'),
-        'route_summary', JSON_OBJECT('transport', '高铁+公交+步行', 'estimated_steps_per_day', '8000步')
-    ),
-    JSON_OBJECT('workflow_run_id', 'seed-workflow-suzhou-v1', 'status', 'succeeded', 'source', 'seed'),
-    '2026-07-02 10:20:00'
-);
-
--- ------------------------------------------------------------
--- 4. 旅行主记录
--- 与上面的计划测试数据表达同一旅行，但本脚本不建立数据库层关联。
+-- 2. 旅行主记录
 -- ------------------------------------------------------------
 INSERT INTO trips (
     user_id, title, origin_city, destination_city,
@@ -183,6 +91,97 @@ INSERT INTO trips (
     '2026-07-02 10:10:00', '2026-07-02 10:20:00'
 );
 SET @trip_2_id = LAST_INSERT_ID();
+
+-- ------------------------------------------------------------
+-- 3. 旅行计划请求
+-- ------------------------------------------------------------
+INSERT INTO trip_plan_requests (
+    trip_id, user_id, action, origin_city, destination_city,
+    start_date, end_date, people_count, budget_total,
+    interests, hotel_level, transport_preference, pace,
+    special_requirements, created_at, updated_at
+) VALUES (
+    @trip_1_id, @seed_user_1_id, 'create', '杭州', '上海',
+    '2026-07-20', '2026-07-22', '2', '5000元',
+    '城市漫步、历史建筑、本地美食、摄影', '舒适型', '高铁+地铁，必要时打车', '轻松',
+    '同行者膝盖不适，单日步行尽量控制在8000步以内。',
+    '2026-07-01 09:10:00', '2026-07-01 10:00:00'
+);
+SET @plan_request_1_id = LAST_INSERT_ID();
+
+INSERT INTO trip_plan_requests (
+    trip_id, user_id, action, origin_city, destination_city,
+    start_date, end_date, people_count, budget_total,
+    interests, hotel_level, transport_preference, pace,
+    special_requirements, created_at, updated_at
+) VALUES (
+    @trip_2_id, @seed_user_2_id, 'create', '南京', '苏州',
+    '2026-08-08', '2026-08-10', '3', '4200元',
+    '园林、昆曲、江南美食、亲子体验', '经济型/舒适型', '高铁+公共交通', '普通',
+    '有一名8岁儿童，希望午后预留休息时间。',
+    '2026-07-02 10:10:00', '2026-07-02 10:20:00'
+);
+SET @plan_request_2_id = LAST_INSERT_ID();
+
+-- ------------------------------------------------------------
+-- 4. 旅行计划版本
+-- 第一条计划包含两个版本，可用于验证“获取最新版本”逻辑。
+-- ------------------------------------------------------------
+INSERT INTO trip_plan_versions (
+    request_id, user_id, version_no, revision_request,
+    workflow_run_id, task_id, plan_json, raw_response_json, created_at
+) VALUES (
+    @plan_request_1_id, @seed_user_1_id, 1, NULL,
+    'seed-workflow-shanghai-v1', 'seed-task-shanghai-v1',
+    JSON_OBJECT(
+        'title', '上海经典慢游 3 日计划（初版）',
+        'summary', '从杭州出发，覆盖外滩、豫园、武康路等经典区域。',
+        'days', JSON_ARRAY(
+            JSON_OBJECT('day', 1, 'date', '2026-07-20', 'theme', '外滩与城市天际线'),
+            JSON_OBJECT('day', 2, 'date', '2026-07-21', 'theme', '老城厢与海派文化'),
+            JSON_OBJECT('day', 3, 'date', '2026-07-22', 'theme', '梧桐区慢生活')
+        ),
+        'budget', JSON_OBJECT('transport', 900, 'hotel', 1600, 'food', 1200, 'tickets', 400, 'other', 500, 'total', 4600),
+        'warnings', JSON_ARRAY('暑期出行建议提前预约热门场馆。'),
+        'route_summary', JSON_OBJECT('transport', '高铁+地铁', 'estimated_steps_per_day', '10000步')
+    ),
+    JSON_OBJECT('workflow_run_id', 'seed-workflow-shanghai-v1', 'status', 'succeeded', 'source', 'seed'),
+    '2026-07-01 09:15:00'
+), (
+    @plan_request_1_id, @seed_user_1_id, 2, '减少步行，增加休息点，并把每日步数控制在8000步以内。',
+    'seed-workflow-shanghai-v2', 'seed-task-shanghai-v2',
+    JSON_OBJECT(
+        'title', '上海舒适慢游 3 日计划',
+        'summary', '在初版基础上缩短步行距离，增加咖啡馆和酒店休息时段。',
+        'days', JSON_ARRAY(
+            JSON_OBJECT('day', 1, 'date', '2026-07-20', 'theme', '外滩轻松游', 'rest', '15:00 酒店休息'),
+            JSON_OBJECT('day', 2, 'date', '2026-07-21', 'theme', '豫园与博物馆', 'rest', '14:30 茶馆休息'),
+            JSON_OBJECT('day', 3, 'date', '2026-07-22', 'theme', '武康路短线漫步', 'rest', '午后返程')
+        ),
+        'budget', JSON_OBJECT('transport', 1100, 'hotel', 1600, 'food', 1200, 'tickets', 400, 'other', 500, 'total', 4800),
+        'warnings', JSON_ARRAY('豫园建议避开周末上午客流高峰。', '如有不适可将步行路段改为打车。'),
+        'route_summary', JSON_OBJECT('transport', '高铁+地铁+短途打车', 'estimated_steps_per_day', '6500-8000步')
+    ),
+    JSON_OBJECT('workflow_run_id', 'seed-workflow-shanghai-v2', 'status', 'succeeded', 'source', 'seed'),
+    '2026-07-01 10:00:00'
+), (
+    @plan_request_2_id, @seed_user_2_id, 1, NULL,
+    'seed-workflow-suzhou-v1', 'seed-task-suzhou-v1',
+    JSON_OBJECT(
+        'title', '苏州园林亲子 3 日计划',
+        'summary', '以园林、古城和亲子文化体验为主，午后安排休息。',
+        'days', JSON_ARRAY(
+            JSON_OBJECT('day', 1, 'date', '2026-08-08', 'theme', '拙政园与苏州博物馆'),
+            JSON_OBJECT('day', 2, 'date', '2026-08-09', 'theme', '平江路与昆曲体验'),
+            JSON_OBJECT('day', 3, 'date', '2026-08-10', 'theme', '虎丘与返程')
+        ),
+        'budget', JSON_OBJECT('transport', 700, 'hotel', 1200, 'food', 1000, 'tickets', 600, 'other', 400, 'total', 3900),
+        'warnings', JSON_ARRAY('园林门票建议提前预约。', '高温天气注意儿童防晒补水。'),
+        'route_summary', JSON_OBJECT('transport', '高铁+公交+步行', 'estimated_steps_per_day', '8000步')
+    ),
+    JSON_OBJECT('workflow_run_id', 'seed-workflow-suzhou-v1', 'status', 'succeeded', 'source', 'seed'),
+    '2026-07-02 10:20:00'
+);
 
 -- ------------------------------------------------------------
 -- 5. 行程项
@@ -388,9 +387,9 @@ COMMIT;
 SELECT 'users' AS table_name, COUNT(*) AS seed_row_count
 FROM users WHERE username IN ('seed-user-001', 'seed-user-002')
 UNION ALL
-SELECT 'trip_plan_requests', COUNT(*) FROM trip_plan_requests WHERE user_id IN ('seed-user-001', 'seed-user-002')
+SELECT 'trip_plan_requests', COUNT(*) FROM trip_plan_requests WHERE user_id IN (@seed_user_1_id, @seed_user_2_id)
 UNION ALL
-SELECT 'trip_plan_versions', COUNT(*) FROM trip_plan_versions WHERE user_id IN ('seed-user-001', 'seed-user-002')
+SELECT 'trip_plan_versions', COUNT(*) FROM trip_plan_versions WHERE user_id IN (@seed_user_1_id, @seed_user_2_id)
 UNION ALL
 SELECT 'trips', COUNT(*) FROM trips WHERE user_id IN (@seed_user_1_id, @seed_user_2_id)
 UNION ALL

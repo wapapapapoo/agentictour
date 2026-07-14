@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from auth import get_current_user
 from database import get_db
 from schemas.knowledge import (
     KnowledgeSearchRequest,
@@ -21,6 +22,7 @@ router = APIRouter(prefix="/api/trip-plans", tags=["知识库同步"])
 def sync_plan_to_knowledge(
     plan_id: int,
     data: PlanKnowledgeRequest,
+    current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     try:
@@ -36,6 +38,7 @@ def sync_plan_to_knowledge(
 @router.get("/knowledge/trace", response_model=TraceKnowledgeResponse)
 def trace_from_document_id(
     document_id: str = Query(..., min_length=1),
+    current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     result = knowledge_service.trace_by_document_id(db, document_id)
@@ -50,6 +53,7 @@ def trace_from_document_id(
 @router.post("/knowledge/search", response_model=KnowledgeSearchResponse)
 def search_knowledge(
     data: KnowledgeSearchRequest,
+    current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     try:

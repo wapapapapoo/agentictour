@@ -3,10 +3,12 @@ import os
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 
+from auth import get_current_user
 from db_init import run_init_sql
 from routers.accompany import router as accompany_router
+from routers.auth import router as auth_router
 from routers.blog import router as blog_router
 from routers.knowledge import router as knowledge_router
 from routers.trip import router as trip_router
@@ -33,11 +35,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.include_router(blog_router)
-app.include_router(knowledge_router)
-app.include_router(trip_plan_router)
-app.include_router(trip_router)
-app.include_router(accompany_router)
+# Auth routes are public
+app.include_router(auth_router)
+
+# All other routes require JWT authentication
+app.include_router(blog_router, dependencies=[Depends(get_current_user)])
+app.include_router(knowledge_router, dependencies=[Depends(get_current_user)])
+app.include_router(trip_plan_router, dependencies=[Depends(get_current_user)])
+app.include_router(trip_router, dependencies=[Depends(get_current_user)])
+app.include_router(accompany_router, dependencies=[Depends(get_current_user)])
 
 
 @app.get("/")

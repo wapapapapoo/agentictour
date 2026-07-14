@@ -1,11 +1,15 @@
-from schemas.trip_plan import TripPlanGenerateRequest
+from unittest.mock import MagicMock
+
+from models.trip_plan import TripPlanRequest, TripPlanVersion
+from schemas.trip_plan import TripPlanGenerateRequest, TripPlanReviseRequest
 from services import trip_plan_service
 
 
 def test_to_dify_inputs_keeps_all_values_as_strings() -> None:
     request = TripPlanGenerateRequest(
+        trip_id=42,
         action="create",
-        user_id="test-user-001",
+        user_id=1,
         origin_city="出发城市",
         destination_city="目的地城市",
         start_date="2026-07-20",
@@ -25,7 +29,7 @@ def test_to_dify_inputs_keeps_all_values_as_strings() -> None:
 
     assert inputs == {
         "action": "create",
-        "user_id": "test-user-001",
+        "user_id": "1",
         "origin_city": "出发城市",
         "destination_city": "目的地城市",
         "start_date": "2026-07-20",
@@ -41,6 +45,7 @@ def test_to_dify_inputs_keeps_all_values_as_strings() -> None:
         "revision_request": "减少步行、加入夜生活、压缩预算等",
     }
     assert all(isinstance(value, str) for value in inputs.values())
+    assert "trip_id" not in inputs
 
 
 def test_extract_plan_json_reads_dify_plan_json_string() -> None:
@@ -76,3 +81,50 @@ def test_extract_plan_json_wraps_plain_text_answer() -> None:
     assert plan_json["title"] == "行程计划"
     assert plan_json["summary"] == "这里是一段普通文本计划。"
     assert plan_json["days"] == []
+
+
+def test_revise_plan_keeps_existing_trip_association(monkeypatch) -> None:
+    request = TripPlanRequest(
+        id=7,
+        trip_id=42,
+        user_id=1,
+        action="create",
+        origin_city="杭州",
+        destination_city="上海",
+        start_date="2026-07-20",
+        end_date="2026-07-23",
+        people_count="2",
+        budget_total="3000",
+        interests="历史文化",
+        hotel_level="舒适型",
+        transport_preference="公共交通",
+        pace="轻松",
+        special_requirements="",
+    )
+    latest = TripPlanVersion(id=8, request_id=7, version_no=1, plan_json="{}")
+    workflow_inputs = []
+
+    monkeypatch.setattr(trip_plan_service, "get_plan", lambda _db, _id: request)
+    monkeypatch.setattr(
+        trip_plan_service,
+        "get_latest_version",
+        lambda _db, _id: latest,
+    )
+
+    def fake_workflow(data):
+        workflow_inputs.append(data)
+        return {"data": {"outputs": {"plan_json": "{}"}}}
+
+    monkeypatch.setattr(trip_plan_service, "_run_trip_plan_workflow", fake_workflow)
+
+    result = trip_plan_service.revise_plan(
+        MagicMock(),
+        7,
+        TripPlanReviseRequest(
+        user_id=1,
+            revision_request="减少步行",
+        ),
+    )
+
+    assert result is request
+    assert workflow_inputs[0].trip_id == 42

@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
-from sqlalchemy import BigInteger, create_engine, event
+from sqlalchemy import BigInteger, UniqueConstraint, create_engine, event
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
@@ -17,7 +17,10 @@ from models.accompany import (
     UserLocation,
 )
 from models.trip import Trip
+from models.trip_plan import TripPlanRequest, TripPlanVersion
+from models.user import User
 from schemas.trip import TripCreate, TripUpdate
+from schemas.trip_plan import TripPlanGenerateRequest
 from services import trip_service
 
 
@@ -35,6 +38,8 @@ def db() -> Session:
 
     Base.metadata.create_all(engine)
     session = Session(engine)
+    session.add(User(user_id=1, username="test-user-1", password_hash="test"))
+    session.commit()
     try:
         yield session
     finally:
@@ -65,11 +70,47 @@ def test_companion_foreign_keys_target_trips() -> None:
         assert {fk.target_fullname for fk in foreign_keys} == {"trips.id"}
 
 
+def test_trip_plan_request_has_one_to_one_trip_foreign_key() -> None:
+    trip_id = TripPlanRequest.__table__.c.trip_id
+    unique_columns = {
+        tuple(constraint.columns.keys())
+        for constraint in TripPlanRequest.__table__.constraints
+        if isinstance(constraint, UniqueConstraint)
+    }
+
+    assert trip_id.nullable is False
+    assert {fk.target_fullname for fk in trip_id.foreign_keys} == {"trips.id"}
+    assert ("trip_id",) in unique_columns
+    assert Trip.plan_request.property.uselist is False
+    assert TripPlanGenerateRequest.model_fields["trip_id"].annotation is int
+
+
+def test_trip_domain_user_foreign_keys_target_users() -> None:
+    for model in (
+        Trip,
+        TripPlanRequest,
+        TripPlanVersion,
+        ChatSession,
+        Notification,
+        UserLocation,
+    ):
+        foreign_keys = model.__table__.c.user_id.foreign_keys
+        assert {fk.target_fullname for fk in foreign_keys} == {"users.user_id"}
+
+
 def test_trip_domain_user_ids_are_bigint() -> None:
-    for model in (Trip, ChatSession, Notification, UserLocation):
+    for model in (
+        Trip,
+        TripPlanRequest,
+        TripPlanVersion,
+        ChatSession,
+        Notification,
+        UserLocation,
+    ):
         assert isinstance(model.__table__.c.user_id.type, BigInteger)
 
     assert TripCreate.model_fields["user_id"].annotation is int
+    assert TripPlanGenerateRequest.model_fields["user_id"].annotation is int
 
 
 def test_trip_create_rejects_inverted_dates() -> None:
@@ -116,25 +157,61 @@ def test_deleting_trip_cascades_to_companion_rows(db: Session) -> None:
             memo_text="带证件",
         )
     )
+    plan_request = TripPlanRequest(
+        id=100,
+        trip_id=trip.id,
+        user_id=1,
+        action="create",
+        origin_city="杭州",
+        destination_city="上海",
+        start_date="2026-07-20",
+        end_date="2026-07-22",
+        people_count="1",
+        budget_total="3000",
+        interests="历史文化",
+        hotel_level="舒适型",
+        transport_preference="公共交通",
+        pace="轻松",
+    )
+    plan_request.versions.append(
+        TripPlanVersion(
+            id=101,
+            user_id=1,
+            version_no=1,
+            plan_json="{}",
+        )
+    )
+    db.add(plan_request)
     db.commit()
 
     db.delete(trip)
     db.commit()
 
     assert db.query(Memo).count() == 0
+    assert db.query(TripPlanRequest).count() == 0
+    assert db.query(TripPlanVersion).count() == 0
     assert db.query(Trip).count() == 0
 
 
 def test_fresh_companion_schema_references_trips_only() -> None:
     sql_dir = Path(__file__).resolve().parents[1] / "sql"
-    trips_sql = (sql_dir / "03a_trips_table.sql").read_text(encoding="utf-8")
+    trips_sql = (sql_dir / "02a_trips_table.sql").read_text(encoding="utf-8")
+    trip_plan_sql = (sql_dir / "03_trip_plan_tables.sql").read_text(
+        encoding="utf-8"
+    )
     companion_sql = (sql_dir / "04_accompany_tables.sql").read_text(
         encoding="utf-8"
     )
 
     assert "CREATE TABLE IF NOT EXISTS trips" in trips_sql
     assert "user_id BIGINT NOT NULL" in trips_sql
+    assert trips_sql.count("REFERENCES users(user_id)") == 1
+    assert "trip_id BIGINT NOT NULL" in trip_plan_sql
+    assert "UNIQUE KEY uk_trip_plan_request_trip (trip_id)" in trip_plan_sql
+    assert "FOREIGN KEY (trip_id) REFERENCES trips(id)" in trip_plan_sql
+    assert trip_plan_sql.count("REFERENCES users(user_id)") == 2
     assert companion_sql.count("user_id BIGINT") == 3
+    assert companion_sql.count("REFERENCES users(user_id)") == 3
     assert companion_sql.count("REFERENCES trips(id)") == 5
     assert "REFERENCES trip_plan_requests(id)" not in companion_sql
     assert "tour_id" not in companion_sql

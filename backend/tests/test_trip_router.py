@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from database import Base, get_db
-from models import Trip  # noqa: F401 - load the complete model graph
+from models import Trip, User  # noqa: F401 - load the complete model graph
 from routers.trip import router
 
 
@@ -22,6 +22,8 @@ def test_trip_api_create_list_get_and_update() -> None:
 
     Base.metadata.create_all(engine)
     session = Session(engine)
+    session.add(User(user_id=42, username="test-user-42", password_hash="test"))
+    session.commit()
     app = FastAPI()
     app.include_router(router)
 

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Path, Query, 
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from auth import get_current_user
 from database import get_db
 from schemas.blog import (
     BlogGenerateRequest,
@@ -18,7 +19,7 @@ router = APIRouter(prefix="/api/blog", tags=["旅游博客辅助创作"])
 
 
 @router.post("/materials", response_model=BlogMaterialResponse)
-def create_material(data: BlogMaterialCreate, db: Session = Depends(get_db)):
+def create_material(data: BlogMaterialCreate, current_user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
     return blog_service.create_material(db, data)
 
 
@@ -26,6 +27,7 @@ def create_material(data: BlogMaterialCreate, db: Session = Depends(get_db)):
 def get_material(
     material_id: int = Path(..., gt=0),
     user_id: int = Query(..., gt=0),
+    current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     material = blog_service.get_material(db, material_id, user_id)
@@ -39,6 +41,7 @@ async def upload_photo(
     material_id: int = Path(..., gt=0),
     user_id: int = Form(..., gt=0),
     file: UploadFile = File(...),
+    current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     try:
@@ -73,6 +76,7 @@ async def upload_photo(
 def get_photo_file(
     photo_id: int = Path(..., gt=0),
     user_id: int = Query(..., gt=0),
+    current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     photo = blog_service.get_photo(db, photo_id, user_id)
@@ -91,7 +95,7 @@ def get_photo_file(
 
 
 @router.post("/generate", response_model=BlogGenerationResponse)
-def generate_blog(data: BlogGenerateRequest, db: Session = Depends(get_db)):
+def generate_blog(data: BlogGenerateRequest, current_user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         return blog_service.create_generation(db, data)
     except LookupError:
@@ -109,6 +113,7 @@ def generate_blog(data: BlogGenerateRequest, db: Session = Depends(get_db)):
 @router.get("/generations", response_model=list[BlogGenerationListItem])
 def list_generations(
     user_id: int = Query(..., gt=0),
+    current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     return blog_service.list_generations(db, user_id)
@@ -118,6 +123,7 @@ def list_generations(
 def get_generation(
     generation_id: int = Path(..., gt=0),
     user_id: int = Query(..., gt=0),
+    current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     generation = blog_service.get_generation(db, generation_id, user_id)
@@ -130,6 +136,7 @@ def get_generation(
 def delete_generation(
     generation_id: int = Path(..., gt=0),
     user_id: int = Query(..., gt=0),
+    current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     ok = blog_service.delete_generation(db, generation_id, user_id)

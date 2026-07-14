@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from auth import get_current_user
 from database import get_db
 from schemas.trip_plan import (
     PlanHumanizeRequest,
@@ -19,6 +20,7 @@ router = APIRouter(prefix="/api/trip-plans", tags=["行前旅行计划制定"])
 @router.post("/generate", response_model=TripPlanResponse)
 def generate_trip_plan(
     data: TripPlanGenerateRequest,
+    current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     try:
@@ -32,6 +34,7 @@ def generate_trip_plan(
 def revise_trip_plan(
     plan_id: int,
     data: TripPlanReviseRequest,
+    current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     try:
@@ -45,14 +48,15 @@ def revise_trip_plan(
 
 @router.get("", response_model=list[TripPlanListItem])
 def list_trip_plans(
-    user_id: str | None = Query(default=None),
+    user_id: int | None = Query(default=None, gt=0),
+    current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     return trip_plan_service.list_plans(db, user_id)
 
 
 @router.get("/{plan_id}", response_model=TripPlanResponse)
-def get_trip_plan(plan_id: int, db: Session = Depends(get_db)):
+def get_trip_plan(plan_id: int, current_user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
     plan = trip_plan_service.get_plan(db, plan_id)
     if plan is None:
         raise HTTPException(status_code=404, detail="trip plan not found")
@@ -60,7 +64,7 @@ def get_trip_plan(plan_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/{plan_id}")
-def delete_trip_plan(plan_id: int, db: Session = Depends(get_db)):
+def delete_trip_plan(plan_id: int, current_user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
     ok = trip_plan_service.delete_plan(db, plan_id)
     if not ok:
         raise HTTPException(status_code=404, detail="trip plan not found")
@@ -71,6 +75,7 @@ def delete_trip_plan(plan_id: int, db: Session = Depends(get_db)):
 def humanize_trip_plan(
     plan_id: int,
     data: PlanHumanizeRequest,
+    current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     try:

@@ -20,7 +20,7 @@ class PlanKnowledgeMapping(Base):
         ForeignKey("trip_plan_versions.id", ondelete="CASCADE"),
         nullable=False,
     )
-    user_id = Column(String(64), nullable=False)
+    user_id = Column(BigInteger, nullable=False)
     dataset_id = Column(String(100), nullable=False)
     document_id = Column(String(100), nullable=True)
     document_name = Column(String(255), nullable=False)

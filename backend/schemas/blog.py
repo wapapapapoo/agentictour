@@ -20,7 +20,6 @@ class BlogWritingStyle(StrEnum):
 
 class BlogBaseModel(BaseModel):
     @field_validator(
-        "user_id",
         "title",
         "destination",
         "itinerary_text",

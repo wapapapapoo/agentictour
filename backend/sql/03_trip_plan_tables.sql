@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS trip_plan_requests (
     id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '行前计划请求ID',
-    user_id VARCHAR(64) NOT NULL COMMENT '用户ID',
+    trip_id BIGINT NOT NULL COMMENT '关联旅行ID，对应 trips.id',
+    user_id BIGINT NOT NULL COMMENT '用户ID',
     action VARCHAR(20) NOT NULL DEFAULT 'create' COMMENT '动作：create/revise',
 
     origin_city VARCHAR(100) NOT NULL COMMENT '出发城市',
@@ -16,13 +17,21 @@ CREATE TABLE IF NOT EXISTS trip_plan_requests (
     special_requirements TEXT NULL COMMENT '特殊要求',
 
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+
+    UNIQUE KEY uk_trip_plan_request_trip (trip_id),
+    CONSTRAINT fk_trip_plan_request_user
+        FOREIGN KEY (user_id) REFERENCES users(user_id)
+        ON UPDATE CASCADE,
+    CONSTRAINT fk_trip_plan_request_trip
+        FOREIGN KEY (trip_id) REFERENCES trips(id)
+        ON DELETE CASCADE
 ) COMMENT='行前旅行计划请求表';
 
 CREATE TABLE IF NOT EXISTS trip_plan_versions (
     id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '行前计划版本ID',
     request_id BIGINT NOT NULL COMMENT '关联计划请求ID',
-    user_id VARCHAR(64) NOT NULL COMMENT '用户ID',
+    user_id BIGINT NOT NULL COMMENT '用户ID',
     version_no INT NOT NULL COMMENT '版本号',
     revision_request TEXT NULL COMMENT '本次修改要求',
 
@@ -34,6 +43,9 @@ CREATE TABLE IF NOT EXISTS trip_plan_versions (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
 
     UNIQUE KEY uk_trip_plan_version (request_id, version_no),
+    CONSTRAINT fk_trip_plan_version_user
+        FOREIGN KEY (user_id) REFERENCES users(user_id)
+        ON UPDATE CASCADE,
     CONSTRAINT fk_trip_plan_version_request
         FOREIGN KEY (request_id) REFERENCES trip_plan_requests(id)
         ON DELETE CASCADE

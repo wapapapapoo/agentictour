@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 
 class PlanKnowledgeRequest(BaseModel):
-    user_id: str = Field(..., max_length=64)
+    user_id: int = Field(..., gt=0)
     dataset_id: str = Field(
         default="",
         max_length=100,
