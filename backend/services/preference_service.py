@@ -375,4 +375,8 @@ def recommend_by_prototypes(db: Session, user_id: int, top_k: int, page: int, pa
         results.append(g)
 
     random.shuffle(results)
-    return {"results": results}
+    return {
+        "results": results,
+        "page": page,
+        "has_more": len(rows) == page_size,
+    }
