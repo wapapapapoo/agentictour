@@ -110,7 +110,15 @@ def test_trip_domain_user_ids_are_bigint() -> None:
         assert isinstance(model.__table__.c.user_id.type, BigInteger)
 
     assert TripCreate.model_fields["user_id"].annotation is int
-    assert TripPlanGenerateRequest.model_fields["user_id"].annotation is int
+    assert "user_id" not in TripPlanGenerateRequest.model_fields
+
+
+def test_chat_session_uses_local_conversation_id() -> None:
+    columns = ChatSession.__table__.c
+
+    assert "conversation_id" in columns
+    assert "dify_conversation_id" not in columns
+    assert columns.conversation_id.nullable is False
 
 
 def test_trip_create_rejects_inverted_dates() -> None:
@@ -215,3 +223,5 @@ def test_fresh_companion_schema_references_trips_only() -> None:
     assert companion_sql.count("REFERENCES trips(id)") == 5
     assert "REFERENCES trip_plan_requests(id)" not in companion_sql
     assert "tour_id" not in companion_sql
+    assert "conversation_id VARCHAR(100) NOT NULL" in companion_sql
+    assert "dify_conversation_id" not in companion_sql

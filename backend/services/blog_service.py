@@ -300,7 +300,7 @@ def create_generation(db: Session, req: BlogGenerateRequest) -> BlogGeneration:
     return generation
 
 
-def list_generations(db: Session, user_id: int) -> list[dict]:
+def list_generations(db: Session, user_id: int) -> list[dict[str, Any]]:
     rows = (
         db.query(BlogGeneration, BlogMaterial)
         .join(BlogMaterial, BlogGeneration.material_id == BlogMaterial.id)

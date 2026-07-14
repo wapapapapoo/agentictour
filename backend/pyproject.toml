@@ -8,6 +8,7 @@ select = ["E", "F", "I", "N"]
 python_version = "3.12"
 strict = true
 ignore_missing_imports = true
+plugins = ["sqlalchemy.ext.mypy.plugin"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -8,6 +8,7 @@ pytest.importorskip("pymysql")
 
 from database import Base
 from models.blog import BlogGeneration, BlogMaterial, BlogPhoto
+from models.user import User
 from schemas.blog import BlogGenerateRequest, BlogMaterialCreate
 from services import blog_service
 from utils.dify_client import DifyResponseError
@@ -20,7 +21,7 @@ def mock_blog_generation(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         blog_service,
         "_generate_blog_content",
-        lambda material, req: {
+        lambda material, req, username: {
             "generated_title": "test title",
             "generated_content": "test content",
             "tags": "travel,test",
@@ -38,10 +39,22 @@ def db_session() -> Session:
     )
     Base.metadata.create_all(
         bind=engine,
-        tables=[BlogMaterial.__table__, BlogPhoto.__table__, BlogGeneration.__table__],
+        tables=[
+            User.__table__,
+            BlogMaterial.__table__,
+            BlogPhoto.__table__,
+            BlogGeneration.__table__,
+        ],
     )
     testing_session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db = testing_session()
+    db.add_all(
+        [
+            User(user_id=1, username="test-user-1", password_hash="test"),
+            User(user_id=2, username="test-user-2", password_hash="test"),
+        ]
+    )
+    db.commit()
 
     try:
         yield db
@@ -53,6 +66,7 @@ def db_session() -> Session:
                 BlogGeneration.__table__,
                 BlogPhoto.__table__,
                 BlogMaterial.__table__,
+                User.__table__,
             ],
         )
 
@@ -145,10 +159,14 @@ def test_generation_queries_are_limited_to_user(db_session: Session) -> None:
 def test_to_dify_inputs_matches_workflow_variables(db_session: Session) -> None:
     material = blog_service.create_material(db_session, _material_data())
 
-    inputs = blog_service._to_dify_inputs(material, _generate_request(material.id))
+    inputs = blog_service._to_dify_inputs(
+        material,
+        _generate_request(material.id),
+        "test-user-1",
+    )
 
     assert inputs["material_id"] == str(material.id)
-    assert inputs["user_id"] == "1"
+    assert inputs["user_id"] == "test-user-1"
     assert inputs["start_date"] == "2026-07-20"
     assert inputs["content_type"] == "blog"
     assert inputs["writing_style"] == "guide"
@@ -299,6 +317,7 @@ def test_generate_blog_passes_uploaded_photos_to_workflow(
     result = REAL_GENERATE_BLOG_CONTENT(
         material,
         _generate_request(material.id),
+        "test-user-1",
     )
 
     assert result["generated_content"] == "content"

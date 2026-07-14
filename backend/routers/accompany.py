@@ -12,6 +12,7 @@ from schemas.accompany import (
     AdviceActionRequest,
     AdviceGenerateRequest,
     AdviceResponse,
+    ChatHistoryResponse,
     ChatRequest,
     ChatResponse,
     ItineraryCreate,
@@ -177,6 +178,20 @@ def chat(
         return service.chat(db, data)
     except DifyError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.get(
+    "/chat/conversations/{conversation_id}", response_model=ChatHistoryResponse
+)
+def chat_history(
+    conversation_id: str,
+    current_user_id: int = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Any:
+    try:
+        return service.chat_history(db, conversation_id, current_user_id)
+    except LookupError as exc:
+        _not_found(exc)
 
 
 @router.put("/locations", response_model=LocationResponse)

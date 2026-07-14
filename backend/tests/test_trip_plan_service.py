@@ -9,7 +9,6 @@ def test_to_dify_inputs_keeps_all_values_as_strings() -> None:
     request = TripPlanGenerateRequest(
         trip_id=42,
         action="create",
-        user_id=1,
         origin_city="出发城市",
         destination_city="目的地城市",
         start_date="2026-07-20",
@@ -25,11 +24,11 @@ def test_to_dify_inputs_keeps_all_values_as_strings() -> None:
         revision_request="减少步行、加入夜生活、压缩预算等",
     )
 
-    inputs = trip_plan_service._to_dify_inputs(request)
+    inputs = trip_plan_service._to_dify_inputs(request, "test-user-1")
 
     assert inputs == {
         "action": "create",
-        "user_id": "1",
+        "user_id": "test-user-1",
         "origin_city": "出发城市",
         "destination_city": "目的地城市",
         "start_date": "2026-07-20",
@@ -111,19 +110,25 @@ def test_revise_plan_keeps_existing_trip_association(monkeypatch) -> None:
         lambda _db, _id: latest,
     )
 
-    def fake_workflow(data):
+    def fake_workflow(data, username):
         workflow_inputs.append(data)
+        assert username == "test-user-1"
         return {"data": {"outputs": {"plan_json": "{}"}}}
 
     monkeypatch.setattr(trip_plan_service, "_run_trip_plan_workflow", fake_workflow)
+    monkeypatch.setattr(
+        trip_plan_service,
+        "_get_username",
+        lambda _db, _user_id: "test-user-1",
+    )
 
     result = trip_plan_service.revise_plan(
         MagicMock(),
         7,
         TripPlanReviseRequest(
-        user_id=1,
             revision_request="减少步行",
         ),
+        user_id=1,
     )
 
     assert result is request
