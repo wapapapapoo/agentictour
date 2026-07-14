@@ -42,16 +42,15 @@ def _parse_liked_plan_ids(log_path: str) -> tuple[list[int], list[str]]:
     return list(plan_ids), liked_lines
 
 
-def _decode_embedding(raw: bytes) -> list[float] | None:
-    """Dify 用 pickle.dumps(numpy_array) 存 bytea."""
+def _decode_embedding(raw: bytes) -> list[float]:
+    """Dify 用 pickle.dumps(list) 存 bytea."""
     import pickle
-    try:
-        arr = pickle.loads(raw)
-        if isinstance(arr, np.ndarray):
-            return arr.astype(np.float32).flatten().tolist()
-        raise ValueError(f"unpickled type: {type(arr)}")
-    except Exception as e:
-        raise ValueError(f"pickle failed: {e} (raw_len={len(raw)}, hex32={raw[:32].hex()})")
+    arr = pickle.loads(raw)
+    if isinstance(arr, np.ndarray):
+        return arr.astype(np.float32).flatten().tolist()
+    if isinstance(arr, list):
+        return [float(v) for v in arr]
+    raise ValueError(f"unexpected type: {type(arr)}")
 
 
 def analyze_user_preferences(db: Session, user_id: int) -> dict:
