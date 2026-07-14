@@ -43,15 +43,15 @@ def _parse_liked_plan_ids(log_path: str) -> tuple[list[int], list[str]]:
 
 
 def _decode_embedding(raw: bytes) -> list[float] | None:
-    """Dify 用 pickle.dumps(numpy_array) 存 bytea, pickle protocol 5."""
+    """Dify 用 pickle.dumps(numpy_array) 存 bytea."""
     import pickle
     try:
         arr = pickle.loads(raw)
         if isinstance(arr, np.ndarray):
             return arr.astype(np.float32).flatten().tolist()
-    except Exception:
-        pass
-    return None
+        raise ValueError(f"unpickled type: {type(arr)}")
+    except Exception as e:
+        raise ValueError(f"pickle failed: {e} (raw_len={len(raw)}, hex32={raw[:32].hex()})")
 
 
 def analyze_user_preferences(db: Session, user_id: int) -> dict:
@@ -145,13 +145,14 @@ def analyze_user_preferences(db: Session, user_id: int) -> dict:
                     "hash_source": source,
                 }
                 if emb_bytes is not None:
-                    floats = _decode_embedding(emb_bytes)
-                    if floats is not None:
+                    seg_info["raw_len"] = len(emb_bytes)
+                    try:
+                        floats = _decode_embedding(emb_bytes)
                         vectors.append(floats)
                         seg_info["vector_dim"] = len(floats)
                         seg_info["vector_preview"] = floats[:5]
-                    else:
-                        seg_info["decode_error"] = f"raw_len={len(emb_bytes)}"
+                    except Exception as e:
+                        seg_info["decode_error"] = str(e)
                 segment_details.append(seg_info)
         cur.close()
     finally:
