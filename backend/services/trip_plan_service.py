@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from typing import Any
@@ -14,6 +15,7 @@ from schemas.trip_plan import (
     TripPlanGenerateRequest,
     TripPlanReviseRequest,
 )
+from utils import dify_knowledge_client
 from utils.dify_client import DifyClient, DifyError, DifyResponseError
 
 DEFAULT_EMPTY_PLAN = {
@@ -255,6 +257,24 @@ def delete_plan(db: Session, plan_id: int) -> bool:
     request = get_plan(db, plan_id)
     if request is None:
         return False
+
+    # 先删 Dify 知识库文档
+    from models.knowledge import PlanKnowledgeMapping
+    logger = logging.getLogger(__name__)
+    mappings = (
+        db.query(PlanKnowledgeMapping)
+        .filter(PlanKnowledgeMapping.plan_id == plan_id)
+        .all()
+    )
+    for m in mappings:
+        if m.document_id and m.dataset_id:
+            try:
+                dify_knowledge_client.delete_document(
+                    dataset_id=m.dataset_id,
+                    document_id=m.document_id,
+                )
+            except Exception as e:
+                logger.warning("failed to delete dify document %s: %s", m.document_id, e)
 
     db.delete(request)
     db.commit()
