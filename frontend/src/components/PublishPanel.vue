@@ -10,14 +10,57 @@ const publishing = ref(false)
 
 async function publish() {
   publishing.value = true
-  await publishContent({ contentType: props.contentType, title: props.title, visibility: visibility.value })
+  await publishContent({
+    contentType: props.contentType,
+    title: props.title,
+    visibility: visibility.value,
+  })
   submitted.value = true
   publishing.value = false
 }
 </script>
 
 <template>
-  <div class="publish-panel"><button class="publish-trigger" type="button" @click="open = !open">↗ {{ contentType === 'plan' ? '发布这份行程' : '发布这篇作品' }}</button><div v-if="open" class="publish-drawer"><template v-if="!submitted"><b>分享至旅行社区</b><p>发布后将展示给其他旅行者。你可随时修改或下架。</p><label>可见范围<select v-model="visibility"><option value="public">公开推荐</option><option value="unlisted">仅链接可见</option></select></label><button class="primary-button" :disabled="publishing" type="button" @click="publish">{{ publishing ? '正在提交…' : '确认发布' }}</button></template><template v-else><b>已保存发布意图</b><p>社区发布接口尚未接入；接入后将把“{{ props.title }}”提交为 {{ contentType === 'plan' ? '推荐行程' : '旅行内容' }}。</p></template></div></div>
+  <div class="publish-panel">
+    <button
+      class="publish-trigger"
+      type="button"
+      @click="open = !open"
+    >
+      ↗ {{ contentType === 'plan' ? '发布这份行程' : '发布这篇作品' }}
+    </button>
+    <div
+      v-if="open"
+      class="publish-drawer"
+    >
+      <template v-if="!submitted">
+        <b>分享至旅行社区</b>
+        <p>发布后将展示给其他旅行者。你可随时修改或下架。</p>
+        <label>可见范围
+          <select v-model="visibility">
+            <option value="public">
+              公开推荐
+            </option>
+            <option value="unlisted">
+              仅链接可见
+            </option>
+          </select>
+        </label>
+        <button
+          class="primary-button"
+          :disabled="publishing"
+          type="button"
+          @click="publish"
+        >
+          {{ publishing ? '正在提交…' : '确认发布' }}
+        </button>
+      </template>
+      <template v-else>
+        <b>已保存发布意图</b>
+        <p>社区发布接口尚未接入；接入后将把"{{ props.title }}"提交为 {{ contentType === 'plan' ? '推荐行程' : '旅行内容' }}。</p>
+      </template>
+    </div>
+  </div>
 </template>
 
 <style scoped>

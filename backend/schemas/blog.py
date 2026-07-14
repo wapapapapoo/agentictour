@@ -110,8 +110,12 @@ class BlogPhotoResponse(BaseModel):
 class BlogGenerateRequest(BlogBaseModel):
     material_id: int = Field(..., gt=0)
     user_id: int = Field(..., gt=0)
-    content_type: BlogContentType = Field(..., description="blog/social_post/title_tags")
-    writing_style: BlogWritingStyle = Field(..., description="guide/story/casual/promotion")
+    content_type: BlogContentType = Field(
+        ..., description="blog/social_post/title_tags"
+    )
+    writing_style: BlogWritingStyle = Field(
+        ..., description="guide/story/casual/promotion"
+    )
 
 
 class BlogGenerationResponse(BaseModel):

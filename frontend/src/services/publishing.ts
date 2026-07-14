@@ -20,6 +20,7 @@ export interface PublishResult {
  * an HTTP call when the backend community service is implemented.
  */
 export async function publishContent(_request: PublishRequest): Promise<PublishResult> {
+  void _request;
   return {
     status: 'pending_api',
     message: '社区发布接口尚未接入。',

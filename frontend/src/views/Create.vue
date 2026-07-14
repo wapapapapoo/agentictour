@@ -3,11 +3,207 @@ import { ref } from 'vue'
 import { api, type BlogGeneration } from '@/services/api'
 import PublishPanel from '@/components/PublishPanel.vue'
 
-const form = ref({ title: '', destination: '', start_date: '', end_date: '', people_count: 1, itinerary_text: '', food_text: '', photo_text: '', expense_text: '', feeling_text: '' }); const contentType = ref('blog'); const writingStyle = ref('casual'); const loading = ref(false); const error = ref(''); const result = ref<BlogGeneration | null>(null)
-async function create() { error.value=''; result.value=null; if(!form.value.title || !form.value.destination || !form.value.itinerary_text) { error.value='请至少填写标题、目的地和行程记录。'; return }; loading.value=true; try { const material=await api.createMaterial(form.value as unknown as Record<string,unknown>); result.value=await api.generateBlog(material.id,contentType.value,writingStyle.value) } catch(e) { error.value=e instanceof Error?e.message:'创作失败，请稍后重试。' } finally { loading.value=false } }
+const form = ref({
+  title: '',
+  destination: '',
+  start_date: '',
+  end_date: '',
+  people_count: 1,
+  itinerary_text: '',
+  food_text: '',
+  photo_text: '',
+  expense_text: '',
+  feeling_text: '',
+})
+const contentType = ref('blog')
+const writingStyle = ref('casual')
+const loading = ref(false)
+const error = ref('')
+const result = ref<BlogGeneration | null>(null)
+
+async function create() {
+  error.value = ''
+  result.value = null
+  if (!form.value.title || !form.value.destination || !form.value.itinerary_text) {
+    error.value = '请至少填写标题、目的地和行程记录。'
+    return
+  }
+  loading.value = true
+  try {
+    const material = await api.createMaterial(
+      form.value as unknown as Record<string, unknown>,
+    )
+    result.value = await api.generateBlog(
+      material.id,
+      contentType.value,
+      writingStyle.value,
+    )
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : '创作失败，请稍后重试。'
+  } finally {
+    loading.value = false
+  }
+}
 </script>
 
-<template><div class="page create-page"><section class="create-head"><div><p class="eyebrow">Travel story studio</p><h1 class="page-title">把走过的路，写成属于你的故事。</h1><p class="page-intro">丢进零散的记录，创作 Agent 帮你整理成游记、社媒文案或标题灵感。</p></div><span class="paper-plane">✎</span></section><div class="create-grid"><section class="card material-card"><h2>收集旅行素材</h2><p class="sub">不必完整，片段和感受同样珍贵。</p><div class="basic-grid"><label>这篇的标题<input v-model="form.title" placeholder="如：在大理慢下来的三天" /></label><label>目的地<input v-model="form.destination" placeholder="如：大理" /></label></div><label>行程记录 <b>*</b><textarea v-model="form.itinerary_text" rows="4" placeholder="按时间、地点记录去过哪里，发生了什么…" /></label><div class="material-grid"><label>吃了什么<textarea v-model="form.food_text" rows="3" placeholder="一碗米线、一个惊喜小店…" /></label><label>照片画面<textarea v-model="form.photo_text" rows="3" placeholder="洱海的晨雾、朋友的笑脸…" /></label><label>花费摘要<textarea v-model="form.expense_text" rows="3" placeholder="交通、住宿、门票等" /></label><label>此刻感受<textarea v-model="form.feeling_text" rows="3" placeholder="想留下的情绪和瞬间…" /></label></div></section><aside class="card settings-card"><p class="eyebrow">Create with intent</p><h2>选择输出方式</h2><label>想生成什么？<select v-model="contentType"><option value="blog">完整游记</option><option value="social_post">社交平台文案</option><option value="title_tags">标题与标签</option></select></label><label>文字风格<select v-model="writingStyle"><option value="guide">攻略型</option><option value="story">故事型</option><option value="casual">轻松分享型</option><option value="promotion">种草型</option></select></label><button class="primary-button" :disabled="loading" @click="create">{{ loading ? '创作 Agent 正在落笔…' : '✦ 开始创作' }}</button><p>生成内容会标注可能需要你确认的信息。</p><div v-if="error" class="notice error">{{ error }}</div></aside></div><section v-if="result" class="card creation-result"><div class="draft-heading"><div><p class="eyebrow">Draft ready</p><h2>{{ result.generated_title || '旅行初稿' }}</h2></div><PublishPanel :title="result.generated_title || '旅行初稿'" content-type="blog" /></div><div class="created-content">{{ result.generated_content }}</div><div v-if="result.tags" class="tags">{{ result.tags }}</div><p v-if="result.risk_note" class="risk">⚠ {{ result.risk_note }}</p></section></div></template>
+<template>
+  <div class="page create-page">
+    <section class="create-head">
+      <div>
+        <p class="eyebrow">
+          Travel story studio
+        </p>
+        <h1 class="page-title">
+          把走过的路，写成属于你的故事。
+        </h1>
+        <p class="page-intro">
+          丢进零散的记录，创作 Agent 帮你整理成游记、社媒文案或标题灵感。
+        </p>
+      </div>
+      <span class="paper-plane">✎</span>
+    </section>
+    <div class="create-grid">
+      <section class="card material-card">
+        <h2>收集旅行素材</h2>
+        <p class="sub">
+          不必完整，片段和感受同样珍贵。
+        </p>
+        <div class="basic-grid">
+          <label>这篇的标题
+            <input
+              v-model="form.title"
+              placeholder="如：在大理慢下来的三天"
+            >
+          </label>
+          <label>目的地
+            <input
+              v-model="form.destination"
+              placeholder="如：大理"
+            >
+          </label>
+        </div>
+        <label>行程记录 <b>*</b>
+          <textarea
+            v-model="form.itinerary_text"
+            rows="4"
+            placeholder="按时间、地点记录去过哪里，发生了什么…"
+          />
+        </label>
+        <div class="material-grid">
+          <label>吃了什么
+            <textarea
+              v-model="form.food_text"
+              rows="3"
+              placeholder="一碗米线、一个惊喜小店…"
+            />
+          </label>
+          <label>照片画面
+            <textarea
+              v-model="form.photo_text"
+              rows="3"
+              placeholder="洱海的晨雾、朋友的笑脸…"
+            />
+          </label>
+          <label>花费摘要
+            <textarea
+              v-model="form.expense_text"
+              rows="3"
+              placeholder="交通、住宿、门票等"
+            />
+          </label>
+          <label>此刻感受
+            <textarea
+              v-model="form.feeling_text"
+              rows="3"
+              placeholder="想留下的情绪和瞬间…"
+            />
+          </label>
+        </div>
+      </section>
+      <aside class="card settings-card">
+        <p class="eyebrow">
+          Create with intent
+        </p>
+        <h2>选择输出方式</h2>
+        <label>想生成什么？
+          <select v-model="contentType">
+            <option value="blog">
+              完整游记
+            </option>
+            <option value="social_post">
+              社交平台文案
+            </option>
+            <option value="title_tags">
+              标题与标签
+            </option>
+          </select>
+        </label>
+        <label>文字风格
+          <select v-model="writingStyle">
+            <option value="guide">
+              攻略型
+            </option>
+            <option value="story">
+              故事型
+            </option>
+            <option value="casual">
+              轻松分享型
+            </option>
+            <option value="promotion">
+              种草型
+            </option>
+          </select>
+        </label>
+        <button
+          class="primary-button"
+          :disabled="loading"
+          @click="create"
+        >
+          {{ loading ? '创作 Agent 正在落笔…' : '✦ 开始创作' }}
+        </button>
+        <p>生成内容会标注可能需要你确认的信息。</p>
+        <div
+          v-if="error"
+          class="notice error"
+        >
+          {{ error }}
+        </div>
+      </aside>
+    </div>
+    <section
+      v-if="result"
+      class="card creation-result"
+    >
+      <div class="draft-heading">
+        <div>
+          <p class="eyebrow">
+            Draft ready
+          </p>
+          <h2>{{ result.generated_title || '旅行初稿' }}</h2>
+        </div>
+        <PublishPanel
+          :title="result.generated_title || '旅行初稿'"
+          content-type="blog"
+        />
+      </div>
+      <div class="created-content">
+        {{ result.generated_content }}
+      </div>
+      <div
+        v-if="result.tags"
+        class="tags"
+      >
+        {{ result.tags }}
+      </div>
+      <p
+        v-if="result.risk_note"
+        class="risk"
+      >
+        ⚠ {{ result.risk_note }}
+      </p>
+    </section>
+  </div>
+</template>
 
 <style scoped>
 .create-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:31px}.paper-plane{font-size:72px;color:#a6d9bb;transform:rotate(-18deg)}.create-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:22px}.material-card,.settings-card{padding:27px}.material-card h2,.settings-card h2{font-size:18px;margin:0}.sub{font-size:12px;color:#87928d;margin:5px 0 20px}.basic-grid,.material-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:15px}.material-card>label{margin-bottom:15px}.material-card b{color:#d16e60}.settings-card label{margin:18px 0}.settings-card .primary-button{width:100%;margin-top:8px}.settings-card>p:last-of-type{font-size:11px;line-height:1.6;color:#87928d;text-align:center;margin:12px 0 0}.creation-result{margin-top:24px;padding:28px}.creation-result h2{font:700 24px 'Noto Serif SC','Microsoft YaHei',serif;margin:5px 0 18px}.created-content{white-space:pre-wrap;line-height:1.9;color:#425a50}.tags{display:inline-block;color:#258b70;background:#eaf8f1;border-radius:14px;padding:6px 10px;margin-top:18px;font-size:12px}.risk{font-size:12px;color:#937127;background:#fff8df;padding:10px;border-radius:7px}@media(max-width:760px){.create-grid{grid-template-columns:1fr}.paper-plane{display:none}}@media(max-width:480px){.basic-grid,.material-grid{grid-template-columns:1fr}}

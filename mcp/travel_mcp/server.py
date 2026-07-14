@@ -8,6 +8,8 @@ from travel_mcp.tools.amap_route import amap_walking_route as amap_walking_route
 from travel_mcp.tools.amap_weather import amap_weather as amap_weather_func
 from travel_mcp.tools.knowledge_search import (
     list_knowledge_bases as list_knowledge_bases_func,
+)
+from travel_mcp.tools.knowledge_search import (
     search_knowledge as search_knowledge_func,
 )
 
@@ -16,7 +18,7 @@ check_settings()
 mcp = FastMCP("ai-travel-amap-mcp")
 
 
-@mcp.tool
+@mcp.tool  # type: ignore[untyped-decorator]
 async def amap_weather(adcode: str, extensions: str = "base") -> Dict[str, Any]:
     """
     查询指定城市或区县的天气。
@@ -34,7 +36,7 @@ async def amap_weather(adcode: str, extensions: str = "base") -> Dict[str, Any]:
     return await amap_weather_func(adcode=adcode, extensions=extensions)
 
 
-@mcp.tool
+@mcp.tool  # type: ignore[untyped-decorator]
 async def amap_nearby_search(
     location: str,
     keywords: str = "",
@@ -70,7 +72,7 @@ async def amap_nearby_search(
     )
 
 
-@mcp.tool
+@mcp.tool  # type: ignore[untyped-decorator]
 async def amap_walking_route(
     origin: str,
     destination: str,
@@ -97,18 +99,18 @@ async def amap_walking_route(
     )
 
 
-@mcp.tool
+@mcp.tool  # type: ignore[untyped-decorator]
 async def list_knowledge_bases() -> Dict[str, Any]:
     """
     列出 Dify 中所有可用的知识库，返回每个知识库的 ID、名称、描述和文档数。
 
-    模型应先调用此工具获取可用知识库清单，根据 description 判断哪个知识库适合用户的查询意图，
-    然后用返回的 id 调用 search_knowledge。
+    模型应先调用此工具获取可用知识库清单，根据 description
+    判断哪个知识库适合用户的查询意图，然后用返回的 id 调用 search_knowledge。
     """
     return await list_knowledge_bases_func()
 
 
-@mcp.tool
+@mcp.tool  # type: ignore[untyped-decorator]
 async def search_knowledge(dataset_id: str, query: str) -> Dict[str, Any]:
     """
     在指定的 Dify 知识库中检索文档片段。

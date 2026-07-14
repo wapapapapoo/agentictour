@@ -1,6 +1,8 @@
 import asyncio
 import os
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI
@@ -19,7 +21,7 @@ from scheduler import reminder_loop
 load_dotenv()
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI):
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     run_init_sql()
     task = asyncio.create_task(reminder_loop())
     yield
@@ -57,7 +59,7 @@ def health_check() -> dict[str, str]:
 
 
 @app.get("/debug/db")
-def debug_db():
+def debug_db() -> dict[str, Any]:
     from sqlalchemy import text
 
     from database import DATABASE_URL, engine
