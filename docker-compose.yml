@@ -10,6 +10,7 @@ services:
       - "8000:8000"
     volumes:
       - ./backend/uploads/blog:/app/uploads/blog
+      - ./logs:/app/logs
     restart: unless-stopped
     environment:
       DB_HOST: mysql
