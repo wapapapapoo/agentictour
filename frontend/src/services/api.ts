@@ -22,7 +22,7 @@ export interface Memo { memo_id: number; trip_id: number; memo_text: string; rem
 export interface Itinerary { itinerary_id: number; trip_id: number; title: string; place_name: string; start_time: string; end_time: string; itinerary_type: 'transit' | 'play'; status: string; reminder_time?: string | null; is_initial?: boolean }
 export interface Advice { advice_id: number; trip_id: number; advice_text: string; result: string; audit_status: string; audit_reason?: string | null; created_at: string }
 export interface Notification { notification_id: number; trip_id: number; content: string; category: string; read_at?: string | null; created_at: string }
-export interface KnowledgeSearchResult { chunk_content: string; score: number; document_id: string; plan_id?: number | null; plan_title?: string | null; like_count: number }
+export interface KnowledgeSearchResult { chunk_content: string; score: number; document_id: string; plan_id?: number | null; plan_title?: string | null; like_count: number; is_liked: boolean }
 export interface KnowledgeSearchResponse { results: KnowledgeSearchResult[] }
 export interface PlanLikeResponse { id: number; user_id: number; plan_id: number; chunk_ids: string[]; created_at: string }
 export interface PlanKnowledgeResponse { plan_id: number; version_id: number; humanized_text: string; dataset_id: string; document_name: string; document_id?: string | null; indexing_status?: string | null }
