@@ -7,7 +7,6 @@ import json
 import math
 import os
 import re
-import struct
 from datetime import datetime, timezone
 
 import numpy as np
@@ -44,39 +43,15 @@ def _parse_liked_plan_ids(log_path: str) -> tuple[list[int], list[str]]:
 
 
 def _decode_embedding(raw: bytes) -> list[float] | None:
-    """尝试多种方式解码 Dify embeddings 表的 bytea 向量."""
-    # 方式1: 纯 float32
-    if len(raw) % 4 == 0:
-        try:
-            dim = len(raw) // 4
-            return list(struct.unpack(f"<{dim}f", raw))
-        except struct.error:
-            pass
-    # 方式2: numpy .tobytes() — 用 numpy.frombuffer
-    try:
-        return np.frombuffer(raw, dtype=np.float32).tolist()
-    except Exception:
-        pass
-    # 方式3: 跳过前 8 字节头部再解
-    if len(raw) > 8:
-        body = raw[8:]
+    """Dify embeddings 表 bytea: 2B pgvector dim header + float32 array."""
+    # 2 字节维度头 + float32 数据 (9234 = 2 + 2308*4)
+    if len(raw) > 2:
+        body = raw[2:]
         if len(body) % 4 == 0:
-            try:
-                dim = len(body) // 4
-                return list(struct.unpack(f"<{dim}f", body))
-            except struct.error:
-                pass
-        try:
             return np.frombuffer(body, dtype=np.float32).tolist()
-        except Exception:
-            pass
-    # 方式4: base64 编码的文本
-    try:
-        import base64
-        decoded = base64.b64decode(raw.decode())
-        return _decode_embedding(decoded)
-    except Exception:
-        pass
+    # fallback: 从头解 float32
+    if len(raw) % 4 == 0:
+        return np.frombuffer(raw, dtype=np.float32).tolist()
     return None
 
 
