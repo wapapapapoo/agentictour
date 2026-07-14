@@ -16,6 +16,11 @@ dist/
 /docs/
 /outputs/
 
+# Runtime data
+/logs/
+backend/uploads/blog/*
+!backend/uploads/blog/.gitkeep
+
 # OS
 .DS_Store
 Thumbs.db
