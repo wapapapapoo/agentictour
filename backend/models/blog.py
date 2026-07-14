@@ -14,7 +14,7 @@ class BlogMaterial(Base):
     )
 
     id = Column(ID_TYPE, primary_key=True, autoincrement=True)
-    user_id = Column(String(64), nullable=False, index=True)
+    user_id = Column(BigInteger, nullable=False, index=True)
     title = Column(String(255), nullable=False)
     destination = Column(String(100), nullable=False)
     start_date = Column(Date, nullable=True)
@@ -55,7 +55,7 @@ class BlogPhoto(Base):
         nullable=False,
         index=True,
     )
-    user_id = Column(String(64), nullable=False, index=True)
+    user_id = Column(BigInteger, nullable=False, index=True)
     original_filename = Column(String(255), nullable=False)
     stored_filename = Column(String(255), nullable=False, unique=True)
     content_type = Column(String(50), nullable=False)
@@ -78,7 +78,7 @@ class BlogGeneration(Base):
         nullable=False,
         index=True,
     )
-    user_id = Column(String(64), nullable=False, index=True)
+    user_id = Column(BigInteger, nullable=False, index=True)
 
     content_type = Column(String(50), nullable=False)
     writing_style = Column(String(50), nullable=False)

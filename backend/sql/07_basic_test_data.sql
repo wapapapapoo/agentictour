@@ -61,7 +61,7 @@ SET @seed_user_2_id = LAST_INSERT_ID();
 
 -- 清理上一次执行生成的业务数据。下级记录由外键 ON DELETE CASCADE 自动清理。
 DELETE FROM blog_materials
-WHERE user_id IN ('seed-user-001', 'seed-user-002');
+WHERE user_id IN (@seed_user_1_id, @seed_user_2_id);
 
 DELETE FROM trips
 WHERE user_id IN (@seed_user_1_id, @seed_user_2_id);
@@ -255,7 +255,7 @@ INSERT INTO blog_materials (
     itinerary_text, food_text, photo_text, expense_text, feeling_text,
     created_at, updated_at
 ) VALUES (
-    'seed-user-001', '上海周末慢游记录', '上海', '2026-06-20', '2026-06-22', 2,
+    @seed_user_1_id, '上海周末慢游记录', '上海', '2026-06-20', '2026-06-22', 2,
     '第一天游览外滩和南京东路；第二天参观豫园与上海博物馆；第三天漫步武康路。',
     '尝试了生煎、小笼包和葱油拌面，最喜欢街边老店的生煎。',
     '外滩夜景、豫园屋檐细节、武康大楼和梧桐树下的街景。',
@@ -270,7 +270,7 @@ INSERT INTO blog_materials (
     itinerary_text, food_text, photo_text, expense_text, feeling_text,
     created_at, updated_at
 ) VALUES (
-    'seed-user-002', '带孩子逛苏州园林', '苏州', '2026-05-01', '2026-05-03', 3,
+    @seed_user_2_id, '带孩子逛苏州园林', '苏州', '2026-05-01', '2026-05-03', 3,
     '游览拙政园、苏州博物馆、平江路和虎丘，每天下午回酒店休息。',
     '吃了苏式汤面、松鼠桂鱼和海棠糕，孩子很喜欢海棠糕。',
     '园林漏窗、博物馆白墙倒影、平江路小桥和昆曲体验照片。',
@@ -285,7 +285,7 @@ INSERT INTO blog_generations (
     generated_title, generated_content, tags, risk_note, created_at
 ) VALUES
 (
-    @material_1_id, 'seed-user-001', 'blog', 'guide',
+    @material_1_id, @seed_user_1_id, 'blog', 'guide',
     '上海慢游三日攻略：经典地标与梧桐区路线',
     '# 上海慢游三日攻略\n\n这次用三天走访外滩、豫园和武康路。路线特意留出休息时间，适合希望轻松旅行的人。\n\n## 行程亮点\n傍晚看外滩夜景，上午逛老城厢，最后一天在梧桐区慢慢散步。\n\n## 实用建议\n热门场馆提前预约，周末尽量错峰出行。',
     '上海,三日游,城市漫步,美食,旅行攻略',
@@ -293,7 +293,7 @@ INSERT INTO blog_generations (
     '2026-06-23 09:35:00'
 ),
 (
-    @material_1_id, 'seed-user-001', 'social_post', 'casual',
+    @material_1_id, @seed_user_1_id, 'social_post', 'casual',
     '周末去上海，慢一点反而更好玩',
     '上海三天两晚轻松打卡完成！外滩夜景很惊喜，武康路也很适合散步拍照。没有把行程排满，累了就找家咖啡馆坐一会儿，旅行体验反而更好。',
     '上海旅行,周末去哪儿,城市漫步,轻松出行',
@@ -301,7 +301,7 @@ INSERT INTO blog_generations (
     '2026-06-23 09:40:00'
 ),
 (
-    @material_2_id, 'seed-user-002', 'title_tags', 'promotion',
+    @material_2_id, @seed_user_2_id, 'title_tags', 'promotion',
     '带孩子逛苏州：这份园林亲子路线请收好',
     '标题建议：\n1. 带孩子逛苏州园林，三天轻松不赶路\n2. 苏州亲子游实测：预约和午休真的很重要\n3. 园林、昆曲与苏式点心，一次孩子也喜欢的苏州行',
     '苏州,亲子游,园林,昆曲,江南旅行',
@@ -404,6 +404,6 @@ SELECT 'chat_sessions', COUNT(*) FROM chat_sessions WHERE trip_id IN (@trip_1_id
 UNION ALL
 SELECT 'chat_messages', COUNT(*) FROM chat_messages WHERE session_id IN (@session_1_id, @session_2_id)
 UNION ALL
-SELECT 'blog_materials', COUNT(*) FROM blog_materials WHERE user_id IN ('seed-user-001', 'seed-user-002')
+SELECT 'blog_materials', COUNT(*) FROM blog_materials WHERE user_id IN (@seed_user_1_id, @seed_user_2_id)
 UNION ALL
-SELECT 'blog_generations', COUNT(*) FROM blog_generations WHERE user_id IN ('seed-user-001', 'seed-user-002');
+SELECT 'blog_generations', COUNT(*) FROM blog_generations WHERE user_id IN (@seed_user_1_id, @seed_user_2_id);

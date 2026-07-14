@@ -25,7 +25,7 @@ def create_material(data: BlogMaterialCreate, db: Session = Depends(get_db)):
 @router.get("/materials/{material_id}", response_model=BlogMaterialResponse)
 def get_material(
     material_id: int = Path(..., gt=0),
-    user_id: str = Query(..., min_length=1, max_length=64),
+    user_id: int = Query(..., gt=0),
     db: Session = Depends(get_db),
 ):
     material = blog_service.get_material(db, material_id, user_id)
@@ -37,7 +37,7 @@ def get_material(
 @router.post("/materials/{material_id}/photos", response_model=BlogPhotoResponse)
 async def upload_photo(
     material_id: int = Path(..., gt=0),
-    user_id: str = Form(..., min_length=1, max_length=64),
+    user_id: int = Form(..., gt=0),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
@@ -72,7 +72,7 @@ async def upload_photo(
 @router.get("/photos/{photo_id}/file")
 def get_photo_file(
     photo_id: int = Path(..., gt=0),
-    user_id: str = Query(..., min_length=1, max_length=64),
+    user_id: int = Query(..., gt=0),
     db: Session = Depends(get_db),
 ):
     photo = blog_service.get_photo(db, photo_id, user_id)
@@ -108,7 +108,7 @@ def generate_blog(data: BlogGenerateRequest, db: Session = Depends(get_db)):
 
 @router.get("/generations", response_model=list[BlogGenerationListItem])
 def list_generations(
-    user_id: str = Query(..., min_length=1, max_length=64),
+    user_id: int = Query(..., gt=0),
     db: Session = Depends(get_db),
 ):
     return blog_service.list_generations(db, user_id)
@@ -117,7 +117,7 @@ def list_generations(
 @router.get("/generations/{generation_id}", response_model=BlogGenerationResponse)
 def get_generation(
     generation_id: int = Path(..., gt=0),
-    user_id: str = Query(..., min_length=1, max_length=64),
+    user_id: int = Query(..., gt=0),
     db: Session = Depends(get_db),
 ):
     generation = blog_service.get_generation(db, generation_id, user_id)
@@ -129,7 +129,7 @@ def get_generation(
 @router.delete("/generations/{generation_id}")
 def delete_generation(
     generation_id: int = Path(..., gt=0),
-    user_id: str = Query(..., min_length=1, max_length=64),
+    user_id: int = Query(..., gt=0),
     db: Session = Depends(get_db),
 ):
     ok = blog_service.delete_generation(db, generation_id, user_id)
