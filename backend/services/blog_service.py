@@ -8,6 +8,7 @@ import requests
 from sqlalchemy.orm import Session
 
 from models.blog import BlogGeneration, BlogMaterial, BlogPhoto
+from models.user import User
 from schemas.blog import (
     BlogContentType,
     BlogGenerateRequest,
@@ -27,6 +28,11 @@ VALID_WRITING_STYLES = {item.value for item in BlogWritingStyle}
 MAX_PHOTO_SIZE = 10 * 1024 * 1024
 MAX_PHOTOS_PER_MATERIAL = 3
 DEFAULT_PHOTO_DIR = Path(__file__).resolve().parents[1] / "uploads" / "blog"
+
+
+def _get_username(db: Session, user_id: int) -> str:
+    user = db.query(User).filter(User.user_id == user_id).first()
+    return user.username if user else str(user_id)
 
 
 def create_material(db: Session, data: BlogMaterialCreate) -> BlogMaterial:
@@ -133,6 +139,7 @@ def get_photo_path(photo: BlogPhoto) -> Path:
 def _to_dify_inputs(
     material: BlogMaterial,
     req: BlogGenerateRequest,
+    username: str,
     photos: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     def text(value: Any) -> str:
@@ -140,7 +147,7 @@ def _to_dify_inputs(
 
     return {
         "material_id": text(material.id),
-        "user_id": str(req.user_id),
+        "user_id": username,
         "title": material.title,
         "destination": material.destination,
         "start_date": text(material.start_date),
@@ -240,20 +247,22 @@ def _extract_generation_result(workflow_response: dict[str, Any]) -> dict[str, s
 def _generate_blog_content(
     material: BlogMaterial,
     req: BlogGenerateRequest,
+    username: str,
 ) -> dict[str, str]:
     client = DifyClient(
         api_key=os.getenv("DIFY_BLOG_API_KEY") or os.getenv("DIFY_API_KEY"),
         url=os.getenv("DIFY_BLOG_URL") or os.getenv("DIFY_URL"),
         timeout=float(os.getenv("DIFY_TIMEOUT", "120")),
     )
-    user = str(req.user_id)
     photos = sorted(material.photos, key=lambda photo: photo.id)[
         :MAX_PHOTOS_PER_MATERIAL
     ]
-    dify_photos = [_upload_photo_to_dify(client, photo, user) for photo in photos]
+    dify_photos = [
+        _upload_photo_to_dify(client, photo, username) for photo in photos
+    ]
     response = client.run_workflow(
-        user=user,
-        inputs=_to_dify_inputs(material, req, dify_photos),
+        user=username,
+        inputs=_to_dify_inputs(material, req, username, dify_photos),
     )
     return _extract_generation_result(response)
 
@@ -269,7 +278,11 @@ def create_generation(db: Session, req: BlogGenerateRequest) -> BlogGeneration:
     if material is None:
         raise LookupError("material not found")
 
-    result = _generate_blog_content(material, req)
+    result = _generate_blog_content(
+        material,
+        req,
+        _get_username(db, req.user_id),
+    )
     generation = BlogGeneration(
         material_id=req.material_id,
         user_id=req.user_id,

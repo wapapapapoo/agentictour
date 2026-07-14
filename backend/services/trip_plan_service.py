@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from models.trip import Trip
 from models.trip_plan import TripPlanRequest, TripPlanVersion
+from models.user import User
 from schemas.trip_plan import (
     PlanHumanizeRequest,
     TripPlanGenerateRequest,
@@ -24,6 +25,11 @@ DEFAULT_EMPTY_PLAN = {
     "warnings": ["请检查 Dify 工作流输出变量是否包含 plan_json。"],
     "route_summary": {},
 }
+
+
+def _get_username(db: Session, user_id: int) -> str:
+    user = db.query(User).filter(User.user_id == user_id).first()
+    return user.username if user else str(user_id)
 
 
 def create_plan(db: Session, data: TripPlanGenerateRequest) -> TripPlanRequest:
@@ -56,7 +62,8 @@ def create_plan(db: Session, data: TripPlanGenerateRequest) -> TripPlanRequest:
     db.add(request)
     db.flush()
 
-    response = _run_trip_plan_workflow(data)
+    username = _get_username(db, data.user_id)
+    response = _run_trip_plan_workflow(data, username)
     version = _build_version(
         request_id=request.id,
         user_id=data.user_id,
@@ -102,7 +109,9 @@ def revise_plan(
         revision_request=data.revision_request,
     )
 
-    response = _run_trip_plan_workflow(generate_request)
+    response = _run_trip_plan_workflow(
+        generate_request, _get_username(db, data.user_id)
+    )
     next_version_no = latest_version.version_no + 1
     version = _build_version(
         request_id=request.id,
@@ -195,7 +204,7 @@ def humanize_plan(
     )
     try:
         response = client.run_workflow(
-            user=str(data.user_id),
+            user=_get_username(db, data.user_id),
             inputs={
                 "input_json": plan_json,
                 "original_user_prompt": original_prompt,
@@ -264,7 +273,9 @@ def to_response(request: TripPlanRequest) -> dict[str, Any]:
     }
 
 
-def _run_trip_plan_workflow(data: TripPlanGenerateRequest) -> dict[str, Any]:
+def _run_trip_plan_workflow(
+    data: TripPlanGenerateRequest, username: str
+) -> dict[str, Any]:
     client = DifyClient(
         api_key=os.getenv("DIFY_TRIP_PLAN_API_KEY") or os.getenv("DIFY_API_KEY"),
         url=os.getenv("DIFY_TRIP_PLAN_URL") or os.getenv("DIFY_URL"),
@@ -272,17 +283,17 @@ def _run_trip_plan_workflow(data: TripPlanGenerateRequest) -> dict[str, Any]:
     )
     try:
         return client.run_workflow(
-            user=str(data.user_id),
-            inputs=_to_dify_inputs(data),
+            user=username,
+            inputs=_to_dify_inputs(data, username),
         )
     except DifyError:
         raise
 
 
-def _to_dify_inputs(data: TripPlanGenerateRequest) -> dict[str, str]:
+def _to_dify_inputs(data: TripPlanGenerateRequest, username: str) -> dict[str, str]:
     return {
         "action": data.action,
-        "user_id": str(data.user_id),
+        "user_id": username,
         "origin_city": data.origin_city,
         "destination_city": data.destination_city,
         "start_date": data.start_date,
