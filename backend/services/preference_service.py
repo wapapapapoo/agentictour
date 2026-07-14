@@ -223,3 +223,79 @@ def analyze_user_preferences(db: Session, user_id: int) -> dict:
     debug["message"] = f"ok: k={best_k}, {n} vectors, {len(doc_ids)} docs, {best_k} prototypes saved"
     debug["prototypes"] = best_k
     return debug
+
+
+def recommend_by_prototypes(db: Session, user_id: int, top_k: int, page: int, page_size: int) -> dict:
+    prototypes = (
+        db.query(UserPreferencePrototype)
+        .filter(UserPreferencePrototype.user_id == user_id)
+        .order_by(UserPreferencePrototype.id.desc())
+        .limit(5)
+        .all()
+    )
+    if not prototypes:
+        return {"message": "no prototypes found for this user", "clusters": []}
+
+    centroids = np.array([json.loads(p.vector) for p in prototypes])
+
+    import psycopg2
+    import pickle
+    conn = psycopg2.connect(DIFY_DB)
+    contents: list[str] = []
+    doc_ids: list[str] = []
+    vecs: list[list[float]] = []
+    offset = page * page_size
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT ds.content, ds.document_id, e.embedding "
+            "FROM document_segments ds "
+            "JOIN embeddings e ON e.hash = ds.index_node_hash "
+            "WHERE ds.status = 'completed' AND e.embedding IS NOT NULL "
+            "ORDER BY ds.created_at DESC "
+            "LIMIT %s OFFSET %s",
+            (page_size, offset),
+        )
+        for content, doc_id, emb_bytes in cur.fetchall():
+            arr = pickle.loads(bytes(emb_bytes))
+            if isinstance(arr, list) and len(arr) > 0:
+                contents.append(content)
+                doc_ids.append(doc_id)
+                vecs.append([float(v) for v in arr])
+        cur.close()
+    finally:
+        conn.close()
+
+    if not vecs:
+        return {"message": f"no embeddings on page {page}", "clusters": []}
+
+    all_vecs = np.array(vecs)
+    cn = centroids / (np.linalg.norm(centroids, axis=1, keepdims=True) + 1e-10)
+    an = all_vecs / (np.linalg.norm(all_vecs, axis=1, keepdims=True) + 1e-10)
+    sim = cn @ an.T
+
+    clusters = []
+    for i, p in enumerate(prototypes):
+        scores = sim[i]
+        top_idx = np.argsort(scores)[::-1][:top_k]
+        results = []
+        for idx in top_idx:
+            results.append({
+                "content_preview": contents[idx][:200],
+                "document_id": doc_ids[idx],
+                "similarity": round(float(scores[idx]), 6),
+            })
+        clusters.append({
+            "cluster_id": i,
+            "centroid_preview": json.loads(p.vector)[:5],
+            "results": results,
+        })
+
+    return {
+        "user_id": user_id,
+        "prototypes_used": len(prototypes),
+        "page": page,
+        "page_size": page_size,
+        "chunks_on_page": len(vecs),
+        "clusters": clusters,
+    }
