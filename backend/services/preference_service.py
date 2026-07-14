@@ -355,12 +355,15 @@ def recommend_by_prototypes(db: Session, user_id: int, top_k: int, page: int, pa
                 "_scores": [r["score"]],
             }
 
-    # 点赞计数
+    # 点赞计数 + 当前用户是否点过
     all_pids = [g["plan_id"] for g in groups.values() if g["plan_id"] is not None]
     like_counts: dict[int, int] = {}
+    user_liked: set[int] = set()
     if all_pids:
-        for pid, _ in db.query(PlanLike.plan_id, PlanLike.id).filter(PlanLike.plan_id.in_(all_pids)).all():
+        for pid, uid in db.query(PlanLike.plan_id, PlanLike.user_id).filter(PlanLike.plan_id.in_(all_pids)).all():
             like_counts[pid] = like_counts.get(pid, 0) + 1
+            if uid == user_id:
+                user_liked.add(pid)
 
     results = []
     for g in groups.values():
@@ -368,6 +371,7 @@ def recommend_by_prototypes(db: Session, user_id: int, top_k: int, page: int, pa
         if len(scores) > 1:
             g["score"] = math.log(sum(math.exp(s) for s in scores))
         g["like_count"] = like_counts.get(g["plan_id"], 0)
+        g["is_liked"] = g["plan_id"] in user_liked
         results.append(g)
 
     random.shuffle(results)

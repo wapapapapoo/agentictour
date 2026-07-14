@@ -6,7 +6,7 @@ const keyword = ref('')
 const loading = ref(false)
 const searched = ref(false)
 const error = ref('')
-const results = ref<(KnowledgeSearchResult & { liking?: boolean; liked?: boolean })[]>([])
+const results = ref<(KnowledgeSearchResult & { liking?: boolean })[]>([])
 const suggestions = ['杭州三日慢游', '北京人文街巷', '上海到成都美食', '周末自然风光']
 
 const resultLabel = computed(() => searched.value ? `找到 ${results.value.length} 条相关行程` : '输入目的地、主题或玩法开始检索')
@@ -24,6 +24,7 @@ async function search(value = keyword.value) {
   error.value = ''
   try {
     results.value = (await api.searchKnowledge(query)).results.map(r => ({ ...r, liking: false }))
+    // is_liked comes from backend, no local state needed
   } catch (cause) {
     results.value = []
     error.value = cause instanceof Error ? cause.message : '暂时无法检索行程，请稍后重试。'
@@ -32,17 +33,17 @@ async function search(value = keyword.value) {
   }
 }
 
-async function toggleLike(item: KnowledgeSearchResult & { liking?: boolean; liked?: boolean }) {
+async function toggleLike(item: KnowledgeSearchResult & { liking?: boolean }) {
   if (!item.plan_id || item.liking) return
   item.liking = true
   try {
-    if (item.liked) {
+    if (item.is_liked) {
       await api.unlikePlan(item.plan_id)
-      item.liked = false
+      item.is_liked = false
       item.like_count = Math.max(0, item.like_count - 1)
     } else {
       await api.likePlan(item.plan_id, [item.document_id])
-      item.liked = true
+      item.is_liked = true
       item.like_count++
     }
   } catch {
@@ -89,11 +90,11 @@ async function toggleLike(item: KnowledgeSearchResult & { liking?: boolean; like
             >
               <button
                 class="like-btn"
-                :class="{ liked: item.liked }"
+                :class="{ liked: item.is_liked }"
                 :disabled="item.liking || !item.plan_id"
                 @click.stop="toggleLike(item)"
               >
-                {{ item.liked ? '♥' : '♡' }} {{ item.like_count }}
+                {{ item.is_liked ? '♥' : '♡' }} {{ item.like_count }}
               </button>
             </span>
           </footer>

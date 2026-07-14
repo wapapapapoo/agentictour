@@ -60,7 +60,7 @@ def search_knowledge(
     db: Session = Depends(get_db),
 ) -> Any:
     try:
-        result = knowledge_service.search_knowledge(db, data)
+        result = knowledge_service.search_knowledge(db, data, current_user_id)
         write_log(current_user_id, "搜索", f"关键词:{data.query}")
         return result
     except DifyRequestError as exc:

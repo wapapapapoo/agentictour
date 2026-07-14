@@ -217,6 +217,7 @@ def trace_by_document_id(
 def search_knowledge(
     db: Session,
     data: Any,  # KnowledgeSearchRequest
+    user_id: int = 0,
 ) -> dict[str, Any]:
     ds_id = _dataset_id(data.dataset_id)
     if not ds_id:
@@ -284,18 +285,21 @@ def search_knowledge(
                 "_scores": [item["score"]],
             }
 
-    # 预加载点赞计数
+    # 预加载点赞计数 + 当前用户是否点过
     from models.knowledge import PlanLike
     all_plan_ids = [g["plan_id"] for g in groups.values() if g["plan_id"] is not None]
     like_counts: dict[int, int] = {}
+    user_liked: set[int] = set()
     if all_plan_ids:
         likes = (
-            db.query(PlanLike.plan_id, PlanLike.id)
+            db.query(PlanLike.plan_id, PlanLike.user_id)
             .filter(PlanLike.plan_id.in_(all_plan_ids))
             .all()
         )
-        for plan_id, _ in likes:
+        for plan_id, uid in likes:
             like_counts[plan_id] = like_counts.get(plan_id, 0) + 1
+            if user_id and uid == user_id:
+                user_liked.add(plan_id)
 
     results: list[dict[str, Any]] = []
     for g in groups.values():
@@ -303,6 +307,7 @@ def search_knowledge(
         if len(scores) > 1:
             g["score"] = math.log(sum(math.exp(s) for s in scores))
         g["like_count"] = like_counts.get(g["plan_id"], 0)
+        g["is_liked"] = g["plan_id"] in user_liked
         results.append(g)
 
     # 按合并后分数降序

@@ -47,6 +47,7 @@ class KnowledgeSearchResult(BaseModel):
     plan_id: Optional[int] = None
     plan_title: Optional[str] = None
     like_count: int = 0
+    is_liked: bool = False
 
 
 class KnowledgeSearchResponse(BaseModel):
