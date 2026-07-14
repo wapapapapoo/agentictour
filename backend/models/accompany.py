@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -151,7 +153,9 @@ class ChatSession(Base):
     )
     title = Column(String(100), nullable=True)
     status = Column(String(20), nullable=False, default="active")
-    dify_conversation_id = Column(String(100), nullable=True)
+    conversation_id = Column(
+        String(100), nullable=False, unique=True, default=lambda: str(uuid4())
+    )
     last_message_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

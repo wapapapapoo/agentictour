@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 import pytest
 from sqlalchemy import create_engine, event
@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from database import Base
-from models.accompany import AIAdvice, Memo, Notification
+from models.accompany import AIAdvice, Memo, Notification, UserLocation
 from models.trip import Trip
 from models.user import User
 from services import reminder_service
@@ -60,6 +60,19 @@ def _audited_output() -> AuditedOutput:
     )
 
 
+def _agent_decision_output(result: bool | str) -> AuditedOutput:
+    return AuditedOutput(
+        content="check result",
+        passed=True,
+        reason=None,
+        main_response={
+            "data": {"outputs": {"reply": "check result", "result": result}}
+        },
+        audit_response={},
+        audit_count=1,
+    )
+
+
 def test_due_reminder_uses_trip_as_context_and_keeps_dify_tour_key(
     db: Session, monkeypatch
 ) -> None:
@@ -71,6 +84,17 @@ def test_due_reminder_uses_trip_as_context_and_keeps_dify_tour_key(
             trip_id=trip.id,
             memo_text="带证件",
             reminder_time=datetime(2026, 7, 20, 7, 0),
+        )
+    )
+    db.add(
+        UserLocation(
+            user_id=trip.user_id,
+            latitude=31.22,
+            longitude=121.55,
+            city="310115",
+            place_name="Pudong",
+            location_context="legacy context must not be sent",
+            updated_at=datetime.now(UTC).replace(tzinfo=None),
         )
     )
     db.commit()
@@ -90,6 +114,9 @@ def test_due_reminder_uses_trip_as_context_and_keeps_dify_tour_key(
     assert count == 1
     assert calls[0]["user"] == str(trip.user_id)
     assert calls[0]["inputs"]["tour_id"] == trip.id
+    assert calls[0]["inputs"]["city_adcode"] == "310115"
+    assert "city" not in calls[0]["inputs"]
+    assert "location_context" not in calls[0]["inputs"]
     assert db.query(AIAdvice).one().trip_id == trip.id
     assert db.query(Notification).one().trip_id == trip.id
 
@@ -123,3 +150,81 @@ def test_cancelled_trip_does_not_emit_due_reminders(db: Session, monkeypatch) ->
         )
         == 0
     )
+
+
+@pytest.mark.parametrize("trigger_type", ["system_auto_check", "system_auto_advice"])
+def test_agent_jobs_use_latest_frontend_adcode(
+    db: Session, monkeypatch, trigger_type: str
+) -> None:
+    trip = _trip()
+    db.add(trip)
+    db.flush()
+    db.add(
+        UserLocation(
+            user_id=trip.user_id,
+            latitude=31.22,
+            longitude=121.55,
+            city="310115",
+            place_name="Pudong",
+            updated_at=datetime.now(UTC).replace(tzinfo=None),
+        )
+    )
+    db.commit()
+    calls = []
+
+    def fake_hikari(**kwargs):
+        calls.append(kwargs)
+        return _audited_output()
+
+    monkeypatch.setattr(reminder_service, "run_hikari_once_audited", fake_hikari)
+
+    reminder_service._agent_check(db, trip, trigger_type, "check current conditions")
+
+    inputs = calls[0]["inputs"]
+    assert inputs["city_adcode"] == "310115"
+    assert "city" not in inputs
+    assert "location_context" not in inputs
+
+
+@pytest.mark.parametrize("result", [False, "false", "False"])
+def test_system_auto_check_false_does_not_notify(
+    db: Session, monkeypatch, result: bool | str
+) -> None:
+    trip = _trip()
+    db.add(trip)
+    db.commit()
+    monkeypatch.setattr(
+        reminder_service,
+        "run_hikari_once_audited",
+        lambda **_kwargs: _agent_decision_output(result),
+    )
+
+    advice = reminder_service._agent_check(
+        db, trip, "system_auto_check", "check current conditions"
+    )
+    db.commit()
+
+    assert advice.result == "not_required"
+    assert db.query(AIAdvice).count() == 1
+    assert db.query(Notification).count() == 0
+
+
+def test_system_auto_check_true_creates_notification(
+    db: Session, monkeypatch
+) -> None:
+    trip = _trip()
+    db.add(trip)
+    db.commit()
+    monkeypatch.setattr(
+        reminder_service,
+        "run_hikari_once_audited",
+        lambda **_kwargs: _agent_decision_output(True),
+    )
+
+    advice = reminder_service._agent_check(
+        db, trip, "system_auto_check", "check current conditions"
+    )
+    db.commit()
+
+    assert advice.result == "pending"
+    assert db.query(Notification).one().advice_id == advice.advice_id

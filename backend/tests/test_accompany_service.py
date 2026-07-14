@@ -1,3 +1,4 @@
+import json
 from datetime import date, datetime, timedelta, timezone
 
 import pytest
@@ -6,10 +7,24 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from database import Base
-from models.accompany import AIAdvice, ItineraryItem
+from models.accompany import (
+    AIAdvice,
+    ChatMessage,
+    ChatSession,
+    ItineraryItem,
+    UserLocation,
+)
 from models.trip import Trip
-from schemas.accompany import ItineraryCreate, MemoCreate
+from schemas.accompany import (
+    AdviceGenerateRequest,
+    ChatRequest,
+    ItineraryCreate,
+    LocationResponse,
+    LocationUpdate,
+    MemoCreate,
+)
 from services import accompany_service, ai_gateway
+from services.ai_gateway import AuditedOutput
 
 
 @pytest.fixture
@@ -51,6 +66,144 @@ def _item(start: datetime, end: datetime, **kwargs) -> ItineraryCreate:
         end_time=end,
         **kwargs,
     )
+
+
+def _audited_output(
+    content: str = "ok", main_response: dict | None = None
+) -> AuditedOutput:
+    return AuditedOutput(
+        content=content,
+        passed=True,
+        reason=None,
+        main_response=main_response or {},
+        audit_response={},
+        audit_count=1,
+    )
+
+
+def test_accompany_request_models_use_city_adcode_without_manual_contexts() -> None:
+    assert "city_adcode" in AdviceGenerateRequest.model_fields
+    assert "city_adcode" in ChatRequest.model_fields
+    assert "city_adcode" in LocationUpdate.model_fields
+    for model in (AdviceGenerateRequest, ChatRequest, LocationUpdate):
+        assert "city" not in model.model_fields
+        assert "location_context" not in model.model_fields
+    assert "current_itinerary" not in AdviceGenerateRequest.model_fields
+    assert "nearby_context" not in ChatRequest.model_fields
+
+
+def test_user_flows_send_only_agent_owned_context(monkeypatch, db: Session) -> None:
+    calls = []
+
+    def fake_hikari(**kwargs):
+        calls.append(kwargs)
+        return _audited_output()
+
+    monkeypatch.setattr(accompany_service, "run_hikari_once_audited", fake_hikari)
+
+    accompany_service.generate_advice(
+        db,
+        AdviceGenerateRequest(
+            trip_id=1,
+            user_id=1,
+            reason="The attraction is closed",
+            city_adcode="310115",
+            latitude=31.22,
+            longitude=121.55,
+            location_name="Pudong",
+        ),
+    )
+    accompany_service.chat(
+        db,
+        ChatRequest(
+            trip_id=1,
+            user_id=1,
+            message="Recommend somewhere nearby",
+            city_adcode="310115",
+            latitude=31.22,
+            longitude=121.55,
+            location_name="Pudong",
+        ),
+    )
+
+    advice_keys = {
+        "user_query",
+        "trigger_type",
+        "tour_id",
+        "city_adcode",
+        "latitude",
+        "longitude",
+        "location_name",
+    }
+    chat_keys = advice_keys | {"conversation_id", "conversation_history"}
+    assert [set(call["inputs"]) for call in calls] == [advice_keys, chat_keys]
+    assert all(call["inputs"]["city_adcode"] == "310115" for call in calls)
+    stored = db.query(UserLocation).filter(UserLocation.user_id == 1).one()
+    assert stored.city == "310115"
+    assert LocationResponse.model_validate(stored).city_adcode == "310115"
+
+
+def test_chat_uses_local_conversation_id_and_database_history(
+    monkeypatch, db: Session
+) -> None:
+    calls = []
+
+    def fake_hikari(**kwargs):
+        calls.append(kwargs)
+        return _audited_output(
+            content=f"reply-{len(calls)}",
+            main_response={"conversation_id": "remote-dify-conversation"},
+        )
+
+    monkeypatch.setattr(accompany_service, "run_hikari_once_audited", fake_hikari)
+
+    first = accompany_service.chat(
+        db, ChatRequest(trip_id=1, user_id=1, message="first question")
+    )
+    second = accompany_service.chat(
+        db, ChatRequest(trip_id=1, user_id=1, message="second question")
+    )
+
+    assert first["conversation_id"] == second["conversation_id"]
+    assert first["conversation_id"] != "remote-dify-conversation"
+    assert calls[0]["inputs"]["conversation_history"] == "[]"
+    assert json.loads(calls[1]["inputs"]["conversation_history"]) == [
+        {"role": "user", "content": "first question"},
+        {"role": "assistant", "content": "reply-1"},
+    ]
+    assert calls[1]["inputs"]["conversation_id"] == first["conversation_id"]
+
+    session = db.query(ChatSession).one()
+    assert session.conversation_id == first["conversation_id"]
+    assert not hasattr(session, "dify_conversation_id")
+    assert [row.message_order for row in db.query(ChatMessage).all()] == [1, 2, 3, 4]
+
+
+def test_list_chat_messages_reads_local_database_in_message_order(
+    monkeypatch, db: Session
+) -> None:
+    monkeypatch.setattr(
+        accompany_service,
+        "run_hikari_once_audited",
+        lambda **_kwargs: _audited_output("local reply"),
+    )
+    result = accompany_service.chat(
+        db, ChatRequest(trip_id=1, user_id=1, message="local question")
+    )
+
+    messages = accompany_service.list_chat_messages(
+        db, result["conversation_id"]
+    )
+
+    assert [message.sender_type for message in messages] == ["user", "ai"]
+    assert [message.content for message in messages] == [
+        "local question",
+        "local reply",
+    ]
+    history = accompany_service.chat_history(db, result["conversation_id"], 1)
+    assert history["messages"] == messages
+    with pytest.raises(LookupError, match="conversation not found"):
+        accompany_service.chat_history(db, result["conversation_id"], 2)
 
 
 def test_first_item_each_day_is_initial_and_reminds_at_start(db: Session) -> None:
