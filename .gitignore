@@ -17,9 +17,8 @@ dist/
 /outputs/
 
 # Runtime data
-/logs/
-backend/uploads/blog/*
-!backend/uploads/blog/.gitkeep
+backend/uploads/
+logs/
 
 # OS
 .DS_Store
