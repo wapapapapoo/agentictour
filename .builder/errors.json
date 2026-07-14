@@ -1,0 +1,19 @@
+{
+  "errors": [
+    {
+      "type": "DockerComposeEnvironmentError",
+      "message": "MYSQL_PASSWORD is not available to docker compose in the current shell.",
+      "resolution": "Do not expose or invent credentials; continue with repository and SQLite verification."
+    },
+    {
+      "type": "DockerDaemonUnavailable",
+      "message": "Docker Desktop Linux engine pipe is unavailable.",
+      "resolution": "Record MySQL container verification as unavailable and use static DDL checks plus automated SQLite tests."
+    },
+    {
+      "type": "FrontendSearchNoMatch",
+      "message": "No companion tour_id or trip_id references were found in frontend sources.",
+      "resolution": "No frontend compatibility change is required."
+    }
+  ]
+}

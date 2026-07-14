@@ -20,6 +20,11 @@ class Settings:
 
     HTTP_TIMEOUT: int = int(os.getenv("HTTP_TIMEOUT", "10"))
 
+    DIFY_KNOWLEDGE_URL: str = os.getenv(
+        "DIFY_KNOWLEDGE_URL", "http://host.docker.internal:3000/v1"
+    )
+    DIFY_KNOWLEDGE_API_KEY: str = os.getenv("DIFY_KNOWLEDGE_API_KEY", "")
+
     AMAP_BASE_URL: str = "https://restapi.amap.com"
 
 

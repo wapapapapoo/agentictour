@@ -37,3 +37,9 @@ Desktop.ini
 *.log
 *.tmp
 *.cache
+
+# Uploaded blog photos
+uploads/*
+!uploads/blog/
+uploads/blog/*
+!uploads/blog/.gitkeep

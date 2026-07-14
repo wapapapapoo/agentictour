@@ -1,10 +1,12 @@
 import json
 import os
+from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
-from models.blog import BlogGeneration, BlogMaterial
+from models.blog import BlogGeneration, BlogMaterial, BlogPhoto
 from schemas.blog import (
     BlogContentType,
     BlogGenerateRequest,
@@ -15,6 +17,8 @@ from utils.dify_client import DifyClient, DifyResponseError
 
 VALID_CONTENT_TYPES = {item.value for item in BlogContentType}
 VALID_WRITING_STYLES = {item.value for item in BlogWritingStyle}
+MAX_PHOTO_SIZE = 10 * 1024 * 1024
+DEFAULT_PHOTO_DIR = Path(__file__).resolve().parents[1] / "uploads" / "blog"
 
 
 def create_material(db: Session, data: BlogMaterialCreate) -> BlogMaterial:
@@ -28,12 +32,87 @@ def create_material(db: Session, data: BlogMaterialCreate) -> BlogMaterial:
 def get_material(
     db: Session,
     material_id: int,
-    user_id: str | None = None,
+    user_id: int | None = None,
 ) -> BlogMaterial | None:
     query = db.query(BlogMaterial).filter(BlogMaterial.id == material_id)
     if user_id is not None:
         query = query.filter(BlogMaterial.user_id == user_id)
     return query.first()
+
+
+def create_photo(
+    db: Session,
+    *,
+    material_id: int,
+    user_id: int,
+    original_filename: str,
+    content: bytes,
+) -> BlogPhoto:
+    if get_material(db, material_id, user_id) is None:
+        raise LookupError("material not found")
+    if not content:
+        raise ValueError("image file is empty")
+    if len(content) > MAX_PHOTO_SIZE:
+        raise ValueError("image file must not exceed 10 MB")
+
+    image_type = _detect_image_type(content)
+    if image_type is None:
+        raise ValueError("only JPG, PNG and WEBP images are supported")
+
+    extension, content_type = image_type
+    upload_dir = Path(os.getenv("BLOG_UPLOAD_DIR", str(DEFAULT_PHOTO_DIR)))
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    stored_filename = f"{uuid4().hex}{extension}"
+    file_path = upload_dir / stored_filename
+    file_path.write_bytes(content)
+
+    photo = BlogPhoto(
+        material_id=material_id,
+        user_id=user_id,
+        original_filename=Path(original_filename or "image").name[:255],
+        stored_filename=stored_filename,
+        content_type=content_type,
+        file_size=len(content),
+    )
+    try:
+        db.add(photo)
+        db.commit()
+        db.refresh(photo)
+    except Exception:
+        db.rollback()
+        file_path.unlink(missing_ok=True)
+        raise
+    return photo
+
+
+def _detect_image_type(content: bytes) -> tuple[str, str] | None:
+    if content.startswith(b"\xff\xd8\xff") and content.endswith(b"\xff\xd9"):
+        return ".jpg", "image/jpeg"
+    if content.startswith(b"\x89PNG\r\n\x1a\n"):
+        return ".png", "image/png"
+    if (
+        len(content) >= 12
+        and content.startswith(b"RIFF")
+        and content[8:12] == b"WEBP"
+    ):
+        return ".webp", "image/webp"
+    return None
+
+
+def get_photo(db: Session, photo_id: int, user_id: int) -> BlogPhoto | None:
+    return (
+        db.query(BlogPhoto)
+        .filter(BlogPhoto.id == photo_id, BlogPhoto.user_id == user_id)
+        .first()
+    )
+
+
+def get_photo_path(photo: BlogPhoto) -> Path:
+    upload_dir = Path(os.getenv("BLOG_UPLOAD_DIR", str(DEFAULT_PHOTO_DIR))).resolve()
+    file_path = (upload_dir / photo.stored_filename).resolve()
+    if file_path.parent != upload_dir or not file_path.is_file():
+        raise FileNotFoundError("photo file not found")
+    return file_path
 
 
 def _to_dify_inputs(
@@ -45,7 +124,7 @@ def _to_dify_inputs(
 
     return {
         "material_id": text(material.id),
-        "user_id": req.user_id,
+        "user_id": str(req.user_id),
         "title": material.title,
         "destination": material.destination,
         "start_date": text(material.start_date),
@@ -100,7 +179,7 @@ def _generate_blog_content(
         timeout=float(os.getenv("DIFY_TIMEOUT", "120")),
     )
     response = client.run_workflow(
-        user=req.user_id,
+        user=str(req.user_id),
         inputs=_to_dify_inputs(material, req),
     )
     return _extract_generation_result(response)
@@ -135,7 +214,7 @@ def create_generation(db: Session, req: BlogGenerateRequest) -> BlogGeneration:
     return generation
 
 
-def list_generations(db: Session, user_id: str) -> list[dict]:
+def list_generations(db: Session, user_id: int) -> list[dict]:
     rows = (
         db.query(BlogGeneration, BlogMaterial)
         .join(BlogMaterial, BlogGeneration.material_id == BlogMaterial.id)
@@ -162,7 +241,7 @@ def list_generations(db: Session, user_id: str) -> list[dict]:
 def get_generation(
     db: Session,
     generation_id: int,
-    user_id: str | None = None,
+    user_id: int | None = None,
 ) -> BlogGeneration | None:
     query = db.query(BlogGeneration).filter(BlogGeneration.id == generation_id)
     if user_id is not None:
@@ -170,7 +249,7 @@ def get_generation(
     return query.first()
 
 
-def delete_generation(db: Session, generation_id: int, user_id: str) -> bool:
+def delete_generation(db: Session, generation_id: int, user_id: int) -> bool:
     generation = get_generation(db, generation_id, user_id)
     if generation is None:
         return False
