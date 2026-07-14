@@ -38,8 +38,8 @@ async function likePlan(item: KnowledgeSearchResult & { liking?: boolean }) {
   try {
     await api.likePlan(item.plan_id, [item.document_id])
     item.like_count++
-  } catch (cause) {
-    console.error(cause)
+  } catch {
+    /* like failed, silently ignore */
   } finally {
     item.liking = false
   }
@@ -72,7 +72,23 @@ async function likePlan(item: KnowledgeSearchResult & { liking?: boolean }) {
           <div class="card-top"><span class="rank">{{ String(index + 1).padStart(2, '0') }}</span><span class="score">{{ scoreLabel(item.score) }}</span></div>
           <h3>{{ item.plan_title || '旅行行程片段' }}</h3>
           <p class="content">{{ item.chunk_content }}</p>
-          <footer><span v-if="item.plan_id">行程编号 #{{ item.plan_id }}</span><span v-else>知识库行程</span><span>·</span><span>内容匹配结果</span><span class="footer-right"><button class="like-btn" :disabled="item.liking || !item.plan_id" @click.stop="likePlan(item)">♥ {{ item.like_count }}</button></span></footer>
+          <footer>
+            <span v-if="item.plan_id">行程编号 #{{ item.plan_id }}</span>
+            <span v-else>知识库行程</span>
+            <span>·</span>
+            <span>内容匹配结果</span>
+            <span
+              class="footer-right"
+            >
+              <button
+                class="like-btn"
+                :disabled="item.liking || !item.plan_id"
+                @click.stop="likePlan(item)"
+              >
+                ♥ {{ item.like_count }}
+              </button>
+            </span>
+          </footer>
         </article>
       </div>
       <div v-else-if="searched" class="empty"><div>⌁</div><h3>没有找到匹配行程</h3><p>换一个更具体的城市、天数或旅行偏好试试。</p></div>
