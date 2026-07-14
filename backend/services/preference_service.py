@@ -34,11 +34,17 @@ def _parse_liked_plan_ids(log_path: str) -> tuple[list[int], list[str]]:
     plan_ids: set[int] = set()
     liked_lines: list[str] = []
     for line in lines:
-        if "点赞" in line:
+        if "点赞" in line and "取消点赞" not in line:
             liked_lines.append(line.strip())
             m = re.search(r"plan_id:(\d+)", line)
             if m:
                 plan_ids.add(int(m.group(1)))
+        elif "取消点赞" in line:
+            liked_lines.append(line.strip())
+            m = re.search(r"plan_id:(\d+)", line)
+            if m:
+                # 取消点赞从集合中移除
+                plan_ids.discard(int(m.group(1)))
     return list(plan_ids), liked_lines
 
 
