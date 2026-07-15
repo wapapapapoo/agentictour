@@ -3,9 +3,11 @@ from __future__ import annotations
 import json
 import os
 import re
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta, timezone, tzinfo
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from crud import accompany as crud
@@ -92,6 +94,7 @@ def create_memo(db: Session, data: MemoCreate) -> Memo:
     values = data.model_dump()
     if data.reminder_time is not None:
         values["reminder_time"] = _utc_naive(data.reminder_time)
+    _validate_reminder_in_trip(db, data.trip_id, values.get("reminder_time"))
     row = crud.create(db, Memo, values)
     db.commit()
     db.refresh(row)
@@ -105,6 +108,9 @@ def update_memo(db: Session, memo_id: int, data: MemoUpdate) -> Memo:
     values = data.model_dump(exclude_unset=True)
     if values.get("reminder_time") is not None:
         values["reminder_time"] = _utc_naive(values["reminder_time"])
+    _validate_reminder_in_trip(
+        db, row.trip_id, values.get("reminder_time", row.reminder_time)
+    )
     crud.update(row, values)
     db.commit()
     db.refresh(row)
@@ -136,6 +142,32 @@ def _utc_naive(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value
     return value.astimezone(UTC).replace(tzinfo=None)
+
+
+def _trip_utc_window(trip: Trip) -> tuple[datetime, datetime]:
+    try:
+        resolved_tz: tzinfo = ZoneInfo(trip.timezone or "Asia/Shanghai")
+    except ZoneInfoNotFoundError:
+        resolved_tz = timezone(timedelta(hours=8))
+    start = datetime.combine(trip.start_date, time.min, tzinfo=resolved_tz)
+    end = datetime.combine(
+        trip.end_date + timedelta(days=1), time.min, tzinfo=resolved_tz
+    )
+    return _utc_naive(start), _utc_naive(end)
+
+
+def _validate_reminder_in_trip(
+    db: Session, trip_id: int, reminder_time: datetime | None
+) -> None:
+    if reminder_time is None:
+        return
+    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+    if trip is None:
+        raise ValueError("trip not found")
+    start, end = _trip_utc_window(trip)
+    reminder = _utc_naive(reminder_time)
+    if reminder < start or reminder >= end:
+        raise ValueError("reminder_time must be within the trip date range")
 
 
 def sync_itinerary_statuses(
@@ -204,6 +236,7 @@ def _recalculate_day(db: Session, trip_id: int, day: datetime) -> None:
         item.is_initial = index == 0
         if index == 0:
             item.reminder_time = item.start_time
+            _validate_reminder_in_trip(db, trip_id, item.reminder_time)
             continue
         previous = items[index - 1]
         if was_initial or item.reminder_time is None:
@@ -212,6 +245,7 @@ def _recalculate_day(db: Session, trip_id: int, day: datetime) -> None:
             raise ValueError(
                 "reminder_time must not be later than itinerary start_time"
             )
+        _validate_reminder_in_trip(db, trip_id, item.reminder_time)
 
 
 def create_itinerary(
@@ -248,6 +282,7 @@ def create_itinerary(
         raise ValueError(
             "reminder_time must not be later than itinerary start_time"
         )
+    _validate_reminder_in_trip(db, data.trip_id, values["reminder_time"])
     row = crud.create(db, ItineraryItem, values)
     _recalculate_day(db, data.trip_id, data.start_time)
     if commit:
@@ -280,6 +315,9 @@ def update_itinerary(
         values["reminder_time"] = start
     elif kind == "transit" and reminder is None:
         raise ValueError("transit itinerary requires reminder_time")
+    _validate_reminder_in_trip(
+        db, row.trip_id, values.get("reminder_time", row.reminder_time)
+    )
     crud.update(row, values)
     db.flush()
     _recalculate_day(db, row.trip_id, old_day)
@@ -776,7 +814,20 @@ def act_on_advice(
 
 def chat(db: Session, data: ChatRequest) -> dict[str, Any]:
     _save_request_location(db, data)
-    session = db.query(ChatSession).filter(ChatSession.trip_id == data.trip_id).first()
+    trip = (
+        db.query(Trip)
+        .filter(Trip.id == data.trip_id, Trip.user_id == data.user_id)
+        .with_for_update()
+        .first()
+    )
+    if trip is None:
+        raise LookupError("trip not found")
+    session = (
+        db.query(ChatSession)
+        .filter(ChatSession.trip_id == data.trip_id)
+        .with_for_update()
+        .first()
+    )
     if session is None:
         session = crud.create(
             db,
@@ -789,9 +840,10 @@ def chat(db: Session, data: ChatRequest) -> dict[str, Any]:
         )
     history = _chat_history(db, session.session_id)
     order = (
-        db.query(ChatMessage)
+        db.query(func.max(ChatMessage.message_order))
         .filter(ChatMessage.session_id == session.session_id)
-        .count()
+        .scalar()
+        or 0
     )
     user_msg = crud.create(
         db,

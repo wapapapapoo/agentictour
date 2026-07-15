@@ -131,12 +131,12 @@ const visibleNotifications = computed(() => currentTripNotifications.value.filte
   (item) => !unreadOnly.value || !item.read_at,
 ))
 const unreadCount = computed(() => currentTripNotifications.value.filter((item) => !item.read_at).length)
-const pendingItineraryCount = computed(() => itineraries.value.filter(
-  (item) => itineraryLifecycle(item, lifecycleClock.value) === 'upcoming',
-).length)
-const ongoingItineraryCount = computed(() => itineraries.value.filter(
+const ongoingItinerary = computed(() => itineraries.value.find(
   (item) => itineraryLifecycle(item, lifecycleClock.value) === 'ongoing',
-).length)
+))
+const nextItinerary = computed(() => itineraries.value
+  .filter((item) => itineraryLifecycle(item, lifecycleClock.value) === 'upcoming')
+  .sort((left, right) => left.start_time.localeCompare(right.start_time))[0])
 const adjustableItineraries = computed(() => itineraries.value.filter(
   (item) => item.status === 'pending' && itineraryLifecycle(item, lifecycleClock.value) === 'upcoming',
 ))
@@ -195,6 +195,12 @@ function localInput(value?: string | null) {
 
 function isoOrNull(value: string) {
   return tripInputToUtc(value)
+}
+
+function dateWithinCurrentTrip(value: string) {
+  if (!value || !currentTrip.value) return true
+  const dateKey = value.slice(0, 10)
+  return currentTrip.value.start_date <= dateKey && dateKey <= currentTrip.value.end_date
 }
 
 function locationPayload() {
@@ -275,7 +281,7 @@ async function loadTrips() {
 
 async function send() {
   const text = message.value.trim()
-  if (!text || !tripId.value || loading.value) return
+  if (!text || !tripId.value || chatLoading.value) return
   loading.value = true
   chatLoading.value = true
   messages.value.push({ role: 'user', text })
@@ -322,6 +328,10 @@ function resetMemo() {
 
 async function saveMemo() {
   if (!tripId.value || !memoDraft.value.memo_text.trim()) return
+  if (memoDraft.value.reminder_time && !dateWithinCurrentTrip(memoDraft.value.reminder_time)) {
+    error.value = '备忘提醒时间必须位于当前计划的开始与结束日期内。'
+    return
+  }
   error.value = ''
   try {
     const payload = {
@@ -391,6 +401,14 @@ async function saveItinerary() {
   const reminder = draft.reminder_time ? new Date(isoOrNull(draft.reminder_time)!) : null
   if (reminder && reminder > start) {
     error.value = '提醒时间不能晚于当前行程的开始时间。'
+    return
+  }
+  if (!dateWithinCurrentTrip(draft.start_time) || !dateWithinCurrentTrip(draft.end_time)) {
+    error.value = '日程起止时间必须位于当前计划的开始与结束日期内。'
+    return
+  }
+  if (draft.reminder_time && !dateWithinCurrentTrip(draft.reminder_time)) {
+    error.value = '提醒时间必须位于当前计划的开始与结束日期内。'
     return
   }
   error.value = ''
@@ -702,11 +720,11 @@ function featuredTripMarker(state: TripLifecycle | null) {
 
 function featuredTripSummary(state: TripLifecycle | null) {
   if (state === 'ongoing') {
-    if (ongoingItineraryCount.value) return `${ongoingItineraryCount.value} 项正在进行`
-    if (pendingItineraryCount.value) return `${pendingItineraryCount.value} 项待开始`
+    if (ongoingItinerary.value) return `正在进行：${ongoingItinerary.value.title}`
+    if (nextItinerary.value) return `下一项：${nextItinerary.value.title}`
     return '当前暂无执行中的日程'
   }
-  if (state === 'upcoming') return `${pendingItineraryCount.value} 项待开始`
+  if (state === 'upcoming') return '计划尚未开始'
   if (state === 'completed') return '查看已结束日程'
   if (state === 'cancelled') return '查看取消记录'
   return ''
@@ -761,6 +779,31 @@ onUnmounted(() => {
 
 <template>
   <div class="page companion-page">
+    <section class="active-trip-section" aria-label="旅行计划状态">
+      <button v-if="featuredTrip" :class="['active-trip-card', `state-${featuredTripState}`]" type="button" @click="focusFeaturedTrip">
+        <span class="active-trip-marker"><i></i>{{ featuredTripMarker(featuredTripState) }}</span>
+        <span class="active-trip-main">
+          <small>{{ featuredTrip.title }}</small>
+          <template v-if="featuredTrip.id === currentTrip?.id && ongoingItinerary">
+            <strong>{{ ongoingItinerary.title }}</strong>
+            <span>{{ ongoingItinerary.place_name }} · {{ formatDate(ongoingItinerary.start_time) }} — {{ formatDate(ongoingItinerary.end_time) }}</span>
+          </template>
+          <template v-else>
+            <strong>{{ featuredTrip.origin_city }} <i>→</i> {{ featuredTrip.destination_city }}</strong>
+            <span>{{ shortTripDate(featuredTrip.start_date) }} — {{ shortTripDate(featuredTrip.end_date) }}</span>
+          </template>
+        </span>
+        <span class="active-trip-side">
+          <b>{{ featuredTripState ? tripLifecycleLabel[featuredTripState] : '' }}</b>
+          <span>{{ currentTrip?.id === featuredTrip.id ? featuredTripSummary(featuredTripState) : '进入计划' }}</span>
+        </span>
+      </button>
+      <div v-else class="active-trip-empty">
+        <span class="active-trip-marker idle"><i></i>TRIP STATUS</span>
+        <div><b>目前还没有旅行计划</b><small>创建计划后，这里会按时间显示待出发、进行中、已结束或已取消。</small></div>
+      </div>
+    </section>
+
     <section class="hero">
       <div>
         <p class="eyebrow">TRAVEL COMPANION · HIKARI</p>
@@ -770,30 +813,21 @@ onUnmounted(() => {
       <div class="hero-status"><b>{{ currentTrip?.destination_city || '等待计划' }}</b><span>{{ currentTripState ? tripLifecycleLabel[currentTripState] : '暂无状态' }}</span></div>
     </section>
 
-    <section class="active-trip-section" aria-label="旅行计划状态">
-      <button v-if="featuredTrip" :class="['active-trip-card', `state-${featuredTripState}`]" type="button" @click="focusFeaturedTrip">
-        <span class="active-trip-marker"><i></i>{{ featuredTripMarker(featuredTripState) }}</span>
-        <span class="active-trip-main">
-          <small>{{ featuredTrip.title }}</small>
-          <strong>{{ featuredTrip.origin_city }} <i>→</i> {{ featuredTrip.destination_city }}</strong>
-          <span>{{ shortTripDate(featuredTrip.start_date) }} — {{ shortTripDate(featuredTrip.end_date) }}</span>
-        </span>
-        <span class="active-trip-side">
-          <b>{{ featuredTripState ? tripLifecycleLabel[featuredTripState] : '' }}</b>
-          <span>{{ currentTrip?.id === featuredTrip.id ? featuredTripSummary(featuredTripState) : '进入计划' }} →</span>
-        </span>
-      </button>
-      <div v-else class="active-trip-empty">
-        <span class="active-trip-marker idle"><i></i>TRIP STATUS</span>
-        <div><b>目前还没有旅行计划</b><small>创建计划后，这里会按时间显示待出发、进行中、已结束或已取消。</small></div>
-      </div>
-    </section>
-
     <p v-if="error" class="error">{{ error }}<button @click="error = ''">×</button></p>
 
     <section class="workspace-bar">
       <label>当前行程<select v-model="tripId"><option :value="null">请选择行程</option><option v-for="trip in trips" :key="trip.id" :value="trip.id">{{ trip.destination_city }} · {{ trip.title }}</option></select></label>
       <div class="workspace-actions"><button class="notification-inbox-trigger" type="button" :class="{ 'has-unread': unreadCount > 0 }" @click="openReminderInbox"><span class="mail-icon" aria-hidden="true">✉</span><span>提醒</span><b v-if="unreadCount" class="unread-badge">{{ unreadCount > 99 ? '99+' : unreadCount }}</b><small v-else>已读</small></button><button class="secondary" @click="locationOpen = !locationOpen">位置与城市</button><button class="secondary" @click="loadWorkspace">刷新数据</button><button v-if="currentTrip" class="danger-button" @click="requestDelete('trip', currentTrip.id, currentTrip.title)">删除当前计划</button></div>
+    </section>
+
+    <section v-if="currentTrip" class="card trip-overview" aria-label="当前计划基本信息">
+      <div class="trip-overview-title"><p class="eyebrow">CURRENT PLAN</p><h2>{{ currentTrip.title }}</h2><span :class="`state-${currentTripState}`">{{ currentTripState ? tripLifecycleLabel[currentTripState] : '' }}</span></div>
+      <dl>
+        <div><dt>路线</dt><dd>{{ currentTrip.origin_city }} → {{ currentTrip.destination_city }}</dd></div>
+        <div><dt>计划日期</dt><dd>{{ currentTrip.start_date }} — {{ currentTrip.end_date }}</dd></div>
+        <div><dt>时区</dt><dd>{{ currentTrip.timezone || 'Asia/Shanghai' }}</dd></div>
+        <div><dt>当前日程</dt><dd>{{ ongoingItinerary ? `${ongoingItinerary.title} · ${ongoingItinerary.place_name}` : (nextItinerary ? `下一项：${nextItinerary.title}` : '暂无待执行日程') }}</dd></div>
+      </dl>
     </section>
 
     <section v-if="locationOpen" class="card location-panel">
@@ -807,7 +841,7 @@ onUnmounted(() => {
     <div class="main-grid">
       <section class="card chat">
         <header><div><p class="eyebrow">CONVERSATION</p><h2>和 Hikari 对话</h2></div><small>历史消息会随行程恢复</small></header>
-        <div class="messages">
+        <div class="messages" :aria-busy="chatLoading">
           <div v-for="(item, index) in messages" :key="index" class="message" :class="item.role">
             <div v-if="item.role === 'agent'" class="markdown-body" v-html="renderMarkdown(stripReferenceSection(item.text))"></div><span v-else>{{ item.text }}</span>
             <nav v-if="item.role === 'agent' && extractReferenceSources(item.text).length" class="message-sources" aria-label="参考来源">
@@ -816,9 +850,9 @@ onUnmounted(() => {
             </nav>
             <small v-if="item.role === 'agent' && item.auditStatus" :class="['audit-mark', item.auditStatus]">审核 {{ item.auditStatus === 'pass' ? '通过' : '未通过' }}<i v-if="item.auditReason"> · {{ item.auditReason }}</i></small>
           </div>
-          <div v-if="chatLoading" class="message agent typing">Hikari 正在核对信息…</div>
+          <div v-if="chatLoading" class="message agent typing"><i></i><span>Hikari 正在思考并核对旅途信息…</span></div>
         </div>
-        <form class="composer" @submit.prevent="send"><input v-model="message" :disabled="loading || !tripId" placeholder="问问 Hikari 当前安排、提醒或附近建议…"><button :disabled="loading || !tripId">发送</button></form>
+        <form class="composer" @submit.prevent="send"><input v-model="message" :disabled="chatLoading || !tripId" placeholder="问问 Hikari 当前安排、提醒或附近建议…"><button :disabled="chatLoading || !tripId">{{ chatLoading ? '等待回复…' : '发送' }}</button></form>
       </section>
 
       <aside class="side-stack">
@@ -1020,7 +1054,8 @@ onUnmounted(() => {
 .header-action{border:0;border-radius:8px;padding:8px 11px;background:#e6f3ea;color:#397458;font-weight:700;cursor:pointer}.header-action:disabled{opacity:.5;cursor:not-allowed}.row-actions{display:flex;gap:6px;align-items:center}.delete-button,.danger-button{border:1px solid #efcfcb;border-radius:8px;padding:8px 10px;background:#fff7f5;color:#b0524d;cursor:pointer}.danger-button{white-space:nowrap}.entry-dialog{width:min(620px,100%)}.modal-form label,.itinerary-form-grid label{display:grid;gap:7px;color:#486556;font-size:12px;font-weight:700}.modal-form input,.modal-form textarea,.modal-form select{box-sizing:border-box;width:100%;min-width:0;border:1px solid #dce8df;border-radius:10px;padding:10px;background:#fff;color:#344c40;font:inherit;outline:none}.modal-form textarea{min-height:120px;resize:vertical;line-height:1.6}.modal-form input:focus,.modal-form textarea:focus,.modal-form select:focus{border-color:#72ae91;box-shadow:0 0 0 3px #eaf5ed}.itinerary-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.itinerary-form-grid .wide-field{grid-column:1/-1}.itinerary-form-grid small{color:#849188;font-weight:400;line-height:1.5}.confirm-dialog{width:min(440px,100%)}.delete-confirmation{text-align:center}.delete-confirmation h2{margin:0;color:#733b38}.delete-confirmation>p{margin:0;color:#6d7771;line-height:1.7}.danger-symbol{display:grid;width:46px;height:46px;place-items:center;justify-self:center;border-radius:50%;background:#fff0ee;color:#b84f49;font-size:24px;font-weight:800}.danger-primary{border:0;border-radius:8px;padding:9px 13px;background:#b95750;color:#fff;font-weight:700;cursor:pointer}.danger-primary:disabled{opacity:.55}
 .message-sources{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:3px;padding-top:8px;border-top:1px solid #d5e9dc}.message-sources span{color:#71877b;font-size:10px;font-weight:700;letter-spacing:.08em}.message-sources a{max-width:210px;overflow:hidden;border:1px solid #cfe2d6;border-radius:999px;padding:3px 8px;background:#fff;color:#327358;font-size:11px;text-decoration:none;text-overflow:ellipsis;white-space:nowrap}.message-sources a:hover{border-color:#75aa91;background:#f7fcf8}
 .active-trip-card.state-upcoming{border-color:#c6dce7;background:linear-gradient(120deg,#476f82 0%,#5e8898 58%,#87aeba 100%)}.active-trip-card.state-completed{border-color:#d7ded9;background:linear-gradient(120deg,#68776f 0%,#7f8e86 58%,#a7b2ac 100%);box-shadow:0 12px 30px rgba(55,72,63,.14)}.active-trip-card.state-cancelled{border-color:#e5c9c6;background:linear-gradient(120deg,#875b58 0%,#a06f6a 58%,#bb918c 100%);box-shadow:0 12px 30px rgba(104,60,57,.14)}.itinerary-status.upcoming{background:#eef3f0;color:#687a70}.itinerary-status.ongoing{background:#dcf2e4;color:#277052}.itinerary-status.completed{background:#e7ece9;color:#647169}.itinerary-status.cancelled{background:#fff0ee;color:#ad5751}.itinerary-row.state-completed{background:#fafbfa}.itinerary-row.state-cancelled{opacity:.68}.itinerary-row.state-cancelled b{text-decoration:line-through}
+.trip-overview{display:grid;grid-template-columns:minmax(210px,.8fr) 2fr;align-items:center;gap:24px;margin-bottom:18px;padding:18px 20px}.trip-overview-title{position:relative;min-width:0;padding-right:72px}.trip-overview-title h2{overflow:hidden;margin:0;color:#315342;font-size:18px;text-overflow:ellipsis;white-space:nowrap}.trip-overview-title>span{position:absolute;top:0;right:0;border-radius:999px;padding:4px 8px;background:#e5f3e9;color:#39755a;font-size:10px;font-weight:700}.trip-overview-title>span.state-upcoming{background:#eef4f7;color:#527586}.trip-overview-title>span.state-completed{background:#edf0ee;color:#69766f}.trip-overview-title>span.state-cancelled{background:#fff0ee;color:#a85a55}.trip-overview dl{display:grid;grid-template-columns:1fr 1.15fr .8fr 1.4fr;gap:10px;margin:0}.trip-overview dl>div{min-width:0;border-left:1px solid #e6ede8;padding-left:12px}.trip-overview dt{margin-bottom:5px;color:#8a9890;font-size:10px}.trip-overview dd{overflow:hidden;margin:0;color:#476052;font-size:12px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}.message.typing{display:flex;align-items:center;gap:8px}.message.typing i{width:8px;height:8px;border-radius:50%;background:#4b9875;box-shadow:12px 0 #79b397,24px 0 #a9cdb9;animation:typing-pulse 1.1s infinite ease-in-out}.message.typing span{margin-left:24px}@keyframes typing-pulse{0%,100%{opacity:.35;transform:translateY(0)}50%{opacity:1;transform:translateY(-2px)}}
 .audit-failure-summary{border-top:1px solid #edf2ee;padding-top:9px}.audit-failure-summary summary{color:#a05e59;font-size:11px;cursor:pointer}.audit-failure-summary .audit-failure-only{margin-top:8px}
-@media(max-width:920px){.main-grid,.tool-grid{grid-template-columns:1fr}.chat{min-height:480px}.side-stack{grid-template-columns:1fr}.location-grid{grid-template-columns:1fr 1fr}.active-trip-card{grid-template-columns:135px minmax(0,1fr) auto;gap:16px}}
-@media(max-width:680px){.companion-page{padding:26px 16px 55px}.hero{display:block;padding:25px 22px}.hero-status{display:none}.active-trip-card{grid-template-columns:1fr;gap:13px;padding:19px}.active-trip-side{grid-template-columns:auto 1fr;align-items:center;justify-items:start}.active-trip-side span{justify-self:end}.active-trip-empty{align-items:flex-start;flex-direction:column;gap:15px;padding:19px}.workspace-bar,.workspace-bar label{align-items:stretch;flex-direction:column}.workspace-bar select{width:100%;min-width:0}.workspace-actions{display:grid;grid-template-columns:1fr 1fr}.notification-inbox-trigger{justify-content:center}.danger-button{grid-column:1/-1}.inbox-toolbar{align-items:flex-start;flex-direction:column}.inbox-actions{width:100%;justify-content:space-between}.mail-row{grid-template-columns:10px minmax(0,1fr);padding:15px}.mail-read-action,.read-state{grid-column:2;justify-self:start}.mail-meta{align-items:flex-start;flex-direction:column;gap:4px}.conflict-picker-head{align-items:stretch;flex-direction:column}.conflict-choice{grid-template-columns:auto minmax(0,1fr)}.conflict-choice em{grid-column:2;justify-self:start}.memo-form,.schedule-form,.location-grid,.request-fields,.itinerary-form-grid{grid-template-columns:1fr}.itinerary-form-grid .wide-field{grid-column:auto}.message{max-width:92%}.card header{padding:15px}.notification-item{align-items:flex-start}.schedule-actions{align-items:center}.adjustment-overlay{align-items:end;padding:0}.adjustment-dialog{width:100%;max-height:92vh;border-radius:20px 20px 0 0}.dialog-body{padding:18px}.dialog-actions button{min-width:0}.candidate-actions{display:grid;grid-template-columns:1fr 1fr}.candidate-actions .primary{grid-column:1/-1}.row-actions{align-items:stretch;flex-direction:column}}
+@media(max-width:920px){.main-grid,.tool-grid{grid-template-columns:1fr}.chat{min-height:480px}.side-stack{grid-template-columns:1fr}.location-grid{grid-template-columns:1fr 1fr}.active-trip-card{grid-template-columns:135px minmax(0,1fr) auto;gap:16px}.trip-overview{grid-template-columns:1fr}.trip-overview dl{grid-template-columns:1fr 1fr}}
+@media(max-width:680px){.companion-page{padding:26px 16px 55px}.hero{display:block;padding:25px 22px}.hero-status{display:none}.active-trip-card{grid-template-columns:1fr;gap:13px;padding:19px}.active-trip-side{grid-template-columns:auto 1fr;align-items:center;justify-items:start}.active-trip-side span{justify-self:end}.active-trip-empty{align-items:flex-start;flex-direction:column;gap:15px;padding:19px}.workspace-bar,.workspace-bar label{align-items:stretch;flex-direction:column}.workspace-bar select{width:100%;min-width:0}.workspace-actions{display:grid;grid-template-columns:1fr 1fr}.notification-inbox-trigger{justify-content:center}.danger-button{grid-column:1/-1}.trip-overview{padding:16px}.trip-overview dl{grid-template-columns:1fr}.trip-overview dl>div{border-left:0;border-top:1px solid #edf2ee;padding:9px 0 0}.inbox-toolbar{align-items:flex-start;flex-direction:column}.inbox-actions{width:100%;justify-content:space-between}.mail-row{grid-template-columns:10px minmax(0,1fr);padding:15px}.mail-read-action,.read-state{grid-column:2;justify-self:start}.mail-meta{align-items:flex-start;flex-direction:column;gap:4px}.conflict-picker-head{align-items:stretch;flex-direction:column}.conflict-choice{grid-template-columns:auto minmax(0,1fr)}.conflict-choice em{grid-column:2;justify-self:start}.memo-form,.schedule-form,.location-grid,.request-fields,.itinerary-form-grid{grid-template-columns:1fr}.itinerary-form-grid .wide-field{grid-column:auto}.message{max-width:92%}.card header{padding:15px}.notification-item{align-items:flex-start}.schedule-actions{align-items:center}.adjustment-overlay{align-items:end;padding:0}.adjustment-dialog{width:100%;max-height:92vh;border-radius:20px 20px 0 0}.dialog-body{padding:18px}.dialog-actions button{min-width:0}.candidate-actions{display:grid;grid-template-columns:1fr 1fr}.candidate-actions .primary{grid-column:1/-1}.row-actions{align-items:stretch;flex-direction:column}}
 </style>

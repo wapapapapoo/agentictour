@@ -16,7 +16,10 @@ def create_trip(
     current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Trip:
-    return trip_service.create_trip(db, data)
+    try:
+        return trip_service.create_trip(db, data)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.get("", response_model=list[TripResponse])

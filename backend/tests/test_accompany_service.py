@@ -44,7 +44,7 @@ def db() -> Session:
             title="测试旅行",
             origin_city="杭州",
             destination_city="上海",
-            start_date=date(2026, 7, 20),
+            start_date=date(2026, 7, 15),
             end_date=date(2026, 7, 22),
             timezone="Asia/Shanghai",
             status="planned",
@@ -217,6 +217,46 @@ def test_chat_uses_session_id_and_database_history(monkeypatch, db: Session) -> 
     assert session.session_id == first["session_id"]
     assert not hasattr(session, "conversation_id")
     assert [row.message_order for row in db.query(ChatMessage).all()] == [1, 2, 3, 4]
+
+
+def test_chat_appends_after_highest_message_order_when_history_has_gap(
+    monkeypatch, db: Session
+) -> None:
+    session = ChatSession(trip_id=1, user_id=1, title="gap history")
+    db.add(session)
+    db.flush()
+    db.add_all(
+        [
+            ChatMessage(
+                session_id=session.session_id,
+                sender_type="user",
+                content="first",
+                message_order=1,
+            ),
+            ChatMessage(
+                session_id=session.session_id,
+                sender_type="user",
+                content="failed audited turn",
+                message_order=3,
+            ),
+        ]
+    )
+    db.commit()
+    monkeypatch.setattr(
+        accompany_service,
+        "run_hikari_once_audited",
+        lambda **_kwargs: _audited_output(content="recovered"),
+    )
+
+    result = accompany_service.chat(
+        db, ChatRequest(trip_id=1, user_id=1, message="retry")
+    )
+
+    assert result["reply"] == "recovered"
+    assert [
+        row.message_order
+        for row in db.query(ChatMessage).order_by(ChatMessage.message_order).all()
+    ] == [1, 3, 4, 5]
 
 
 def _stored_history(db: Session, *contents: tuple[str, str]) -> ChatSession:
@@ -710,6 +750,27 @@ def test_memo_reminder_is_stored_as_utc(db: Session) -> None:
         db, MemoCreate(trip_id=1, memo_text="带证件", reminder_time=local_time)
     )
     assert memo.reminder_time == datetime(2026, 7, 20, 0, tzinfo=None)
+
+
+@pytest.mark.parametrize(
+    "reminder_time",
+    [
+        datetime(2026, 7, 14, 23, 59, tzinfo=timezone(timedelta(hours=8))),
+        datetime(2026, 7, 23, 0, 0, tzinfo=timezone(timedelta(hours=8))),
+    ],
+)
+def test_memo_reminder_must_be_inside_trip_dates(
+    db: Session, reminder_time: datetime
+) -> None:
+    with pytest.raises(ValueError, match="trip date range"):
+        accompany_service.create_memo(
+            db,
+            MemoCreate(
+                trip_id=1,
+                memo_text="越界提醒",
+                reminder_time=reminder_time,
+            ),
+        )
 
 
 def test_earlier_insert_reassigns_initial_item(db: Session) -> None:
