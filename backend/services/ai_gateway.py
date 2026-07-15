@@ -29,6 +29,17 @@ def _output(response: dict[str, Any], *keys: str) -> Any:
     return None
 
 
+def _structured_itinerary(response: dict[str, Any]) -> Any:
+    items = _output(response, "itinerary_items", "proposed_itinerary", "plan_json")
+    cancelled_ids = _output(response, "cancelled_itinerary_ids")
+    if cancelled_ids is None:
+        return items
+    return {
+        "cancelled_itinerary_ids": cancelled_ids,
+        "itinerary_items": items or [],
+    }
+
+
 def _main_client() -> DifyClient:
     url = os.getenv("HIKARI_DIFY_URL") or os.getenv("DIFY_URL")
     if not url:
@@ -60,9 +71,7 @@ def run_hikari_audited(
     if raw is None:
         raise DifyResponseError("Hikari workflow did not return reply/answer/result")
     main_content = raw if isinstance(raw, str) else json.dumps(raw, ensure_ascii=False)
-    structured = _output(
-        main_response, "itinerary_items", "proposed_itinerary", "plan_json"
-    )
+    structured = _structured_itinerary(main_response)
     review_content = main_content
     if structured is not None:
         review_content += "\n结构化行程：" + (
@@ -106,9 +115,7 @@ def run_hikari_audited(
         if isinstance(corrected_raw, str)
         else json.dumps(corrected_raw, ensure_ascii=False)
     )
-    corrected_structured = _output(
-        corrected_response, "itinerary_items", "proposed_itinerary", "plan_json"
-    )
+    corrected_structured = _structured_itinerary(corrected_response)
     corrected_review_content = corrected_content
     if corrected_structured is not None:
         corrected_review_content += "\n结构化行程：" + (

@@ -8,6 +8,8 @@ from crud.accompany import create
 from models.accompany import (
     AgentJobState,
     AIAdvice,
+    ChatMessage,
+    ChatSession,
     ItineraryItem,
     Memo,
     Notification,
@@ -20,9 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 def _location_inputs(db: Session, user_id: int) -> dict[str, str | float]:
-    location = (
-        db.query(UserLocation).filter(UserLocation.user_id == user_id).first()
-    )
+    location = db.query(UserLocation).filter(UserLocation.user_id == user_id).first()
     if location is None:
         return {
             "city_adcode": "",
@@ -36,6 +36,7 @@ def _location_inputs(db: Session, user_id: int) -> dict[str, str | float]:
         "longitude": location.longitude,
         "location_name": location.place_name or "",
     }
+
 
 PROMPTS = {
     "initial_start": (
@@ -107,12 +108,23 @@ def _agent_check(
             **_location_inputs(db, trip.user_id),
         },
     )
-    category = (
-        "proactive_recommendation"
+    decision = (
+        "chat_recommendation"
         if trigger_type == "system_auto_advice"
-        else "itinerary_check"
+        else _auto_check_decision(audited)
     )
-    should_notify = trigger_type != "system_auto_check" or _should_notify(audited)
+    category = {
+        "chat_recommendation": "proactive_recommendation",
+        "itinerary_replan": "itinerary_replan",
+    }.get(decision, "itinerary_check")
+    if not audited.passed:
+        decision = "false"
+        category = "itinerary_check"
+    result = {
+        "false": "not_required",
+        "chat_recommendation": "delivered",
+        "itinerary_replan": "pending",
+    }[decision]
     advice = create(
         db,
         AIAdvice,
@@ -120,15 +132,17 @@ def _agent_check(
             "trip_id": trip.id,
             "advice_type": category,
             "input_text": detail,
-            "reason_text": detail,
+            "reason_text": audited.content
+            if decision == "itinerary_replan"
+            else detail,
             "advice_text": audited.content,
-            "result": "pending" if should_notify else "not_required",
+            "result": result,
             "audit_status": "pass" if audited.passed else "failed",
             "audit_reason": audited.reason,
         },
     )
     db.flush()
-    if should_notify:
+    if decision == "itinerary_replan":
         create(
             db,
             Notification,
@@ -140,35 +154,67 @@ def _agent_check(
                 "content": audited.content,
             },
         )
+    elif decision == "chat_recommendation":
+        _append_chat_recommendation(db, trip, audited.content, advice)
     return advice
 
 
-def _explicit_bool(value: object) -> bool | None:
+def _append_chat_recommendation(
+    db: Session, trip: Trip, content: str, advice: AIAdvice
+) -> ChatMessage:
+    session = db.query(ChatSession).filter(ChatSession.trip_id == trip.id).first()
+    if session is None:
+        session = create(
+            db,
+            ChatSession,
+            {
+                "trip_id": trip.id,
+                "user_id": trip.user_id,
+                "title": "Hikari 主动推荐",
+            },
+        )
+    message_order = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.session_id == session.session_id)
+        .count()
+        + 1
+    )
+    message = create(
+        db,
+        ChatMessage,
+        {
+            "session_id": session.session_id,
+            "sender_type": "ai",
+            "content": content,
+            "message_order": message_order,
+            "audit_status": advice.audit_status,
+            "audit_reason": advice.audit_reason,
+        },
+    )
+    session.last_message_at = datetime.now(UTC).replace(tzinfo=None)
+    return message
+
+
+AUTO_CHECK_DECISIONS = {"false", "chat_recommendation", "itinerary_replan"}
+
+
+def _decision_from(value: object) -> str | None:
     if isinstance(value, bool):
-        return value
+        return "false" if value is False else None
     if isinstance(value, str):
         normalized = value.strip().lower()
-        if normalized == "true":
-            return True
-        if normalized == "false":
-            return False
-    return None
-
-
-def _decision_from(value: object) -> bool | None:
-    direct = _explicit_bool(value)
-    if direct is not None:
-        return direct
+        if normalized in AUTO_CHECK_DECISIONS:
+            return normalized
     if isinstance(value, dict):
-        for key in ("need_notify", "should_notify", "notify", "result"):
+        for key in ("decision", "recommendation_type", "result", "need_notify"):
             if key in value:
-                decision = _explicit_bool(value[key])
-                if decision is not None:
-                    return decision
+                normalized = _decision_from(value[key])
+                if normalized is not None:
+                    return normalized
     return None
 
 
-def _should_notify(audited: object) -> bool:
+def _auto_check_decision(audited: object) -> str:
     main_response = getattr(audited, "main_response", {})
     outputs = (
         main_response.get("data", {}).get("outputs", {})
@@ -185,7 +231,8 @@ def _should_notify(audited: object) -> bool:
     except (json.JSONDecodeError, TypeError):
         parsed_content = content
     decision = _decision_from(parsed_content)
-    return True if decision is None else decision
+    # Unknown or malformed output must not create an unsolicited notification.
+    return "false" if decision is None else decision
 
 
 def scan_due_reminders(db: Session, now: datetime | None = None) -> int:
@@ -281,10 +328,7 @@ def scan_due_reminders(db: Session, now: datetime | None = None) -> int:
 def run_periodic_agent_jobs(db: Session, now: datetime | None = None) -> int:
     now = now or datetime.now(UTC).replace(tzinfo=None)
     executed = 0
-    jobs = (
-        ("hourly_itinerary_check", timedelta(hours=1), "system_auto_check"),
-        ("three_hour_proactive", timedelta(hours=3), "system_auto_advice"),
-    )
+    jobs = (("hourly_itinerary_check", timedelta(hours=1), "system_auto_check"),)
     for job_name, interval, trigger in jobs:
         state = (
             db.query(AgentJobState).filter(AgentJobState.job_name == job_name).first()
@@ -308,9 +352,8 @@ def run_periodic_agent_jobs(db: Session, now: datetime | None = None) -> int:
         )
         for trip in trips:
             detail = (
-                "每小时行程外部信息巡检，请判断未来行程是否需要变化。"
-                if trigger == "system_auto_check"
-                else "每3小时主动陪伴推荐，请结合当前时间推荐休息、吃饭或落脚地点。"
+                "每小时统一主动巡检：请在无需提示、聊天主动推荐、日程重推荐"
+                "三种结果中选择一种。"
             )
             try:
                 with db.begin_nested():

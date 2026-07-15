@@ -31,9 +31,7 @@ from services.ai_gateway import run_hikari_once_audited
 
 CHAT_HISTORY_MAX_MESSAGES_DEFAULT = 20
 CHAT_HISTORY_MAX_CHARS_DEFAULT = 12000
-THINK_BLOCK_RE = re.compile(
-    r"<think\b[^>]*>.*?</think\s*>", re.IGNORECASE | re.DOTALL
-)
+THINK_BLOCK_RE = re.compile(r"<think\b[^>]*>.*?</think\s*>", re.IGNORECASE | re.DOTALL)
 
 
 def upsert_location(db: Session, data: LocationUpdate) -> UserLocation:
@@ -107,6 +105,7 @@ def _previous_itinerary(db: Session, data: ItineraryCreate) -> ItineraryItem | N
         .filter(
             ItineraryItem.trip_id == data.trip_id,
             ItineraryItem.end_time <= data.start_time,
+            ItineraryItem.status != "cancelled",
         )
         .order_by(ItineraryItem.end_time.desc())
         .first()
@@ -145,6 +144,7 @@ def _recalculate_day(db: Session, trip_id: int, day: datetime) -> None:
             ItineraryItem.trip_id == trip_id,
             ItineraryItem.start_time >= day_start,
             ItineraryItem.start_time < day_end,
+            ItineraryItem.status != "cancelled",
         )
         .order_by(ItineraryItem.start_time, ItineraryItem.itinerary_id)
         .all()
@@ -181,6 +181,7 @@ def create_itinerary(
             ItineraryItem.trip_id == data.trip_id,
             ItineraryItem.start_time >= day_start,
             ItineraryItem.start_time < day_end,
+            ItineraryItem.status != "cancelled",
         )
         .first()
         is not None
@@ -285,39 +286,98 @@ def _get_username(db: Session, user_id: int) -> str:
     return user.username if user else str(user_id)
 
 
-def generate_advice(db: Session, data: AdviceGenerateRequest) -> AIAdvice:
-    _save_request_location(db, data)
-    original = data.reason + (
-        f"；补充要求：{data.additional_requirement}"
-        if data.additional_requirement
-        else ""
-    )
+def _stored_location_inputs(db: Session, user_id: int) -> dict[str, str | float]:
+    location = db.query(UserLocation).filter(UserLocation.user_id == user_id).first()
+    if location is None:
+        return {
+            "city_adcode": "",
+            "latitude": "",
+            "longitude": "",
+            "location_name": "",
+        }
+    return {
+        "city_adcode": location.city or "",
+        "latitude": location.latitude,
+        "longitude": location.longitude,
+        "location_name": location.place_name or "",
+    }
+
+
+def _workflow_outputs(audited: Any) -> dict[str, Any]:
+    response = getattr(audited, "main_response", {})
+    if not isinstance(response, dict):
+        return {}
+    outputs = response.get("data", {}).get("outputs", {})
+    return outputs if isinstance(outputs, dict) else {}
+
+
+def _replan_payload(audited: Any) -> dict[str, Any] | None:
+    outputs = _workflow_outputs(audited)
+    structured = audited.structured_output
+    raw_items = outputs.get("itinerary_items", structured)
+    raw_cancelled = outputs.get("cancelled_itinerary_ids", [])
+    if isinstance(structured, dict):
+        raw_items = outputs.get("itinerary_items", structured.get("itinerary_items"))
+        raw_cancelled = outputs.get(
+            "cancelled_itinerary_ids",
+            structured.get("cancelled_itinerary_ids", []),
+        )
+    if isinstance(raw_items, str):
+        raw_items = _json_or_none(raw_items)
+    if isinstance(raw_cancelled, str):
+        raw_cancelled = _json_or_none(raw_cancelled)
+
+    parsed_content = _json_or_none(audited.content)
+    if isinstance(parsed_content, dict):
+        if raw_items is None:
+            raw_items = parsed_content.get("itinerary_items")
+        if not raw_cancelled:
+            raw_cancelled = parsed_content.get("cancelled_itinerary_ids", [])
+    elif raw_items is None and isinstance(parsed_content, list):
+        raw_items = parsed_content
+
+    items = raw_items if isinstance(raw_items, list) else []
+    cancelled = raw_cancelled if isinstance(raw_cancelled, list) else []
+    if not items and not cancelled:
+        return None
+    return {
+        "cancelled_itinerary_ids": cancelled,
+        "itinerary_items": items,
+    }
+
+
+def _generate_replan(
+    db: Session,
+    *,
+    trip_id: int,
+    user_id: int,
+    original: str,
+    reason: str,
+    trigger_type: str,
+    location_inputs: dict[str, Any],
+    parent_advice_id: int | None = None,
+    commit: bool = True,
+) -> AIAdvice:
     audited = run_hikari_once_audited(
-        user=_get_username(db, data.user_id),
+        user=_get_username(db, user_id),
         original_input=original,
         inputs={
             "user_query": original,
-            "trigger_type": "user_accident",
-            "tour_id": data.trip_id,
-            "city_adcode": data.city_adcode,
-            "latitude": data.latitude if data.latitude is not None else "",
-            "longitude": data.longitude if data.longitude is not None else "",
-            "location_name": data.location_name,
+            "trigger_type": trigger_type,
+            "tour_id": trip_id,
+            **location_inputs,
         },
     )
-    proposed = audited.structured_output
-    if isinstance(proposed, str):
-        proposed = _json_or_none(proposed)
-    if proposed is None:
-        proposed = _json_or_none(audited.content)
+    proposed = _replan_payload(audited)
     row = crud.create(
         db,
         AIAdvice,
         {
-            "trip_id": data.trip_id,
+            "trip_id": trip_id,
             "advice_type": "replan",
+            "parent_advice_id": parent_advice_id,
             "input_text": original,
-            "reason_text": data.reason,
+            "reason_text": reason,
             "advice_text": audited.content,
             "proposed_itinerary_json": json.dumps(proposed, ensure_ascii=False)
             if proposed
@@ -326,9 +386,96 @@ def generate_advice(db: Session, data: AdviceGenerateRequest) -> AIAdvice:
             "audit_reason": audited.reason,
         },
     )
-    db.commit()
-    db.refresh(row)
+    if commit:
+        db.commit()
+        db.refresh(row)
     return row
+
+
+def generate_advice(db: Session, data: AdviceGenerateRequest) -> AIAdvice:
+    _save_request_location(db, data)
+    original = data.reason + (
+        f"；补充要求：{data.additional_requirement}"
+        if data.additional_requirement
+        else ""
+    )
+    return _generate_replan(
+        db,
+        trip_id=data.trip_id,
+        user_id=data.user_id,
+        original=original,
+        reason=data.reason,
+        trigger_type="user_accident",
+        location_inputs={
+            "city_adcode": data.city_adcode,
+            "latitude": data.latitude if data.latitude is not None else "",
+            "longitude": data.longitude if data.longitude is not None else "",
+            "location_name": data.location_name,
+        },
+    )
+
+
+def _apply_replan(db: Session, row: AIAdvice) -> None:
+    if row.audit_status == "failed":
+        raise ValueError("failed-audit itinerary changes cannot be applied")
+    proposed = _json_or_none(row.proposed_itinerary_json or "")
+    if isinstance(proposed, list):
+        cancelled_ids: list[Any] = []
+        new_items = proposed
+    elif isinstance(proposed, dict):
+        cancelled_ids = proposed.get("cancelled_itinerary_ids", [])
+        new_items = (
+            proposed.get("itinerary_items")
+            or proposed.get("items")
+            or proposed.get("itinerary")
+            or []
+        )
+    else:
+        raise ValueError("advice has no structured itinerary changes to accept")
+    if not isinstance(cancelled_ids, list) or not isinstance(new_items, list):
+        raise ValueError("structured itinerary changes have invalid list fields")
+    if not cancelled_ids and not new_items:
+        raise ValueError("advice has no structured itinerary changes to accept")
+
+    normalized_ids: list[int] = []
+    for itinerary_id in cancelled_ids:
+        if isinstance(itinerary_id, bool):
+            raise ValueError("cancelled itinerary ids must be integers")
+        try:
+            normalized_ids.append(int(itinerary_id))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("cancelled itinerary ids must be integers") from exc
+    if len(set(normalized_ids)) != len(normalized_ids):
+        raise ValueError("cancelled itinerary ids must not contain duplicates")
+
+    cancelled_days: list[datetime] = []
+    if normalized_ids:
+        rows = (
+            db.query(ItineraryItem)
+            .filter(
+                ItineraryItem.trip_id == row.trip_id,
+                ItineraryItem.itinerary_id.in_(normalized_ids),
+            )
+            .all()
+        )
+        if len(rows) != len(normalized_ids):
+            raise ValueError("some cancelled itineraries do not belong to this trip")
+        for itinerary in rows:
+            if itinerary.status != "pending":
+                raise ValueError("only pending itineraries can be cancelled by replan")
+            itinerary.status = "cancelled"
+            cancelled_days.append(itinerary.start_time)
+        db.flush()
+
+    for item in new_items:
+        if not isinstance(item, dict):
+            raise ValueError("each proposed itinerary item must be an object")
+        payload = dict(item)
+        payload["trip_id"] = row.trip_id
+        create_itinerary(db, ItineraryCreate.model_validate(payload), commit=False)
+
+    for day in cancelled_days:
+        _recalculate_day(db, row.trip_id, day)
 
 
 def act_on_advice(
@@ -340,24 +487,35 @@ def act_on_advice(
     if row.generation_stopped and action == "revise":
         raise ValueError("advice generation has been stopped")
     if action == "accept":
-        proposed = _json_or_none(row.proposed_itinerary_json or "")
-        if isinstance(proposed, dict):
-            proposed = (
-                proposed.get("items")
-                or proposed.get("itinerary_items")
-                or proposed.get("itinerary")
-            )
-        if not isinstance(proposed, list) or not proposed:
-            raise ValueError("advice has no structured itinerary items to accept")
         try:
-            for item in proposed:
-                if not isinstance(item, dict):
-                    raise ValueError("each proposed itinerary item must be an object")
-                payload = dict(item)
-                payload["trip_id"] = row.trip_id
-                create_itinerary(
-                    db, ItineraryCreate.model_validate(payload), commit=False
+            if row.advice_type == "itinerary_replan":
+                incident = row.reason_text or row.advice_text
+                agent_input = (
+                    "系统自动检查发现了以下突发状况，用户已经明确同意生成行程"
+                    "调整方案。请像处理用户主动提出的行程修改请求一样，结合当前"
+                    "行程、时间、位置和实时信息，生成最小且可执行的候选调整。"
+                    "这里只生成候选方案，必须等待用户再次采纳后才能修改数据库；"
+                    "不要把这段内部指令原样回复给用户。\n"
+                    f"突发状况：{incident}"
                 )
+                if additional:
+                    agent_input += f"\n用户补充要求：{additional}"
+                generated = _generate_replan(
+                    db,
+                    trip_id=row.trip_id,
+                    user_id=user_id,
+                    original=agent_input,
+                    reason=incident,
+                    trigger_type="system_auto_accident",
+                    location_inputs=_stored_location_inputs(db, user_id),
+                    parent_advice_id=row.advice_id,
+                    commit=False,
+                )
+                row.result = "accepted"
+                db.commit()
+                db.refresh(generated)
+                return generated
+            _apply_replan(db, row)
         except Exception:
             db.rollback()
             raise

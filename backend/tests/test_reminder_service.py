@@ -60,13 +60,13 @@ def _audited_output() -> AuditedOutput:
     )
 
 
-def _agent_decision_output(result: bool | str) -> AuditedOutput:
+def _agent_decision_output(decision: str) -> AuditedOutput:
     return AuditedOutput(
         content="check result",
         passed=True,
         reason=None,
         main_response={
-            "data": {"outputs": {"reply": "check result", "result": result}}
+            "data": {"outputs": {"reply": "check result", "decision": decision}}
         },
         audit_response={},
         audit_count=1,
@@ -186,17 +186,14 @@ def test_agent_jobs_use_latest_frontend_adcode(
     assert "location_context" not in inputs
 
 
-@pytest.mark.parametrize("result", [False, "false", "False"])
-def test_system_auto_check_false_does_not_notify(
-    db: Session, monkeypatch, result: bool | str
-) -> None:
+def test_system_auto_check_false_does_not_notify(db: Session, monkeypatch) -> None:
     trip = _trip()
     db.add(trip)
     db.commit()
     monkeypatch.setattr(
         reminder_service,
         "run_hikari_once_audited",
-        lambda **_kwargs: _agent_decision_output(result),
+        lambda **_kwargs: _agent_decision_output("false"),
     )
 
     advice = reminder_service._agent_check(
@@ -209,8 +206,15 @@ def test_system_auto_check_false_does_not_notify(
     assert db.query(Notification).count() == 0
 
 
-def test_system_auto_check_true_creates_notification(
-    db: Session, monkeypatch
+@pytest.mark.parametrize(
+    ("decision", "category"),
+    [
+        ("chat_recommendation", "proactive_recommendation"),
+        ("itinerary_replan", "itinerary_replan"),
+    ],
+)
+def test_system_auto_check_action_creates_typed_notification(
+    db: Session, monkeypatch, decision: str, category: str
 ) -> None:
     trip = _trip()
     db.add(trip)
@@ -218,7 +222,7 @@ def test_system_auto_check_true_creates_notification(
     monkeypatch.setattr(
         reminder_service,
         "run_hikari_once_audited",
-        lambda **_kwargs: _agent_decision_output(True),
+        lambda **_kwargs: _agent_decision_output(decision),
     )
 
     advice = reminder_service._agent_check(
@@ -227,4 +231,7 @@ def test_system_auto_check_true_creates_notification(
     db.commit()
 
     assert advice.result == "pending"
-    assert db.query(Notification).one().advice_id == advice.advice_id
+    assert advice.advice_type == category
+    notification = db.query(Notification).one()
+    assert notification.advice_id == advice.advice_id
+    assert notification.category == category
