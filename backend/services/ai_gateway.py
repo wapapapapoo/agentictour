@@ -36,7 +36,7 @@ def _main_client() -> DifyClient:
     return DifyClient(
         api_key=os.getenv("Hikari_key"),
         url=url,
-        timeout=float(os.getenv("DIFY_TIMEOUT", "60")),
+        timeout=float(os.getenv("DIFY_TIMEOUT", "600")),
     )
 
 
@@ -47,7 +47,7 @@ def _audit_client() -> DifyClient:
     return DifyClient(
         api_key=os.getenv("check_key"),
         url=url,
-        timeout=float(os.getenv("DIFY_TIMEOUT", "60")),
+        timeout=float(os.getenv("DIFY_TIMEOUT", "600")),
     )
 
 

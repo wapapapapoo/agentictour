@@ -252,7 +252,7 @@ def _generate_blog_content(
     client = DifyClient(
         api_key=os.getenv("DIFY_BLOG_API_KEY") or os.getenv("DIFY_API_KEY"),
         url=os.getenv("DIFY_BLOG_URL") or os.getenv("DIFY_URL"),
-        timeout=float(os.getenv("DIFY_TIMEOUT", "120")),
+        timeout=float(os.getenv("DIFY_TIMEOUT", "600")),
     )
     photos = sorted(material.photos, key=lambda photo: photo.id)[
         :MAX_PHOTOS_PER_MATERIAL

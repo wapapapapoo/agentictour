@@ -15,7 +15,7 @@ from typing import Any, Literal, Protocol
 import requests
 
 DEFAULT_DIFY_URL = "https://localhost:3000/v1/chat-messages"
-DEFAULT_TIMEOUT = 30.0
+DEFAULT_TIMEOUT = 600.0
 
 
 class DifyError(Exception):
