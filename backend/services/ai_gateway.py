@@ -15,6 +15,8 @@ AUDIT_REQUEST_KEYS = (
     "longitude",
     "location_name",
     "conversation_history",
+    "selected_itinerary_ids",
+    "locked_itinerary_ids",
 )
 AUDIT_EVIDENCE_OUTPUTS = {
     "itinerary": "itinerary_context",
@@ -25,6 +27,7 @@ AUDIT_EVIDENCE_OUTPUTS = {
     "route": "route_context",
     "tool_errors": "tool_errors",
     "decision": "decision",
+    "conflicting_itinerary_ids": "conflicting_itinerary_ids",
 }
 
 

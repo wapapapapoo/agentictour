@@ -72,6 +72,7 @@ class AdviceGenerateRequest(BaseModel):
     reason: str = Field(min_length=1)
     city_adcode: str = ""
     additional_requirement: str = ""
+    selected_itinerary_ids: list[int] = Field(default_factory=list)
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
     location_name: str = ""
@@ -81,6 +82,7 @@ class AdviceActionRequest(BaseModel):
     action: Literal["accept", "reject", "revise"]
     user_id: int = Field(gt=0)
     additional_requirement: str = ""
+    selected_itinerary_ids: list[int] = Field(default_factory=list)
 
 
 class AdviceResponse(BaseModel):

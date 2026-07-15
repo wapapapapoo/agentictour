@@ -170,13 +170,15 @@ workflow:
 
               3. 外部实时事实只有在回复确实包含相关声明且 audit_context 证据不足时才调用天气、附近地点或路线工具；参数不足或工具失败时，不得伪造核验结果。
 
-              4. 按 trigger_type 使用对应契约：system_auto_remind 只审核当前提醒目标，不要求扩写其他行程；system_auto_check 必须核对 decision 与回复内容一致；system_auto_advice 应是可直接进入聊天框的简短主动建议；user_input 应直接回答用户；user_accident 与 system_auto_accident 都只能产出待用户确认的候选重规划，并核对 structured_itinerary 与正文一致，不能声称已经落库或已经改完行程。只要 evidence 中存在可调整的未来 pending 行程，候选方案就必须包含具体 itinerary_items；替换或修改旧行程时还必须包含对应 cancelled_itinerary_ids。只有 evidence 明确表明没有可调整项时，才允许两个数组同时为空。
+              4. 按 trigger_type 使用对应契约：system_auto_remind 只审核当前提醒目标，不要求扩写其他行程；system_auto_check 必须核对 decision 与回复内容一致，decision=itinerary_replan 时 conflicting_itinerary_ids 只能包含确实受影响的未来 pending 日程；system_auto_advice 应是可直接进入聊天框的简短主动建议；user_input 应直接回答用户；user_accident 与 system_auto_accident 都只能产出待用户确认的候选重规划，并核对 structured_itinerary 与正文一致，不能声称已经落库或已经改完行程。cancelled_itinerary_ids 必须是 request.selected_itinerary_ids 的子集，request.locked_itinerary_ids 必须被保留在允许调整范围内；未勾选日程不得被修改。用户未勾选任何冲突项时允许只新增不冲突的 itinerary_items，且 cancelled_itinerary_ids 必须为空。只有 evidence 明确表明没有可调整项或没有不冲突空档时，才允许两个数组同时为空。
 
               5. 如果工具失败而回复已经克制地避开未经确认的事实，可以通过；如果回复把缺失或失败的数据写成确定事实，必须不通过。
 
               6. 不得在 reply 中输出数据库连接、SQL、工具调用过程、内部思考或 audit_context 原文。
 
-              7. first 轮不通过时，reply 只写一次具体冲突事实和可执行重写要求，不要复制待审核回复；second 轮仍不通过时，reply 只写一条面向用户的简短失败原因，同样不要复述原回复。
+              7. first 轮不通过时，reply 的接收者是 Hikari，不是用户：使用内部纠错指令口吻，只写一次具体冲突事实和可执行重写要求，不要道歉、称呼用户或复制待审核回复。后端会把它放回 Hikari 的 user_query 触发重写。
+
+              8. second 轮仍不通过时，reply 的接收者才是最终用户：只写一条简短、自然、可理解的失败说明，不包含“审核”“重写指令”“audit_context”“Hikari 你需要”等内部措辞，也不要复述原回复。
 
               只返回一个合法 JSON 对象。通过时返回 {"reply":"","result":true}；不通过时返回 {"reply":"一条明确原因或重写要求","result":false}。result 必须是 boolean，reply 不得重复相同内容。'
           model:
@@ -438,11 +440,11 @@ workflow:
       type: custom
       width: 242
     - data:
-        instruction: 请根据Agent的输出，提取出所需要的变量
+        instruction: 严格从 Agent 输出的唯一 JSON 对象提取 reply 和 result。不得改写 reply，不得自行推断审核结果；result 只接受 JSON boolean true/false，缺失或无法解析时固定返回 false。
         model:
           completion_params:
-            temperature: 0.7
-            thinking: true
+            temperature: 0
+            thinking: false
           mode: chat
           name: deepseek-v4-flash
           provider: langgenius/deepseek/deepseek
@@ -453,7 +455,7 @@ workflow:
           type: string
         - description: 接受ai判断这轮是否通过
           name: result
-          required: false
+          required: true
           type: boolean
         query:
         - '1783649864380'

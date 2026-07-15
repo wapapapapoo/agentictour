@@ -84,6 +84,7 @@ def _audited_output(
 
 def test_accompany_request_models_use_city_adcode_without_manual_contexts() -> None:
     assert "city_adcode" in AdviceGenerateRequest.model_fields
+    assert "selected_itinerary_ids" in AdviceGenerateRequest.model_fields
     assert "city_adcode" in ChatRequest.model_fields
     assert "city_adcode" in LocationUpdate.model_fields
     for model in (AdviceGenerateRequest, ChatRequest, LocationUpdate):
@@ -135,8 +136,12 @@ def test_user_flows_send_only_agent_owned_context(monkeypatch, db: Session) -> N
         "latitude",
         "longitude",
         "location_name",
+        "selected_itinerary_ids",
+        "locked_itinerary_ids",
     }
-    chat_keys = advice_keys | {"conversation_history"}
+    chat_keys = (advice_keys - {"selected_itinerary_ids", "locked_itinerary_ids"}) | {
+        "conversation_history"
+    }
     assert [set(call["inputs"]) for call in calls] == [advice_keys, chat_keys]
     assert all(call["inputs"]["city_adcode"] == "310115" for call in calls)
     stored = db.query(UserLocation).filter(UserLocation.user_id == 1).one()
@@ -446,26 +451,132 @@ def test_transit_requires_reminder() -> None:
 
 def test_gateway_retries_and_audits_at_most_twice(monkeypatch) -> None:
     calls = {"main": 0, "audit": 0}
+    main_inputs = []
+    audit_inputs = []
 
     class Main:
-        def run_workflow(self, **_kwargs):
+        def run_workflow(self, **kwargs):
             calls["main"] += 1
-            return {"data": {"outputs": {"reply": "原回答"}}}
+            main_inputs.append(kwargs["inputs"])
+            return {"data": {"outputs": {"reply": f"Hikari回答{calls['main']}"}}}
 
     class Audit:
-        def run_workflow(self, **_kwargs):
+        def run_workflow(self, **kwargs):
             calls["audit"] += 1
-            return {"data": {"outputs": {"result": False, "reply": "修正回答"}}}
+            audit_inputs.append(kwargs["inputs"])
+            reply = (
+                "给Hikari的内部修正指令"
+                if calls["audit"] == 1
+                else "给用户的失败说明"
+            )
+            return {"data": {"outputs": {"result": False, "reply": reply}}}
 
     monkeypatch.setattr(ai_gateway, "_main_client", lambda: Main())
     monkeypatch.setattr(ai_gateway, "_audit_client", lambda: Audit())
     result = ai_gateway.run_hikari_once_audited(
         user="u1", inputs={"user_query": "问题"}, original_input="问题"
     )
-    assert result.content == "修正回答"
+    assert result.content == "给用户的失败说明"
+    assert result.reason == "给用户的失败说明"
     assert result.passed is False
     assert result.audit_count == 2
     assert calls == {"main": 2, "audit": 2}
+    assert [item["turn"] for item in audit_inputs] == ["first", "second"]
+    assert "给Hikari的内部修正指令" in main_inputs[1]["user_query"]
+    assert "给用户的失败说明" not in main_inputs[1]["user_query"]
+
+
+def test_generate_replan_only_cancels_user_selected_itineraries(
+    monkeypatch, db: Session
+) -> None:
+    selected = accompany_service.create_itinerary(
+        db,
+        _item(datetime(2026, 7, 20, 14), datetime(2026, 7, 20, 15), title="夜游"),
+    )
+    untouched = accompany_service.create_itinerary(
+        db,
+        _item(datetime(2026, 7, 20, 16), datetime(2026, 7, 20, 17), title="晚餐"),
+    )
+    captured = {}
+
+    def fake_hikari(**kwargs):
+        captured.update(kwargs)
+        outputs = {
+            "reply": "把夜游调整为游行活动。",
+            "cancelled_itinerary_ids": [selected.itinerary_id],
+            "itinerary_items": [{
+                "title": "游行活动",
+                "place_name": "活动区域",
+                "start_time": "2026-07-20T14:00:00+08:00",
+                "end_time": "2026-07-20T15:00:00+08:00",
+                "itinerary_type": "play",
+                "status": "pending",
+            }],
+        }
+        return _audited_output(
+            content=outputs["reply"],
+            main_response={"data": {"outputs": outputs}},
+        )
+
+    monkeypatch.setattr(accompany_service, "run_hikari_once_audited", fake_hikari)
+    row = accompany_service.generate_advice(
+        db,
+        AdviceGenerateRequest(
+            trip_id=1,
+            user_id=1,
+            reason="把夜游改成游行",
+            selected_itinerary_ids=[selected.itinerary_id],
+        ),
+    )
+
+    assert json.loads(captured["inputs"]["selected_itinerary_ids"]) == [
+        selected.itinerary_id
+    ]
+    assert json.loads(captured["inputs"]["locked_itinerary_ids"]) == []
+    proposed = json.loads(row.proposed_itinerary_json)
+    assert proposed["cancelled_itinerary_ids"] == [selected.itinerary_id]
+    assert proposed["selected_itinerary_ids"] == [selected.itinerary_id]
+    assert untouched.itinerary_id not in proposed["cancelled_itinerary_ids"]
+
+
+def test_generate_replan_rejects_cancellation_outside_selected_scope(
+    monkeypatch, db: Session
+) -> None:
+    protected = accompany_service.create_itinerary(
+        db,
+        _item(datetime(2026, 7, 20, 18), datetime(2026, 7, 20, 19), title="晚餐"),
+    )
+
+    def fake_hikari(**_kwargs):
+        outputs = {
+            "reply": "错误地取消了未勾选日程。",
+            "cancelled_itinerary_ids": [protected.itinerary_id],
+            "itinerary_items": [{
+                "title": "替代项目",
+                "place_name": "其他地点",
+                "start_time": "2026-07-20T18:00:00+08:00",
+                "end_time": "2026-07-20T19:00:00+08:00",
+                "itinerary_type": "play",
+                "status": "pending",
+            }],
+        }
+        return _audited_output(
+            content=outputs["reply"],
+            main_response={"data": {"outputs": outputs}},
+        )
+
+    monkeypatch.setattr(accompany_service, "run_hikari_once_audited", fake_hikari)
+    with pytest.raises(AuditRejectedError, match="未勾选"):
+        accompany_service.generate_advice(
+            db,
+            AdviceGenerateRequest(
+                trip_id=1,
+                user_id=1,
+                reason="在空档安排活动",
+                selected_itinerary_ids=[],
+            ),
+        )
+    assert db.query(AIAdvice).count() == 0
 
 
 def test_gateway_stops_after_first_successful_audit(monkeypatch) -> None:
@@ -679,6 +790,9 @@ def test_accept_auto_check_generates_pending_replan_then_accept_applies_changes(
         advice_type="itinerary_replan",
         reason_text="景点临时闭馆",
         advice_text="景点临时闭馆，是否同意重新推荐？",
+        proposed_itinerary_json=json.dumps(
+            {"conflicting_itinerary_ids": [old.itinerary_id]}
+        ),
     )
     db.add(check)
     db.commit()
@@ -713,6 +827,10 @@ def test_accept_auto_check_generates_pending_replan_then_accept_applies_changes(
     db.refresh(check)
     db.refresh(old)
     assert calls[0]["inputs"]["trigger_type"] == "system_auto_accident"
+    assert json.loads(calls[0]["inputs"]["selected_itinerary_ids"]) == [
+        old.itinerary_id
+    ]
+    assert json.loads(calls[0]["inputs"]["locked_itinerary_ids"]) == [old.itinerary_id]
     assert generated.parent_advice_id == check.advice_id
     assert generated.result == "pending"
     assert check.result == "accepted"

@@ -27,11 +27,20 @@ describe('adjustment modal flow', () => {
       stage: 'auto-confirm',
       systemNotice: '景点临时闭馆',
       sourceAdviceId: 17,
+      selectedItineraryIds: [],
+      lockedItineraryIds: [],
     })
 
     const request = acceptAutomaticAdjustment(confirmation)
     expect(request.stage).toBe('request')
     expect(request.systemNotice).toBe('景点临时闭馆')
     expect(request.sourceAdviceId).toBe(17)
+  })
+
+  it('preselects and locks conflicts detected by automatic checks', () => {
+    const state = openAutomaticAdjustment(17, '景点临时闭馆', [8, 9])
+
+    expect(state.selectedItineraryIds).toEqual([8, 9])
+    expect(state.lockedItineraryIds).toEqual([8, 9])
   })
 })

@@ -161,7 +161,12 @@ def act(
     try:
         return service.advice_response(
             service.act_on_advice(
-                db, advice_id, data.action, data.user_id, data.additional_requirement
+                db,
+                advice_id,
+                data.action,
+                data.user_id,
+                data.additional_requirement,
+                data.selected_itinerary_ids,
             )
         )
     except LookupError as exc:

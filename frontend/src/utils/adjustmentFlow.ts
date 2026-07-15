@@ -11,6 +11,8 @@ export type AdjustmentFlowState = {
   requirement: string
   supplement: string
   revision: string
+  selectedItineraryIds: number[]
+  lockedItineraryIds: number[]
 }
 
 export function closedAdjustment(): AdjustmentFlowState {
@@ -24,6 +26,8 @@ export function closedAdjustment(): AdjustmentFlowState {
     requirement: '',
     supplement: '',
     revision: '',
+    selectedItineraryIds: [],
+    lockedItineraryIds: [],
   }
 }
 
@@ -34,6 +38,7 @@ export function openManualAdjustment(): AdjustmentFlowState {
 export function openAutomaticAdjustment(
   sourceAdviceId: number,
   systemNotice: string,
+  lockedItineraryIds: number[] = [],
 ): AdjustmentFlowState {
   return {
     ...closedAdjustment(),
@@ -42,6 +47,8 @@ export function openAutomaticAdjustment(
     stage: 'auto-confirm',
     sourceAdviceId,
     systemNotice,
+    selectedItineraryIds: [...lockedItineraryIds],
+    lockedItineraryIds: [...lockedItineraryIds],
   }
 }
 

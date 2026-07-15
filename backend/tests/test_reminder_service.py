@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, date, datetime
 
 import pytest
@@ -6,7 +7,14 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from database import Base
-from models.accompany import AIAdvice, ChatMessage, Memo, Notification, UserLocation
+from models.accompany import (
+    AIAdvice,
+    ChatMessage,
+    ItineraryItem,
+    Memo,
+    Notification,
+    UserLocation,
+)
 from models.trip import Trip
 from models.user import User
 from services import reminder_service
@@ -60,13 +68,19 @@ def _audited_output() -> AuditedOutput:
     )
 
 
-def _agent_decision_output(decision: str) -> AuditedOutput:
+def _agent_decision_output(
+    decision: str, conflicting_itinerary_ids: list[int] | None = None
+) -> AuditedOutput:
     return AuditedOutput(
         content="check result",
         passed=True,
         reason=None,
         main_response={
-            "data": {"outputs": {"reply": "check result", "decision": decision}}
+            "data": {"outputs": {
+                "reply": "check result",
+                "decision": decision,
+                "conflicting_itinerary_ids": conflicting_itinerary_ids or [],
+            }}
         },
         audit_response={},
         audit_count=1,
@@ -281,3 +295,44 @@ def test_system_auto_check_routes_action_to_chat_or_notification(
         notification = db.query(Notification).one()
         assert notification.advice_id == advice.advice_id
         assert notification.category == category
+
+
+def test_auto_replan_persists_pending_conflict_ids(db: Session, monkeypatch) -> None:
+    trip = _trip()
+    db.add(trip)
+    db.commit()
+    itinerary = ItineraryItem(
+        trip_id=trip.id,
+        title="夜游",
+        place_name="河畔",
+        start_time=datetime(2026, 7, 20, 20),
+        end_time=datetime(2026, 7, 20, 22),
+        itinerary_type="play",
+        status="pending",
+    )
+    completed = ItineraryItem(
+        trip_id=trip.id,
+        title="已完成项目",
+        place_name="旧地点",
+        start_time=datetime(2026, 7, 20, 8),
+        end_time=datetime(2026, 7, 20, 9),
+        itinerary_type="play",
+        status="done",
+    )
+    db.add_all([itinerary, completed])
+    db.commit()
+    monkeypatch.setattr(
+        reminder_service,
+        "run_hikari_once_audited",
+        lambda **_kwargs: _agent_decision_output(
+            "itinerary_replan", [itinerary.itinerary_id, completed.itinerary_id]
+        ),
+    )
+
+    advice = reminder_service._agent_check(
+        db, trip, "system_auto_check", "check current conditions"
+    )
+    db.commit()
+
+    proposed = json.loads(advice.proposed_itinerary_json)
+    assert proposed["conflicting_itinerary_ids"] == [itinerary.itinerary_id]
