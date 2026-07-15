@@ -4,7 +4,7 @@ app:
   icon_background: '#FFEAD5'
   icon_type: emoji
   mode: workflow
-  name: 说人话
+  name: 随便问
   use_icon_as_answer_icon: false
 dependencies:
 - current_identifier: null
@@ -216,13 +216,13 @@ workflow:
       positionAbsolute:
         x: 683
         y: 282
-      selected: false
+      selected: true
       sourcePosition: right
       targetPosition: left
       type: custom
       width: 241
     viewport:
-      x: 124.75779512129691
-      y: 224.5433034057633
-      zoom: 0.9231767895586451
+      x: 0.7059970937591515
+      y: -27.890870338092782
+      zoom: 1.3059469200904645
   rag_pipeline_variables: []

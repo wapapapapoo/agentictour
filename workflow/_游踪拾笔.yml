@@ -99,6 +99,7 @@ workflow:
         sourceType: template-transform
         targetType: llm
       id: 1783739895443-source-1783740809027-target
+      selected: false
       source: '1783739895443'
       sourceHandle: source
       target: '1783740809027'
@@ -111,6 +112,7 @@ workflow:
         sourceType: knowledge-retrieval
         targetType: code
       id: 1783738852941-source-1783755472791-target
+      selected: false
       source: '1783738852941'
       sourceHandle: source
       target: '1783755472791'
@@ -119,20 +121,10 @@ workflow:
       zIndex: 0
     - data:
         isInLoop: false
-        sourceType: code
-        targetType: template-transform
-      id: 1783755472791-source-1783739895443-target
-      source: '1783755472791'
-      sourceHandle: source
-      target: '1783739895443'
-      targetHandle: target
-      type: custom
-      zIndex: 0
-    - data:
-        isInLoop: false
         sourceType: llm
         targetType: code
       id: 1783740809027-source-1783755768601-target
+      selected: false
       source: '1783740809027'
       sourceHandle: source
       target: '1783755768601'
@@ -145,6 +137,7 @@ workflow:
         sourceType: code
         targetType: if-else
       id: 1783755768601-source-1783757027459-target
+      selected: false
       source: '1783755768601'
       sourceHandle: source
       target: '1783757027459'
@@ -157,6 +150,7 @@ workflow:
         sourceType: if-else
         targetType: llm
       id: 1783757027459-true-1783757232713-target
+      selected: false
       source: '1783757027459'
       sourceHandle: 'true'
       target: '1783757232713'
@@ -169,6 +163,7 @@ workflow:
         sourceType: if-else
         targetType: llm
       id: 1783757027459-834a79d9-62b2-41cd-8b70-b8fba5dc1c59-1783757257667-target
+      selected: false
       source: '1783757027459'
       sourceHandle: 834a79d9-62b2-41cd-8b70-b8fba5dc1c59
       target: '1783757257667'
@@ -181,6 +176,7 @@ workflow:
         sourceType: if-else
         targetType: llm
       id: 1783757027459-9068757e-3f92-43ac-b27f-f06c10a1fdb7-1783757285860-target
+      selected: false
       source: '1783757027459'
       sourceHandle: 9068757e-3f92-43ac-b27f-f06c10a1fdb7
       target: '1783757285860'
@@ -192,6 +188,7 @@ workflow:
         sourceType: if-else
         targetType: llm
       id: 1783757027459-false-1783757232713-target
+      selected: false
       source: '1783757027459'
       sourceHandle: 'false'
       target: '1783757232713'
@@ -203,6 +200,7 @@ workflow:
         sourceType: llm
         targetType: variable-aggregator
       id: 1783757232713-source-1783759017803-target
+      selected: false
       source: '1783757232713'
       sourceHandle: source
       target: '1783759017803'
@@ -214,6 +212,7 @@ workflow:
         sourceType: llm
         targetType: variable-aggregator
       id: 1783757257667-source-1783759017803-target
+      selected: false
       source: '1783757257667'
       sourceHandle: source
       target: '1783759017803'
@@ -225,6 +224,7 @@ workflow:
         sourceType: llm
         targetType: variable-aggregator
       id: 1783757285860-source-1783759017803-target
+      selected: false
       source: '1783757285860'
       sourceHandle: source
       target: '1783759017803'
@@ -237,6 +237,7 @@ workflow:
         sourceType: variable-aggregator
         targetType: code
       id: 1783759017803-source-1783759104149-target
+      selected: false
       source: '1783759017803'
       sourceHandle: source
       target: '1783759104149'
@@ -249,6 +250,7 @@ workflow:
         sourceType: code
         targetType: llm
       id: 1783759104149-source-1783759344393-target
+      selected: false
       source: '1783759104149'
       sourceHandle: source
       target: '1783759344393'
@@ -261,6 +263,7 @@ workflow:
         sourceType: llm
         targetType: code
       id: 1783759344393-source-1783759578673-target
+      selected: false
       source: '1783759344393'
       sourceHandle: source
       target: '1783759578673'
@@ -273,9 +276,98 @@ workflow:
         sourceType: code
         targetType: end
       id: 1783759578673-source-1783759660396-target
+      selected: false
       source: '1783759578673'
       sourceHandle: source
       target: '1783759660396'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: code
+        targetType: if-else
+      id: 1783755472791-source-1783991812277-target
+      selected: false
+      source: '1783755472791'
+      sourceHandle: source
+      target: '1783991812277'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: if-else
+        targetType: llm
+      id: 1783991812277-true-1783991901596-target
+      selected: false
+      source: '1783991812277'
+      sourceHandle: 'true'
+      target: '1783991901596'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: code
+      id: 1783991901596-source-1783992211893-target
+      selected: false
+      source: '1783991901596'
+      sourceHandle: source
+      target: '1783992211893'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: if-else
+        targetType: template-transform
+      id: 1783991812277-false-1783992280024-target
+      selected: false
+      source: '1783991812277'
+      sourceHandle: 'false'
+      target: '1783992280024'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: code
+        targetType: variable-aggregator
+      id: 1783992211893-source-1783992368910-target
+      selected: false
+      source: '1783992211893'
+      sourceHandle: source
+      target: '1783992368910'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: template-transform
+        targetType: variable-aggregator
+      id: 1783992280024-source-1783992368910-target
+      selected: false
+      source: '1783992280024'
+      sourceHandle: source
+      target: '1783992368910'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: variable-aggregator
+        targetType: template-transform
+      id: 1783992368910-source-1783739895443-target
+      selected: false
+      source: '1783992368910'
+      sourceHandle: source
+      target: '1783739895443'
       targetHandle: target
       type: custom
       zIndex: 0
@@ -410,14 +502,30 @@ workflow:
           required: true
           type: text-input
           variable: writing_style
-      height: 447
+        - allowed_file_extensions: []
+          allowed_file_types:
+          - image
+          allowed_file_upload_methods:
+          - local_file
+          - remote_url
+          default: ''
+          hide: false
+          hint: ''
+          label: 旅途照片
+          max_length: 3
+          options: []
+          placeholder: ''
+          required: false
+          type: file-list
+          variable: photos
+      height: 473
       id: '1783646093057'
       position:
-        x: -250.70466316383957
-        y: 241.49276531638859
+        x: 0
+        y: 0
       positionAbsolute:
-        x: -250.70466316383957
-        y: 241.49276531638859
+        x: 0
+        y: 0
       selected: false
       sourcePosition: right
       targetPosition: left
@@ -442,14 +550,14 @@ workflow:
         selected: false
         title: 知识检索
         type: knowledge-retrieval
-      height: 52
+      height: 90
       id: '1783738852941'
       position:
-        x: 271.76909435719404
-        y: 349.54764690796776
+        x: 684
+        y: 283.66666666666663
       positionAbsolute:
-        x: 271.76909435719404
-        y: 349.54764690796776
+        x: 684
+        y: 283.66666666666663
       selected: false
       sourcePosition: right
       targetPosition: left
@@ -486,11 +594,11 @@ workflow:
       height: 80
       id: '1783739113025'
       position:
-        x: 21.873565565564146
-        y: 272.4386505390588
+        x: 342
+        y: 275.3333333333333
       positionAbsolute:
-        x: 21.873565565564146
-        y: 272.4386505390588
+        x: 342
+        y: 275.3333333333333
       selected: false
       sourcePosition: right
       targetPosition: left
@@ -503,11 +611,14 @@ workflow:
           \r\n一、基础信息\r\n素材标题：{{ title }}\r\n目的地：{{ destination }}\r\n旅行时间：{{ start_date\
           \ }} 至 {{ end_date }}\r\n同行人数：{{ people_count }}\r\n\r\n二、用户原始素材\r\n\r\n\
           1. 行程记录：\r\n{{ itinerary_text }}\r\n\r\n2. 美食记录：\r\n{{ food_text }}\r\n\r\
-          \n3. 照片描述：\r\n{{ photo_text }}\r\n\r\n4. 消费摘要：\r\n{{ expense_text }}\r\n\
-          \r\n5. 个人感受：\r\n{{ feeling_text }}\r\n\r\n三、生成配置\r\n生成类型：{{ content_type\
-          \ }}\r\n写作风格：{{ writing_style }}\r\n\r\n四、知识库召回的写作规范\r\n{{ writing_rules\
-          \ }}\r\n\r\n五、创作边界\r\n1. 后续内容必须优先基于用户原始素材生成。\r\n2. 不得编造用户没有提供的景点、酒店、交通方式、消费金额、开放时间、票价、排队时间等具体事实。\r\
-          \n3. 如果某一类素材为空，后续创作时应自然略过，不得虚构。\r\n4. 输出应符合生成类型和写作风格要求。"
+          \n3. 照片描述：\r\n用户手动填写的照片说明：\r\n{{ photo_text }}\r\n\r\n视觉模型对上传照片的识别结果：\r\n\
+          {{ photo_analysis }}\r\n\r\n4. 消费摘要：\r\n{{ expense_text }}\r\n\r\n5. 个人感受：\r\
+          \n{{ feeling_text }}\r\n\r\n三、生成配置\r\n生成类型：{{ content_type }}\r\n写作风格：{{\
+          \ writing_style }}\r\n\r\n四、知识库召回的写作规范\r\n{{ writing_rules }}\r\n\r\n五、创作边界\r\
+          \n1. 后续内容必须优先基于用户原始素材生成。\r\n2. 不得编造用户没有提供的景点、酒店、交通方式、消费金额、开放时间、票价和排队时间。\r\
+          \n3. 某类文字素材为空时，可以参考可靠的照片识别结果，但不得根据图片进行过度推断。\r\n4. 普通湖景、寺庙、街道等画面，不能仅凭目的地背景认定为某个具体景点。\r\
+          \n5. 不得根据图片推断同行人的关系、身份和具体情绪。\r\n6. 用户文字和图片识别结果冲突时，应采用更保守的表达，不得擅自拼接成新的事实。\r\
+          \n7. 输出应符合生成类型和写作风格要求。"
         title: 模板转换 2
         type: template-transform
         variables:
@@ -586,14 +697,19 @@ workflow:
           - result
           value_type: string
           variable: writing_rules
+        - value_selector:
+          - '1783992368910'
+          - output
+          value_type: string
+          variable: photo_analysis
       height: 80
       id: '1783739895443'
       position:
-        x: 830.7113000284032
-        y: 369.5940789129886
+        x: 2776
+        y: 397.4
       positionAbsolute:
-        x: 830.7113000284032
-        y: 369.5940789129886
+        x: 2776
+        y: 397.4
       selected: false
       sourcePosition: right
       targetPosition: left
@@ -617,11 +733,14 @@ workflow:
             \ \n不要解释你的分析过程。 \n只输出最终整理结果。\n\n你的任务不是直接生成游记，而是根据旅行素材卡，整理出后续内容创作可以使用的素材摘要，并明确创作边界。\n\
             \n【输入材料】\n{{#1783739895443.output#}}\n\n【任务要求】\n1. 提取用户明确提供的旅行事实。\n2.\
             \ 判断哪些内容可以用于后续写作。\n3. 标记哪些信息没有提供，后续不能编造。\n4. 保留知识库中与当前生成类型和写作风格相关的写作规范。\n\
-            5. 不要生成正式游记。\n6. 不要输出 JSON。\n7. 不要输出 Markdown 表格。\n\n【输出格式】\n\n一、可用旅行事实\n\
-            - 目的地：\n- 旅行时间：\n- 同行人数：\n- 行程记录：\n- 美食记录：\n- 照片/场景：\n- 消费信息：\n- 个人感受：\n\
+            5. 不要生成正式游记。\n6. 不要输出 JSON。\n7. 不要输出 Markdown 表格。\n8. 区分用户手动填写的照片说明和视觉模型识别结果。\n\
+            9. 视觉识别结果只能作为图片中可见场景的补充证据。 \n10. 视觉模型没有可靠确认的地点，不得在素材摘要中写成具体景点。 \n11. 不得根据图片中的人物推断同行关系、身份和情绪。\
+            \ \n12. 如果用户文字和图片识别结果存在冲突，应明确标记冲突，并使用更保守的事实。\n\n【输出格式】\n\n一、可用旅行事实\n-\
+            \ 目的地：\n- 旅行时间：\n- 同行人数：\n- 行程记录：\n- 美食记录：\n- 照片/场景：\n- 消费信息：\n- 个人感受：\n\
             \n二、可用写作方向\n- 当前生成类型适合怎样组织内容：\n- 当前写作风格应注意什么：\n- 可以突出的旅行亮点：\n\n三、禁止编造的信息\n\
             - 用户未提供的酒店信息：\n- 用户未提供的具体交通方式：\n- 用户未提供的开放时间、票价、排队时间：\n- 用户未提供的其他具体事实：\n\
-            \n四、后续创作约束\n- 内容必须基于用户素材。\n- 如果涉及实时信息，只能在风险提示中说明需要以官方信息为准。\n- 不得把知识库规范写成用户真实经历。"
+            \n四、照片部分\n- 用户填写的照片说明：\n- 视觉模型识别出的可靠场景：\n- 图片中无法确认的信息：\n\n五、后续创作约束\n-\
+            \ 内容必须基于用户素材。\n- 如果涉及实时信息，只能在风险提示中说明需要以官方信息为准。\n- 不得把知识库规范写成用户真实经历。"
         selected: false
         title: LLM
         type: llm
@@ -630,11 +749,11 @@ workflow:
       height: 116
       id: '1783740809027'
       position:
-        x: 1123.594075142821
-        y: 364.12374398163934
+        x: 80.28268363087159
+        y: 792.1014722039442
       positionAbsolute:
-        x: 1123.594075142821
-        y: 364.12374398163934
+        x: 80.28268363087159
+        y: 792.1014722039442
       selected: false
       sourcePosition: right
       targetPosition: left
@@ -677,11 +796,11 @@ workflow:
       height: 80
       id: '1783755472791'
       position:
-        x: 551.217986191702
-        y: 471.8541337621347
+        x: 1026
+        y: 303.66666666666663
       positionAbsolute:
-        x: 551.217986191702
-        y: 471.8541337621347
+        x: 1026
+        y: 303.66666666666663
       selected: false
       sourcePosition: right
       targetPosition: left
@@ -715,11 +834,11 @@ workflow:
       height: 80
       id: '1783755768601'
       position:
-        x: 1440.8006602884836
-        y: 399.24581189458536
+        x: 422.2826836308716
+        y: 829.4348055372775
       positionAbsolute:
-        x: 1440.8006602884836
-        y: 399.24581189458536
+        x: 422.2826836308716
+        y: 829.4348055372775
       selected: false
       sourcePosition: right
       targetPosition: left
@@ -767,11 +886,11 @@ workflow:
       height: 320
       id: '1783757027459'
       position:
-        x: 1727.3013779829937
-        y: 349.54764690796776
+        x: 764.2826836308716
+        y: 722.7681388706109
       positionAbsolute:
-        x: 1727.3013779829937
-        y: 349.54764690796776
+        x: 764.2826836308716
+        y: 722.7681388706109
       selected: false
       sourcePosition: right
       targetPosition: left
@@ -808,11 +927,11 @@ workflow:
       height: 116
       id: '1783757232713'
       position:
-        x: 2045.7123827770413
-        y: 181.79070901325562
+        x: 1126.2826836308716
+        y: 966.4348055372775
       positionAbsolute:
-        x: 2045.7123827770413
-        y: 181.79070901325562
+        x: 1126.2826836308716
+        y: 966.4348055372775
       selected: false
       sourcePosition: right
       targetPosition: left
@@ -848,11 +967,11 @@ workflow:
       height: 116
       id: '1783757257667'
       position:
-        x: 2058.4527195333712
-        y: 399.24581189458536
+        x: 1126.2826836308716
+        y: 574.4348055372775
       positionAbsolute:
-        x: 2058.4527195333712
-        y: 399.24581189458536
+        x: 1126.2826836308716
+        y: 574.4348055372775
       selected: false
       sourcePosition: right
       targetPosition: left
@@ -890,11 +1009,11 @@ workflow:
       height: 116
       id: '1783757285860'
       position:
-        x: 2045.7123827770413
-        y: 618.3398797024533
+        x: 1126.2826836308716
+        y: 770.4348055372775
       positionAbsolute:
-        x: 2045.7123827770413
-        y: 618.3398797024533
+        x: 1126.2826836308716
+        y: 770.4348055372775
       selected: false
       sourcePosition: right
       targetPosition: left
@@ -913,14 +1032,14 @@ workflow:
           - text
         - - '1783757285860'
           - text
-      height: 189
+      height: 188
       id: '1783759017803'
       position:
-        x: 2456.0115845919186
-        y: 443.61733630701804
+        x: 1488.2826836308716
+        y: 741.0792499817219
       positionAbsolute:
-        x: 2456.0115845919186
-        y: 443.61733630701804
+        x: 1488.2826836308716
+        y: 741.0792499817219
       selected: false
       sourcePosition: right
       targetPosition: left
@@ -963,12 +1082,12 @@ workflow:
       height: 80
       id: '1783759104149'
       position:
-        x: 2758.0115845919186
-        y: 443.61733630701804
+        x: 1830.2826836308716
+        y: 826.4125833150551
       positionAbsolute:
-        x: 2758.0115845919186
-        y: 443.61733630701804
-      selected: true
+        x: 1830.2826836308716
+        y: 826.4125833150551
+      selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
@@ -999,9 +1118,12 @@ workflow:
             \   - social_post：适合社交平台，正文应更短、更自然。\n   - title_tags：主要输出标题建议和标签，不生成长篇游记。\n\
             11. risk_note 必须保留，并说明内容根据用户素材生成，实时信息以官方信息为准。\n12. 不得把“2人”自动理解为情侣、闺蜜、亲子、朋友或家人，只能写“两人”“双人”“同行两人”。\n\
             13. 不得把三天行程改写为“两天半”“周末游”等用户没有提供的时间表达。\n14. 不得编造钟声、禅意、静心、味道、照片氛围等用户没有明确提供的感官细节。\n\
-            \n【最终输出格式】\n{\n  \"generated_title\": \"生成标题\",\n  \"generated_content\"\
-            : \"生成正文\",\n  \"tags\": \"标签1,标签2,标签3,标签4,标签5\",\n  \"risk_note\": \"\
-            内容根据用户提供素材生成，具体开放时间、票务、交通等实时信息建议以官方信息为准。\"\n}"
+            15. 如果内容中的地点只来自图片识别，而图片没有清晰标志，不得写成具体景点名称。 \n16. 不得根据照片推断同行人是情侣、朋友、家人或其他关系。\
+            \ \n17. 不得把照片中的普通食物写成用户实际品尝过的美食，除非用户文字明确说明。 \n18. 不得把照片中的建筑、道路、湖景扩写为用户已经参观或体验过的完整行程。\
+            \ \n19. 图片信息适合使用“照片中可见”“画面记录了”等表达，不能自动改写成“我们当时体验了”。\n\n【最终输出格式】\n{\n \
+            \ \"generated_title\": \"生成标题\",\n  \"generated_content\": \"生成正文\",\n\
+            \  \"tags\": \"标签1,标签2,标签3,标签4,标签5\",\n  \"risk_note\": \"内容根据用户提供素材生成，具体开放时间、票务、交通等实时信息建议以官方信息为准。\"\
+            \n}"
         selected: false
         title: LLM 5
         type: llm
@@ -1010,11 +1132,11 @@ workflow:
       height: 116
       id: '1783759344393'
       position:
-        x: 3060.0115845919186
-        y: 443.61733630701804
+        x: 2172.2826836308714
+        y: 821.7459166483886
       positionAbsolute:
-        x: 3060.0115845919186
-        y: 443.61733630701804
+        x: 2172.2826836308714
+        y: 821.7459166483886
       selected: false
       sourcePosition: right
       targetPosition: left
@@ -1106,11 +1228,11 @@ workflow:
       height: 80
       id: '1783759578673'
       position:
-        x: 3362.0115845919186
-        y: 443.61733630701804
+        x: 2514.2826836308714
+        y: 859.0792499817221
       positionAbsolute:
-        x: 3362.0115845919186
-        y: 443.61733630701804
+        x: 2514.2826836308714
+        y: 859.0792499817221
       selected: false
       sourcePosition: right
       targetPosition: left
@@ -1126,20 +1248,238 @@ workflow:
         selected: false
         title: 输出
         type: end
-      height: 89
+      height: 88
       id: '1783759660396'
       position:
-        x: 3664.0115845919186
-        y: 443.61733630701804
+        x: 2856.2826836308714
+        y: 868.4125833150551
       positionAbsolute:
-        x: 3664.0115845919186
-        y: 443.61733630701804
+        x: 2856.2826836308714
+        y: 868.4125833150551
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        cases:
+        - case_id: 'true'
+          conditions:
+          - comparison_operator: not empty
+            id: 3e7fb5b9-f274-447f-af18-6054b3fffb5b
+            value: ''
+            varType: array[file]
+            variable_selector:
+            - '1783646093057'
+            - photos
+          id: 'true'
+          logical_operator: and
+        desc: 判断是否上传照片
+        selected: false
+        title: 条件分支 2
+        type: if-else
+      height: 152
+      id: '1783991812277'
+      position:
+        x: 1368
+        y: 280.99999999999994
+      positionAbsolute:
+        x: 1368
+        y: 280.99999999999994
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: 旅途照片理解 Agent
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen3.6-flash
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: 338f872b-c6c8-4030-9074-ed2c99e210ae
+          role: system
+          text: '你是 AgenticTour 系统中的“旅途照片理解 Agent”。
+
+
+            你的任务是分析用户上传的旅途照片，将图片中可靠可见的信息整理为文字素材，供后续旅游内容创作使用。
+
+
+            【用户提供的背景信息】
+
+            目的地：{{#1783646093057.destination#}}
+
+            用户补充的照片说明：
+
+            {{#1783646093057.photo_text#}}
+
+
+            【识别要求】
+
+            1. 按照图片顺序逐张分析。
+
+            2. 只描述画面中明确可见的场景、建筑、自然环境、食物、物品和活动。
+
+            3. 用户填写的目的地只能作为背景参考，不能因为目的地是杭州，就把普通湖景直接判断为西湖。
+
+            4. 只有画面中存在清晰文字、标志性建筑，或者用户明确说明时，才能写具体景点名称。
+
+            5. 不得推断人物之间是情侣、家人、朋友、同事或其他关系。
+
+            6. 不得根据人物表情擅自判断情绪。
+
+            7. 不得编造拍摄日期、消费金额、交通方式、票价、开放时间和排队情况。
+
+            8. 可以描述画面中明显可见的天气和光线，例如阴天、阳光、傍晚光线，但不确定时不得猜测。
+
+            9. 图片模糊或内容无法可靠判断时，应直接说明无法可靠识别。
+
+            10. 不要生成游记，不要进行文学加工，只输出客观照片素材。
+
+            11. 不要输出思考过程，不要输出 <think> 标签。
+
+
+            【输出格式】
+
+
+            照片1：
+
+            - 可见场景：
+
+            - 可见主体：
+
+            - 可确认的信息：
+
+            - 不确定或不能判断的信息：
+
+
+            照片2：
+
+            - 可见场景：
+
+            - 可见主体：
+
+            - 可确认的信息：
+
+            - 不确定或不能判断的信息：
+
+
+            综合照片素材：
+
+            用一段简洁文字概括这些照片能够为游记补充的可靠场景信息。'
+        selected: true
+        title: LLM 6
+        type: llm
+        vision:
+          configs:
+            detail: high
+            variable_selector:
+            - '1783646093057'
+            - photos
+          enabled: true
+      height: 116
+      id: '1783991901596'
+      position:
+        x: 1730
+        y: 239.73333333333323
+      positionAbsolute:
+        x: 1730
+        y: 239.73333333333323
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        code: "import re\n\n\ndef main(raw_text: str) -> dict:\n    if raw_text is\
+          \ None:\n        raw_text = \"\"\n\n    text = str(raw_text)\n\n    # 清理完整的思考标签\n\
+          \    text = re.sub(\n        r\"<think>.*?</think>\\s*\",\n        \"\"\
+          ,\n        text,\n        flags=re.DOTALL\n    )\n\n    # 兜底处理未闭合标签\n  \
+          \  text = re.sub(\n        r\"<think>.*\",\n        \"\",\n        text,\n\
+          \        flags=re.DOTALL\n    )\n\n    # 清理代码块标记\n    text = text.replace(\"\
+          ```text\", \"\")\n    text = text.replace(\"```\", \"\")\n    text = text.strip()\n\
+          \n    if not text:\n        text = \"照片识别未获得可靠结果，本次创作不使用图片信息。\"\n\n    return\
+          \ {\n        \"result\": text\n    }"
+        code_language: python3
+        desc: 清洗照片描述
+        outputs:
+          result:
+            children: null
+            type: string
+        selected: false
+        title: 代码执行 5
+        type: code
+        variables:
+        - value_selector:
+          - '1783991901596'
+          - text
+          value_type: string
+          variable: raw_text
+      height: 80
+      id: '1783992211893'
+      position:
+        x: 2072
+        y: 277.0666666666666
+      positionAbsolute:
+        x: 2072
+        y: 277.0666666666666
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        desc: 无照片说明
+        selected: false
+        template: 用户未上传旅途照片，本次创作仅使用用户填写的文字素材。
+        title: 模板转换 3
+        type: template-transform
+        variables: []
+      height: 80
+      id: '1783992280024'
+      position:
+        x: 2072
+        y: 437.0666666666666
+      positionAbsolute:
+        x: 2072
+        y: 437.0666666666666
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        desc: 聚合照片描述
+        output_type: string
+        selected: false
+        title: 变量聚合器 2
+        type: variable-aggregator
+        variables:
+        - - '1783992211893'
+          - result
+        - - '1783992280024'
+          - output
+      height: 162
+      id: '1783992368910'
+      position:
+        x: 2434
+        y: 329.4
+      positionAbsolute:
+        x: 2434
+        y: 329.4
+      selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
       width: 242
     viewport:
-      x: -1350.0531022450837
-      y: 11.935895738736463
-      zoom: 0.8572439828530721
+      x: 13.131308022803069
+      y: 85.12257435106432
+      zoom: 0.5743491774985183
   rag_pipeline_variables: []

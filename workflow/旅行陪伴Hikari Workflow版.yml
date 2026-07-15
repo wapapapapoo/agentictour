@@ -1,10 +1,10 @@
 app:
-  description: Hikari 旅行陪伴工作流：本地历史聊天、行程重规划、定时提醒、主动推荐与自动检查
+  description: 旅行陪伴光光，从出发陪伴您整个旅行
   icon: 20dcbea8-aedf-43e1-afa4-46f9d8ac42a6
   icon_background: ''
   icon_type: image
   mode: workflow
-  name: 旅行陪伴Hikari Workflow完善版
+  name: 旅行陪伴Hikari Workflow版
   use_icon_as_answer_icon: false
 dependencies:
 - current_identifier: null
@@ -36,7 +36,7 @@ workflow:
     selector:
     - env
     - User
-    value: hikari_agent
+    value: root
     value_type: string
   - description: 端口号
     id: 3a3cb0f1-f797-417b-9df6-631ee94e044a
@@ -44,8 +44,8 @@ workflow:
     selector:
     - env
     - port
-    value: 3306
-    value_type: integer
+    value: '3306'
+    value_type: string
   - description: 数据库地址
     id: 913b68ff-50d0-4267-b316-d12841a6b292
     name: IP
@@ -125,6 +125,18 @@ workflow:
       type: custom
       zIndex: 0
     - data:
+        isInLoop: false
+        sourceType: agent
+        targetType: end
+      id: 17824362484760-source-1782437042677-target
+      selected: false
+      source: '17824362484760'
+      sourceHandle: source
+      target: '1782437042677'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
         isInIteration: false
         isInLoop: false
         sourceType: start
@@ -141,23 +153,10 @@ workflow:
         isInIteration: false
         isInLoop: false
         sourceType: tool
-        targetType: code
-      id: 1782441291535-source-hikari_itinerary_context_formatter_v1-target
+        targetType: if-else
+      id: 1782441291535-source-1782286303865-target
       selected: false
       source: '1782441291535'
-      sourceHandle: source
-      target: hikari_itinerary_context_formatter_v1
-      targetHandle: target
-      type: custom
-      zIndex: 0
-    - data:
-        isInIteration: false
-        isInLoop: false
-        sourceType: code
-        targetType: if-else
-      id: hikari_itinerary_context_formatter_v1-source-1782286303865-target
-      selected: false
-      source: hikari_itinerary_context_formatter_v1
       sourceHandle: source
       target: '1782286303865'
       targetHandle: target
@@ -250,71 +249,6 @@ workflow:
       targetHandle: target
       type: custom
       zIndex: 0
-    - data:
-        isInIteration: false
-        isInLoop: false
-        sourceType: agent
-        targetType: code
-      id: 17824362484760-source-hikari_replan_parser_v2-target
-      selected: false
-      source: '17824362484760'
-      sourceHandle: source
-      target: hikari_replan_parser_v2
-      targetHandle: target
-      type: custom
-      zIndex: 0
-    - data:
-        isInIteration: false
-        isInLoop: false
-        sourceType: code
-        targetType: end
-      id: hikari_replan_parser_v2-source-1782437042677-target
-      selected: false
-      source: hikari_replan_parser_v2
-      sourceHandle: source
-      target: '1782437042677'
-      targetHandle: target
-      type: custom
-      zIndex: 0
-    - data:
-        isInIteration: false
-        isInLoop: false
-        sourceType: if-else
-        targetType: agent
-      id: 1782286303865-system_auto_check_case-hikari_auto_check_agent_v2-target
-      selected: false
-      source: '1782286303865'
-      sourceHandle: system_auto_check_case
-      target: hikari_auto_check_agent_v2
-      targetHandle: target
-      type: custom
-      zIndex: 0
-    - data:
-        isInIteration: false
-        isInLoop: false
-        sourceType: agent
-        targetType: code
-      id: hikari_auto_check_agent_v2-source-hikari_auto_check_parser_v2-target
-      selected: false
-      source: hikari_auto_check_agent_v2
-      sourceHandle: source
-      target: hikari_auto_check_parser_v2
-      targetHandle: target
-      type: custom
-      zIndex: 0
-    - data:
-        isInIteration: false
-        isInLoop: false
-        sourceType: code
-        targetType: end
-      id: hikari_auto_check_parser_v2-source-hikari_auto_check_end_v2-target
-      selected: false
-      source: hikari_auto_check_parser_v2
-      sourceHandle: source
-      target: hikari_auto_check_end_v2
-      targetHandle: target
-      type: custom
-      zIndex: 0
     nodes:
     - data:
         selected: false
@@ -355,15 +289,15 @@ workflow:
           variable: tour_id
         - default: ''
           hide: false
-          hint: 高德行政区编码；允许为空，例如上海 310000
+          hint: ''
           label: city_adcode
           options: []
           placeholder: ''
           required: false
-          type: text-input
+          type: number
           variable: city_adcode
         - default: ''
-          hint: 可选；后端没有位置时传空值
+          hint: ''
           label: latitude
           options: []
           placeholder: ''
@@ -371,7 +305,7 @@ workflow:
           type: number
           variable: latitude
         - default: ''
-          hint: 可选；后端没有位置时传空值
+          hint: ''
           label: longitude
           options: []
           placeholder: ''
@@ -386,33 +320,15 @@ workflow:
           required: false
           type: text-input
           variable: location_name
-        - default: ''
-          hide: false
-          hint: 后端本地生成的会话 UUID；Dify 不负责维护会话
-          label: conversation_id
-          options: []
-          placeholder: ''
-          required: false
-          type: text-input
-          variable: conversation_id
-        - default: '[]'
-          hide: false
-          hint: 后端从 chat_messages 读取并序列化的 JSON 历史消息
-          label: conversation_history
-          options: []
-          placeholder: '[{"role":"user","content":"你好"}]'
-          required: false
-          type: paragraph
-          variable: conversation_history
-      height: 315
+      height: 264
       id: '1782285385726'
       position:
-        x: -304.90419462659685
-        y: 246.22106350720122
+        x: -1.457267482617624
+        y: 184.19047619047615
       positionAbsolute:
-        x: -304.90419462659685
-        y: 246.22106350720122
-      selected: true
+        x: -1.457267482617624
+        y: 184.19047619047615
+      selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
@@ -448,77 +364,54 @@ workflow:
             - trigger_type
           id: 0363e60e-3402-4bea-b11c-780ef8787057
           logical_operator: or
-        - case_id: system_auto_check_case
-          conditions:
-          - comparison_operator: is
-            id: system-auto-check-condition-v2
-            value: system_auto_check
-            varType: string
-            variable_selector:
-            - '1782285385726'
-            - trigger_type
-          id: system_auto_check_case
-          logical_operator: and
         selected: false
         title: 条件分支
         type: if-else
-      height: 340
+      height: 270
       id: '1782286303865'
       position:
-        x: 800.3551651938042
-        y: 267.2210635072012
+        x: 683
+        y: 153.52380952380946
       positionAbsolute:
-        x: 800.3551651938042
-        y: 267.2210635072012
+        x: 683
+        y: 153.52380952380946
       selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
     - data:
         agent_parameters:
           context:
             type: variable
             value:
-            - hikari_itinerary_context_formatter_v1
-            - documents
+            - '1782441291535'
+            - json
           instruction:
             type: constant
-            value: '你是旅行陪伴助手 Hikari。语气温柔、克制、可靠，优先解决用户当下的旅行问题。
+            value: '你是 AI 旅行陪伴系统中的工具调度 Agent。
 
 
-              输入上下文：
-
-              - 触发类型：{{#1782285385726.trigger_type#}}
-
-              - 旅行 ID：{{#1782285385726.tour_id#}}
-
-              - 城市编码：{{#1782285385726.city_adcode#}}
-
-              - 当前坐标：经度 {{#1782285385726.longitude#}}，纬度 {{#1782285385726.latitude#}}
-
-              - 位置名称：{{#1782285385726.location_name#}}
-
-              - 本地会话 ID：{{#1782285385726.conversation_id#}}
-
-              - 本地历史消息：{{#1782285385726.conversation_history#}}
+              你的任务是根据用户问题和上下文，判断是否需要调用工具，并返回可靠的旅行相关信息。
 
 
-              行为规则：
+              规则：
 
-              1. 回答必须结合本地历史消息，但不得声称 Dify 保存了会话。
+              1. 用户询问天气、穿衣、是否适合出发时，必须调用天气工具。
 
-              2. 天气、附近地点、路线耗时等实时信息必须调用对应工具，工具失败时明确说明无法确认。
+              2. 用户询问附近餐厅、咖啡店、休息点、厕所时，必须调用地点搜索工具。
 
-              3. 查询行程或数据库时只允许 SELECT；严禁 INSERT、UPDATE、DELETE、DROP、ALTER。
+              3. 用户询问怎么走、多久到、是否来得及时，必须调用路线工具。
 
-              4. 不得编造营业时间、票价、距离、天气、交通状态和用户行程。
+              4. 用户询问自己的行程安排时，必须调用行程查询工具。
 
-              5. trigger_type=system_auto_advice 时，只在确实有价值时给出一条简短主动建议，不要重复已有行程。
+              5. 如果只是普通聊天或常识解释，可以不调用工具。
 
-              6. 普通聊天直接回答；需要行动时优先给出一个明确可执行的下一步。
+              6. 工具没有返回的信息，不允许编造。
 
-              7. 只输出最终回复正文，不输出 JSON、思考过程、工具调用过程或 Markdown 代码块。'
+              7. 输出尽量结构化，方便后续 LLM 节点生成最终回复。
+
+              8.sql查询工具只能用来查询，不允许进行更改，添加和删除！'
           model:
             type: constant
             value:
@@ -530,10 +423,7 @@ workflow:
               type: model-selector
           query:
             type: constant
-            value: '本地历史消息：{{#1782285385726.conversation_history#}}
-
-
-              当前用户消息：{{#1782285385726.user_query#}}'
+            value: '{{#1782285385726.user_query#}}'
           tools:
             type: constant
             value:
@@ -551,10 +441,49 @@ workflow:
                 timezone:
                   value:
                     type: constant
-                    value: Asia/Shanghai
+                    value: UTC
               tool_description: 一个用于获取当前时间的工具。
               tool_label: 获取当前时间
               tool_name: current_time
+              type: builtin
+            - enabled: true
+              extra:
+                description: 数据库SQL查询工具。
+              parameters:
+                db_host:
+                  auto: 1
+                  value: null
+                db_name:
+                  auto: 1
+                  value: null
+                db_password:
+                  auto: 1
+                  value: null
+                db_port:
+                  auto: 1
+                  value: null
+                db_properties:
+                  auto: 1
+                  value: null
+                db_type:
+                  auto: 1
+                  value: null
+                db_username:
+                  auto: 1
+                  value: null
+                query_sql:
+                  auto: 1
+                  value: null
+              provider_name: junjiem/db_query/db_query
+              provider_show_name: junjiem/db_query/db_query
+              settings:
+                output_format:
+                  value:
+                    type: constant
+                    value: markdown
+              tool_description: 数据库SQL查询工具。
+              tool_label: SQL查询
+              tool_name: sql_query
               type: builtin
             - enabled: true
               extra:
@@ -757,6 +686,7 @@ workflow:
         memory:
           query_prompt_template: '{{#1782285385726.user_query#}}
 
+
             '
           window:
             enabled: false
@@ -770,19 +700,19 @@ workflow:
         title: 聊天主Agent
         tool_node_version: '2'
         type: agent
-      height: 214
+      height: 215
       id: '1782351047886'
       position:
         x: 1270.8760092496725
-        y: 843.0740866487456
+        y: 521.1856335457404
       positionAbsolute:
         x: 1270.8760092496725
-        y: 843.0740866487456
+        y: 521.1856335457404
       selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
     - data:
         outputs:
         - value_selector:
@@ -792,40 +722,43 @@ workflow:
         selected: false
         title: 结束-聊天回复
         type: end
-      height: 87
+      height: 88
       id: '1782351997056'
       position:
-        x: 2015.207061143653
-        y: 843.0740866487456
+        x: 1765.408209516841
+        y: 521.1856335457404
       positionAbsolute:
-        x: 2015.207061143653
-        y: 843.0740866487456
+        x: 1765.408209516841
+        y: 521.1856335457404
       selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
     - data:
         agent_parameters:
           context:
             type: variable
             value:
-            - hikari_itinerary_context_formatter_v1
-            - documents
+            - '1782441291535'
+            - json
           instruction:
             type: constant
-            value: "你是 Hikari 的行程调整 Agent。根据用户原因、当前行程、当前位置、时间、天气和路线信息，提出最小且可执行的调整。\n\
-              \n重要约束：\n1. 数据库只允许 SELECT，不能直接修改任何表。\n2. 只调整当前时间之后、确实受影响的安排；已完成或已开始的行程不能修改。\n\
-              3. itinerary_items 只返回后端需要创建的候选新行程，不要重复输出未变化的旧行程。\n4. 每项必须包含 title、place_name、start_time、end_time、itinerary_type、status。\n\
-              5. start_time/end_time 使用 ISO 8601；end_time 必须晚于 start_time。\n6. itinerary_type\
-              \ 只能是 play 或 transit；transit 必须提供 reminder_time。\n7. 不确定的营业时间、票价、天气或路线必须先调用工具；无法确认时不要伪造候选行程。\n\
-              8. 用户没有明确同意前，只能提出方案，不能声称已经修改成功。\n\n最终只输出一个合法 JSON 对象，不要输出 Markdown 代码块或思考过程：\n\
-              {\n  \"reply\": \"面向用户的简洁说明\",\n  \"itinerary_items\": [\n    {\n  \
-              \    \"title\": \"候选行程标题\",\n      \"place_name\": \"地点名称\",\n     \
-              \ \"start_time\": \"2026-08-20T14:00:00\",\n      \"end_time\": \"2026-08-20T15:00:00\"\
-              ,\n      \"itinerary_type\": \"play\",\n      \"reminder_time\": null,\n\
-              \      \"is_initial\": false,\n      \"status\": \"pending\"\n    }\n\
-              \  ]\n}\n没有可靠候选项时 itinerary_items 返回空数组。"
+            value: '现在，一些突发情况发生或者用户自己的原因，需要变更原有的旅游计划，你需要根据目前的情况为用户更新旅程表。
+
+              请注意，你并不具有直接修改表的权限，你更改的版本会被传给审核agent，经过其合法检查后传给用户，由用户决定是否采用。
+
+              你只需要考虑当前时间之后的旅程表修改即可，但是你返回的应该是一张完整的表（包括前面内容不变）
+
+              你在进行设计时，需要考虑当前用户的位置、时间、需求和路径规划。
+
+
+              请优先考虑用户需求（具有全局指导性），同时修改范围尽量小且合理。
+
+
+              在回答时，注意  {{#1782285385726.trigger_type#}} ，如果是 "system_auto_accident"，请以主动告知的语气告诉用户；
+
+              如果是 "user_accident" ，则以对话的口吻回答'
           model:
             type: constant
             value:
@@ -837,15 +770,7 @@ workflow:
               type: model-selector
           query:
             type: constant
-            value: '触发类型：{{#1782285385726.trigger_type#}}
-
-              用户说明：{{#1782285385726.user_query#}}
-
-              当前位置：{{#1782285385726.location_name#}}（{{#1782285385726.longitude#}},{{#1782285385726.latitude#}}）
-
-              城市编码：{{#1782285385726.city_adcode#}}
-
-              当前行程数据由上下文提供，请提出最小调整方案。'
+            value: '{{#1782285385726.user_query#}}'
           tools:
             type: constant
             value:
@@ -1057,10 +982,49 @@ workflow:
                 timezone:
                   value:
                     type: constant
-                    value: Asia/Shanghai
+                    value: UTC
               tool_description: 一个用于获取当前时间的工具。
               tool_label: 获取当前时间
               tool_name: current_time
+              type: builtin
+            - enabled: true
+              extra:
+                description: 数据库SQL查询工具。
+              parameters:
+                db_host:
+                  auto: 1
+                  value: null
+                db_name:
+                  auto: 1
+                  value: null
+                db_password:
+                  auto: 1
+                  value: null
+                db_port:
+                  auto: 1
+                  value: null
+                db_properties:
+                  auto: 1
+                  value: null
+                db_type:
+                  auto: 1
+                  value: null
+                db_username:
+                  auto: 1
+                  value: null
+                query_sql:
+                  auto: 1
+                  value: null
+              provider_name: junjiem/db_query/db_query
+              provider_show_name: junjiem/db_query/db_query
+              settings:
+                output_format:
+                  value:
+                    type: constant
+                    value: markdown
+              tool_description: 数据库SQL查询工具。
+              tool_label: SQL查询
+              tool_name: sql_query
               type: builtin
         agent_strategy_label: FunctionCalling
         agent_strategy_name: function_calling
@@ -1085,7 +1049,7 @@ workflow:
         title: 日程重推荐Agent
         tool_node_version: '2'
         type: agent
-      height: 186
+      height: 187
       id: '17824362484760'
       position:
         x: 1270.8760092496725
@@ -1097,35 +1061,29 @@ workflow:
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
     - data:
         outputs:
         - value_selector:
-          - hikari_replan_parser_v2
-          - reply
-          value_type: string
+          - '17824362484760'
+          - text
           variable: reply
-        - value_selector:
-          - hikari_replan_parser_v2
-          - itinerary_items
-          value_type: array[object]
-          variable: itinerary_items
         selected: false
         title: 结束-日程重推荐
         type: end
-      height: 113
+      height: 88
       id: '1782437042677'
       position:
-        x: 1860
-        y: 252
+        x: 1744.560482815924
+        y: 252.16666666666663
       positionAbsolute:
-        x: 1860
-        y: 252
+        x: 1744.560482815924
+        y: 252.16666666666663
       selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
     - data:
         is_team_authorization: true
         paramSchemas:
@@ -1221,7 +1179,7 @@ workflow:
             type: mixed
             value: all
         type: tool
-      height: 82
+      height: 84
       id: '1783673975969'
       position:
         x: 1385
@@ -1233,7 +1191,7 @@ workflow:
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
     - data:
         author: wapapapapoo
         desc: ''
@@ -1256,11 +1214,11 @@ workflow:
       height: 222
       id: '1782439705644'
       position:
-        x: 608.3909961853177
-        y: 1023.7772134228046
+        x: 599.4796404464034
+        y: 457.4047619047619
       positionAbsolute:
-        x: 608.3909961853177
-        y: 1023.7772134228046
+        x: 599.4796404464034
+        y: 457.4047619047619
       selected: false
       sourcePosition: right
       targetPosition: left
@@ -1467,7 +1425,7 @@ workflow:
         tool_node_version: '2'
         tool_parameters: {}
         type: tool
-      height: 112
+      height: 114
       id: '1782441089142'
       position:
         x: 1716
@@ -1479,7 +1437,7 @@ workflow:
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
     - data:
         is_team_authorization: true
         paramSchemas:
@@ -1783,18 +1741,16 @@ workflow:
         tool_parameters:
           db_host:
             type: mixed
-            value: '{{#env.IP#}}'
+            value: 49.232.141.47
           db_name:
             type: mixed
-            value: '{{#env.sql#}}'
+            value: agentictour
           db_password:
             type: mixed
             value: '{{#env.password1#}}'
           db_port:
-            type: variable
-            value:
-            - env
-            - port
+            type: constant
+            value: 3306
           db_properties:
             type: mixed
             value: ''
@@ -1803,69 +1759,32 @@ workflow:
             value: mysql
           db_username:
             type: mixed
-            value: '{{#env.User#}}'
+            value: root
           query_sql:
             type: mixed
-            value: SELECT itinerary_id, trip_id, title, place_name, start_time, end_time,
-              itinerary_type, reminder_time, is_initial, status FROM itinerary_items
-              WHERE trip_id = {{#1782285385726.tour_id#}} ORDER BY start_time ASC;
+            value: "SELECT *\nFROM trip_plan_requests\nJOIN itinerary_items\n    ON\
+              \ trip_plan_requests.id = itinerary_items.tour_id\nwhere itinerary_items.tour_id\
+              \ = {{#1782285385726.tour_id#}};"
         type: tool
-      height: 86
+      height: 88
       id: '1782441291535'
       position:
-        x: 106.66390513730948
-        y: 267.2210635072012
+        x: 326.28571428571433
+        y: 205.19047619047615
       positionAbsolute:
-        x: 106.66390513730948
-        y: 267.2210635072012
+        x: 326.28571428571433
+        y: 205.19047619047615
       selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
-    - data:
-        code: "import json\n\n\ndef main(db_result):\n    if isinstance(db_result,\
-          \ dict):\n        records = db_result.get(\"records\", [])\n    elif isinstance(db_result,\
-          \ list):\n        records = db_result\n    else:\n        records = []\n\
-          \n    if not isinstance(records, list):\n        records = []\n\n    content\
-          \ = json.dumps(\n        records,\n        ensure_ascii=False,\n       \
-          \ default=str,\n    )\n    return {\n        \"documents\": [\n        \
-          \    {\n                \"content\": content,\n                \"title\"\
-          : \"当前行程数据\",\n                \"metadata\": {\n                    \"source\"\
-          : \"agentictour_mysql\",\n                    \"record_count\": len(records),\n\
-          \                },\n            }\n        ]\n    }"
-        code_language: python3
-        desc: 将数据库 records 转换为 Agent context 要求的 content/title/metadata 文档结构
-        outputs:
-          documents:
-            children: null
-            type: array[object]
-        selected: false
-        title: 格式化行程上下文
-        type: code
-        variables:
-        - value_selector:
-          - '1782441291535'
-          - json
-          value_type: object
-          variable: db_result
-      height: 110
-      id: hikari_itinerary_context_formatter_v1
-      position:
-        x: 421.08636076522225
-        y: 267.2210635072012
-      positionAbsolute:
-        x: 421.08636076522225
-        y: 267.2210635072012
-      selected: false
-      sourcePosition: right
-      targetPosition: left
-      type: custom
-      width: 241
+      width: 242
     - data:
         context:
-          enabled: false
-          variable_selector: []
+          enabled: true
+          variable_selector:
+          - '1782441291535'
+          - text
         desc: ''
         isInIteration: false
         isInLoop: false
@@ -1878,40 +1797,30 @@ workflow:
         prompt_config:
           jinja2_variables: []
         prompt_template:
-        - id: hikari-reminder-system-v2
+        - id: 04e5b20e-baa8-4ea9-a8ec-615e9549d025
           role: system
-          text: 你是旅行陪伴助手 Hikari，负责发送及时、温柔、克制的提醒。只输出一条面向用户的提醒正文，不输出分析、JSON 或工具过程。不得编造天气、地点、时间和行程；信息缺失时只使用已确认内容。
-        - id: hikari-reminder-user-v2
+          text: '你是旅行陪伴虚拟人物Hikari，模仿 Arcaea 的 Hikari 的说话方式，为用户提供提醒服务。
+
+            当前用户旅行计划表是 {{#context#}} ，请根据表的内容计划进行提醒。'
+        - edition_type: basic
+          id: 8b33eeca-b88d-413b-bb8f-13f20702188d
           role: user
-          text: '后端触发说明：{{#1782285385726.user_query#}}
-
-            当前时间：{{#1782441089142.text#}}
-
-            当前位置：{{#1782285385726.location_name#}}（{{#1782285385726.longitude#}},{{#1782285385726.latitude#}}）
-
-            当前行程：{{#1782441291535.json#}}
-
-            备忘录：{{#17836716058920.text#}}
-
-            天气：{{#1783673975969.text#}}
+          text: '现在时间是 {{#1782441089142.text#}}。你需要为用户进行提醒。
 
 
-            要求：
+            如果是出发前1h内：
 
-            1. 首项出发提醒：概括下一安排，并结合可靠天气和备忘录给出必要携带提示。
+            根据用户自己的备忘录 {{#17836716058920.text#}} 和当前天气 {{#1783673975969.text#}} 进行建议一些携带物品，提醒用户出发前别忘了带这些东西；
 
-            2. 下一行程提醒：说明下一安排、地点、开始时间和是否需要出发。
 
-            3. 备忘录提醒：直接提醒备忘内容，不额外扩写无关建议。
-
-            4. 控制在 120 个汉字以内；重要时间和地点必须清楚。'
+            如果是出发后，在当前事件结束前15分钟，提示用户注意时间'
         selected: false
         structured_output_enabled: false
         title: 用户提醒
         type: llm
         vision:
           enabled: false
-      height: 86
+      height: 88
       id: '17836645655680'
       position:
         x: 2053.583110995708
@@ -1923,7 +1832,7 @@ workflow:
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
       zIndex: 1002
     - data:
         desc: 系统提示
@@ -1936,19 +1845,19 @@ workflow:
         selected: false
         title: 输出 3
         type: end
-      height: 115
+      height: 116
       id: '1783664577609'
       position:
-        x: 2426.620846966372
+        x: 2425.142857142857
         y: 60.66666666666663
       positionAbsolute:
-        x: 2426.620846966372
+        x: 2425.142857142857
         y: 60.66666666666663
       selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
     - data:
         desc: ''
         isInIteration: false
@@ -2276,10 +2185,9 @@ workflow:
             value: root
           query_sql:
             type: mixed
-            value: SELECT memo_id, memo_text, reminder_time, reminded_at FROM memos
-              WHERE trip_id = {{#1782285385726.tour_id#}} ORDER BY created_at ASC;
+            value: select * from memos where tour_id = {{#1782285385726.tour_id#}}
         type: tool
-      height: 86
+      height: 88
       id: '17836716058920'
       position:
         x: 1060.3501400560242
@@ -2287,448 +2195,13 @@ workflow:
       positionAbsolute:
         x: 1060.3501400560242
         y: 69.97198879551821
-      selected: false
+      selected: true
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
-    - data:
-        code: "import json\nimport re\n\n\ndef _clean(text):\n    text = str(text\
-          \ or \"\").strip()\n    text = re.sub(r\"<think>.*?</think>\\s*\", \"\"\
-          , text, flags=re.S)\n    text = re.sub(r\"^```(?:json)?\\s*|\\s*```$\",\
-          \ \"\", text, flags=re.I)\n    return text.strip()\n\n\ndef main(raw_text:\
-          \ str):\n    text = _clean(raw_text)\n    try:\n        payload = json.loads(text)\n\
-          \    except Exception:\n        return {\"reply\": text or \"暂时无法生成可靠的调整方案。\"\
-          , \"itinerary_items\": []}\n\n    if not isinstance(payload, dict):\n  \
-          \      return {\"reply\": \"暂时无法生成可靠的调整方案。\", \"itinerary_items\": []}\n\
-          \    reply = str(payload.get(\"reply\") or \"已生成候选调整方案。\")\n    items =\
-          \ payload.get(\"itinerary_items\")\n    if not isinstance(items, list):\n\
-          \        items = []\n    items = [item for item in items if isinstance(item,\
-          \ dict)]\n    return {\"reply\": reply, \"itinerary_items\": items}"
-        code_language: python3
-        desc: 规范化模型输出，保证后端获得稳定字段类型
-        outputs:
-          itinerary_items:
-            children: null
-            type: array[object]
-          reply:
-            children: null
-            type: string
-        selected: false
-        title: 规范化重规划输出
-        type: code
-        variables:
-        - value_selector:
-          - '17824362484760'
-          - text
-          value_type: string
-          variable: raw_text
-      height: 94
-      id: hikari_replan_parser_v2
-      position:
-        x: 1560
-        y: 252
-      positionAbsolute:
-        x: 1560
-        y: 252
-      selected: false
-      sourcePosition: right
-      targetPosition: left
-      type: custom
-      width: 241
-    - data:
-        agent_parameters:
-          context:
-            type: variable
-            value:
-            - hikari_itinerary_context_formatter_v1
-            - documents
-          instruction:
-            type: constant
-            value: '你是 Hikari 的系统自动检查 Agent。目标不是定时刷存在感，而是判断未来待执行行程是否出现了需要用户采取行动的明确变化。
-
-
-              检查依据：当前时间、未来行程、城市天气、当前位置和必要的路线信息。数据库只允许 SELECT。
-
-
-              need_notify=true 的条件：
-
-              - 景点闭馆、明显延迟、取消或营业时间与行程冲突；
-
-              - 恶劣天气、安全风险或交通变化明显影响即将执行的安排；
-
-              - 根据可靠路线结果，用户很可能无法按时到达；
-
-              - 其他需要用户现在调整、出发或避险的明确事项。
-
-
-              need_notify=false 的条件：
-
-              - 一切正常；
-
-              - 只有泛泛建议、重复提醒或没有新增信息；
-
-              - 工具不可用、数据不足，无法确认真实变化；
-
-              - 变化与未来待执行行程无关。
-
-
-              规则：
-
-              1. 不能为了生成通知而夸大风险。
-
-              2. 没有可靠证据时必须返回 false。
-
-              3. true 时 reply 必须说明“发生了什么、影响哪个行程、用户现在做什么”。
-
-              4. false 时 reply 简短记录检查结论，后端不会通知用户。
-
-              5. 最终只输出合法 JSON，不要 Markdown 或思考过程：
-
-              {"reply":"检查结论","need_notify":false}'
-          model:
-            type: constant
-            value:
-              completion_params: {}
-              mode: chat
-              model: deepseek-v4-flash
-              model_type: llm
-              provider: langgenius/deepseek/deepseek
-              type: model-selector
-          query:
-            type: constant
-            value: '自动检查任务：{{#1782285385726.user_query#}}
-
-              城市编码：{{#1782285385726.city_adcode#}}
-
-              当前位置：{{#1782285385726.location_name#}}（{{#1782285385726.longitude#}},{{#1782285385726.latitude#}}）
-
-              请检查上下文中的未来待执行行程，只返回 reply 和 need_notify。'
-          tools:
-            type: constant
-            value:
-            - enabled: true
-              extra:
-                description: 一个用于获取当前时间的工具。
-              parameters: {}
-              provider_name: time
-              provider_show_name: time
-              settings:
-                format:
-                  value:
-                    type: mixed
-                    value: '%Y-%m-%d %H:%M:%S'
-                timezone:
-                  value:
-                    type: constant
-                    value: Asia/Shanghai
-              tool_description: 一个用于获取当前时间的工具。
-              tool_label: 获取当前时间
-              tool_name: current_time
-              type: builtin
-            - enabled: true
-              extra:
-                description: '查询指定城市或区县的天气。
-
-
-                  适用场景：
-
-                  - 用户问今天/现在天气
-
-                  - 用户问是否需要带伞
-
-                  - 用户问穿衣建议
-
-                  - 系统自动生成行前提醒
-
-
-                  参数：
-
-                  - adcode: 高德行政区编码，例如上海 310000，北京 110000
-
-                  - extensions: base 表示实况天气，all 表示天气预报'
-              parameters:
-                adcode:
-                  auto: 1
-                  value: null
-                extensions:
-                  auto: 1
-                  value: null
-              provider_name: travel-mcp
-              provider_show_name: AI旅游MCP
-              settings: {}
-              tool_description: '查询指定城市或区县的天气。
-
-
-                适用场景：
-
-                - 用户问今天/现在天气
-
-                - 用户问是否需要带伞
-
-                - 用户问穿衣建议
-
-                - 系统自动生成行前提醒
-
-
-                参数：
-
-                - adcode: 高德行政区编码，例如上海 310000，北京 110000
-
-                - extensions: base 表示实况天气，all 表示天气预报'
-              tool_label: amap_weather
-              tool_name: amap_weather
-              type: mcp
-            - enabled: true
-              extra:
-                description: '查询当前位置附近的地点。
-
-
-                  适用场景：
-
-                  - 用户想找附近餐厅
-
-                  - 用户想找咖啡店
-
-                  - 用户想找休息点
-
-                  - 用户想找厕所、商场、景点等
-
-
-                  参数：
-
-                  - location: 经纬度，格式为 经度,纬度，例如 116.397428,39.90923
-
-                  - keywords: 搜索关键词，例如 餐厅、咖啡、厕所、商场
-
-                  - types: 高德 POI 类型编码，可为空
-
-                  - radius: 搜索半径，单位米
-
-                  - page_size: 返回数量
-
-                  - page_num: 页码'
-              parameters:
-                keywords:
-                  auto: 1
-                  value: null
-                location:
-                  auto: 1
-                  value: null
-                page_num:
-                  auto: 1
-                  value: null
-                page_size:
-                  auto: 1
-                  value: null
-                radius:
-                  auto: 1
-                  value: null
-                types:
-                  auto: 1
-                  value: null
-              provider_name: travel-mcp
-              provider_show_name: AI旅游MCP
-              settings: {}
-              tool_description: '查询当前位置附近的地点。
-
-
-                适用场景：
-
-                - 用户想找附近餐厅
-
-                - 用户想找咖啡店
-
-                - 用户想找休息点
-
-                - 用户想找厕所、商场、景点等
-
-
-                参数：
-
-                - location: 经纬度，格式为 经度,纬度，例如 116.397428,39.90923
-
-                - keywords: 搜索关键词，例如 餐厅、咖啡、厕所、商场
-
-                - types: 高德 POI 类型编码，可为空
-
-                - radius: 搜索半径，单位米
-
-                - page_size: 返回数量
-
-                - page_num: 页码'
-              tool_label: amap_nearby_search
-              tool_name: amap_nearby_search
-              type: mcp
-            - enabled: true
-              extra:
-                description: '查询两个地点之间的步行路线。
-
-
-                  适用场景：
-
-                  - 用户问怎么走
-
-                  - 用户问步行多久
-
-                  - 用户问是否来得及
-
-                  - 系统判断附近地点是否适合作为推荐
-
-
-                  参数：
-
-                  - origin: 起点经纬度，格式为 经度,纬度
-
-                  - destination: 终点经纬度，格式为 经度,纬度
-
-                  - isindoor: 是否室内算路，0 不需要，1 需要'
-              parameters:
-                destination:
-                  auto: 1
-                  value: null
-                isindoor:
-                  auto: 1
-                  value: null
-                origin:
-                  auto: 1
-                  value: null
-              provider_name: travel-mcp
-              provider_show_name: AI旅游MCP
-              settings: {}
-              tool_description: '查询两个地点之间的步行路线。
-
-
-                适用场景：
-
-                - 用户问怎么走
-
-                - 用户问步行多久
-
-                - 用户问是否来得及
-
-                - 系统判断附近地点是否适合作为推荐
-
-
-                参数：
-
-                - origin: 起点经纬度，格式为 经度,纬度
-
-                - destination: 终点经纬度，格式为 经度,纬度
-
-                - isindoor: 是否室内算路，0 不需要，1 需要'
-              tool_label: amap_walking_route
-              tool_name: amap_walking_route
-              type: mcp
-        agent_strategy_label: FunctionCalling
-        agent_strategy_name: function_calling
-        agent_strategy_provider_name: langgenius/agent/agent
-        desc: 检查未来行程是否出现值得通知用户的明确变化
-        memory:
-          query_prompt_template: '{{#1782285385726.user_query#}}
-
-            '
-          window:
-            enabled: false
-            size: 50
-        meta:
-          minimum_dify_version: 1.7.0
-          version: 0.0.2
-        output_schema: {}
-        plugin_unique_identifier: langgenius/agent:0.0.39@ceea6a76b3a495de2df2a55bcea82e903d49b06f4d8e1463c2aa085657f27164
-        selected: false
-        title: 系统自动检查Agent
-        tool_node_version: '2'
-        type: agent
-      height: 230
-      id: hikari_auto_check_agent_v2
-      position:
-        x: 1270.8760092496725
-        y: 519.9060775758438
-      positionAbsolute:
-        x: 1270.8760092496725
-        y: 519.9060775758438
-      selected: false
-      sourcePosition: right
-      targetPosition: left
-      type: custom
-      width: 241
-    - data:
-        code: "import json\nimport re\n\n\ndef _bool(value, default=True):\n    if\
-          \ isinstance(value, bool):\n        return value\n    if isinstance(value,\
-          \ str):\n        normalized = value.strip().lower()\n        if normalized\
-          \ == \"true\":\n            return True\n        if normalized == \"false\"\
-          :\n            return False\n    return default\n\n\ndef main(raw_text:\
-          \ str):\n    text = str(raw_text or \"\").strip()\n    text = re.sub(r\"\
-          <think>.*?</think>\\s*\", \"\", text, flags=re.S)\n    text = re.sub(r\"\
-          ^```(?:json)?\\s*|\\s*```$\", \"\", text, flags=re.I).strip()\n    try:\n\
-          \        payload = json.loads(text)\n    except Exception:\n        return\
-          \ {\"reply\": text or \"自动检查输出无法解析。\", \"need_notify\": True}\n    if not\
-          \ isinstance(payload, dict):\n        return {\"reply\": \"自动检查输出无法解析。\"\
-          , \"need_notify\": True}\n    return {\n        \"reply\": str(payload.get(\"\
-          reply\") or \"自动检查已完成。\"),\n        \"need_notify\": _bool(payload.get(\"\
-          need_notify\"), True),\n    }"
-        code_language: python3
-        desc: 规范化模型输出，保证后端获得稳定字段类型
-        outputs:
-          need_notify:
-            children: null
-            type: boolean
-          reply:
-            children: null
-            type: string
-        selected: false
-        title: 规范化自动检查输出
-        type: code
-        variables:
-        - value_selector:
-          - hikari_auto_check_agent_v2
-          - text
-          value_type: string
-          variable: raw_text
-      height: 94
-      id: hikari_auto_check_parser_v2
-      position:
-        x: 1628.7365967563712
-        y: 519.9060775758438
-      positionAbsolute:
-        x: 1628.7365967563712
-        y: 519.9060775758438
-      selected: false
-      sourcePosition: right
-      targetPosition: left
-      type: custom
-      width: 241
-    - data:
-        outputs:
-        - value_selector:
-          - hikari_auto_check_parser_v2
-          - reply
-          value_type: string
-          variable: reply
-        - value_selector:
-          - hikari_auto_check_parser_v2
-          - need_notify
-          value_type: boolean
-          variable: need_notify
-        selected: false
-        title: 结束-自动检查
-        type: end
-      height: 113
-      id: hikari_auto_check_end_v2
-      position:
-        x: 2005.8557053123
-        y: 519.9060775758438
-      positionAbsolute:
-        x: 2005.8557053123
-        y: 519.9060775758438
-      selected: false
-      sourcePosition: right
-      targetPosition: left
-      type: custom
-      width: 241
+      width: 242
     viewport:
-      x: -199.0097004019305
-      y: -12.239219149898076
-      zoom: 0.6765946357896693
+      x: -115.14745648554253
+      y: 122.71529040112753
+      zoom: 0.6765946450304495
   rag_pipeline_variables: []
