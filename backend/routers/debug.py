@@ -38,3 +38,12 @@ def recommend_by_prototypes(
     if not DEBUG:
         raise HTTPException(status_code=404)
     return preference_service.recommend_by_prototypes(db, user_id, top_k, page, page_size)
+
+
+@router.get("/trending")
+def trending(
+    db: Session = Depends(get_db),
+) -> Any:
+    if not DEBUG:
+        raise HTTPException(status_code=404)
+    return preference_service.trending(db)

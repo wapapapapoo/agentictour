@@ -10,6 +10,7 @@ import re
 from datetime import datetime, timezone
 
 import numpy as np
+from sqlalchemy import func
 from sklearn.cluster import KMeans
 
 from database import Session
@@ -380,3 +381,34 @@ def recommend_by_prototypes(db: Session, user_id: int, top_k: int, page: int, pa
         "page": page,
         "has_more": len(rows) == page_size,
     }
+
+
+def trending(db: Session) -> dict:
+    from models.knowledge import PlanKnowledgeMapping, PlanLike
+    from models.trip_plan import TripPlanRequest
+
+    # 热度前五目的地
+    cities = (
+        db.query(TripPlanRequest.destination_city, func.count(TripPlanRequest.id).label("cnt"))
+        .group_by(TripPlanRequest.destination_city)
+        .order_by(func.count(TripPlanRequest.id).desc())
+        .limit(5)
+        .all()
+    )
+    hot_destinations = [{"destination": c, "plan_count": cnt} for c, cnt in cities]
+
+    # 点赞前五帖子
+    likes = (
+        db.query(PlanLike.plan_id, func.count(PlanLike.id).label("cnt"))
+        .group_by(PlanLike.plan_id)
+        .order_by(func.count(PlanLike.id).desc())
+        .limit(5)
+        .all()
+    )
+    top_posts = []
+    for plan_id, cnt in likes:
+        plan = db.query(TripPlanRequest).filter(TripPlanRequest.id == plan_id).first()
+        dest = plan.destination_city if plan else "unknown"
+        top_posts.append({"plan_id": plan_id, "destination": dest, "like_count": cnt})
+
+    return {"hot_destinations": hot_destinations, "top_liked_posts": top_posts}
