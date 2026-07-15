@@ -386,15 +386,6 @@ workflow:
           required: false
           type: text-input
           variable: location_name
-        - default: ''
-          hide: false
-          hint: 后端本地生成的会话 UUID；Dify 不负责维护会话
-          label: conversation_id
-          options: []
-          placeholder: ''
-          required: false
-          type: text-input
-          variable: conversation_id
         - default: '[]'
           hide: false
           hint: 后端从 chat_messages 读取并序列化的 JSON 历史消息
@@ -873,7 +864,7 @@ workflow:
               \ 只返回后端需要创建的新行程，不要重复输出未变化的旧行程。\n4. 每项必须包含 title、place_name、start_time、end_time、itinerary_type、status。\n\
               5. start_time/end_time 使用 ISO 8601；end_time 必须晚于 start_time。\n6. itinerary_type\
               \ 只能是 play 或 transit；transit 必须提供 reminder_time。\n7. 不确定的营业时间、票价、天气或路线必须先调用工具；无法确认时不要伪造候选行程。\n\
-              8. 用户同意“生成重推荐”不等于同意“采纳方案”。reply 只能说明候选调整及理由，不能声称已经修改成功；后端会先把本次结果保存为 pending，等待用户采纳、进一步修改或放弃。\n9. cancelled_itinerary_ids 与 itinerary_items 必须共同表达最小增量变化，未变化的旧行程不要返回。\n\n最终只输出一个合法 JSON 对象，不要输出 Markdown 代码块或思考过程：\n\
+              8. 用户同意“生成重推荐”不等于同意“采纳方案”。reply 只能说明候选调整及理由，不能声称已经修改成功；后端会先把本次结果保存为 pending，等待用户采纳、进一步修改或放弃。\n9. cancelled_itinerary_ids 与 itinerary_items 必须共同表达最小增量变化，未变化的旧行程不要返回。\n10. 当 user_query 包含“推荐版本历史”时，这些内容由后端根据 ai_advice.parent_advice_id 按旧到新整理，是本次进一步修改的可信上下文。保留仍有效的约束，以“当前用户新要求”为最高优先级，不要恢复已被后续版本否定的内容，也不要自行猜测、改写或查询其他行程的建议链。\n\n最终只输出一个合法 JSON 对象，不要输出 Markdown 代码块或思考过程：\n\
               {\n  \"reply\": \"面向用户的简洁说明\",\n  \"cancelled_itinerary_ids\": [123],\n\
               \  \"itinerary_items\": [\n    {\n      \"title\": \"候选行程标题\",\n   \
               \   \"place_name\": \"地点名称\",\n      \"start_time\": \"2026-08-20T14:00:00\"\
