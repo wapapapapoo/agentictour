@@ -37,7 +37,7 @@ def _headers() -> dict[str, str]:
 
 
 def _timeout() -> float:
-    return float(os.getenv("DIFY_TIMEOUT", "60"))
+    return float(os.getenv("DIFY_TIMEOUT", "600"))
 
 
 # ---- Documents ----

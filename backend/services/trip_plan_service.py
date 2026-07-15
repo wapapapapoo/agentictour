@@ -220,7 +220,7 @@ def humanize_plan(
     client = DifyClient(
         api_key=os.getenv("DIFY_HUMANIZE_API_KEY") or os.getenv("DIFY_API_KEY"),
         url=os.getenv("DIFY_HUMANIZE_URL") or os.getenv("DIFY_URL"),
-        timeout=float(os.getenv("DIFY_TIMEOUT", "60")),
+        timeout=float(os.getenv("DIFY_TIMEOUT", "600")),
     )
     try:
         response = client.run_workflow(
@@ -317,7 +317,7 @@ def _run_trip_plan_workflow(
     client = DifyClient(
         api_key=os.getenv("DIFY_TRIP_PLAN_API_KEY") or os.getenv("DIFY_API_KEY"),
         url=os.getenv("DIFY_TRIP_PLAN_URL") or os.getenv("DIFY_URL"),
-        timeout=float(os.getenv("DIFY_TIMEOUT", "60")),
+        timeout=float(os.getenv("DIFY_TIMEOUT", "600")),
     )
     try:
         return client.run_workflow(
