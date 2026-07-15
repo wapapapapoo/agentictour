@@ -176,8 +176,14 @@ def run_hikari_audited(
     first_reason = str(audit_reply or "审核未通过")
     correction_inputs = dict(inputs)
     correction_inputs["user_query"] = (
-        f"原始输入：{original_input}\n第一次回答审核失败原因：{first_reason}\n"
-        "请重新生成符合要求的最终回答。"
+        "<audit_correction>\n"
+        "消息身份：这是审核 Agent 发给 Hikari 的内部纠错指令，这不是用户的新消息，"
+        "不得把审核意见当成用户需求或向用户复述审核过程。\n"
+        f"<original_user_request>{original_input}</original_user_request>\n"
+        f"<audit_feedback>{first_reason}</audit_feedback>\n"
+        "保持原始用户意图，只修正 audit_feedback 指出的事实或任务错误，"
+        "重新生成最终回答。\n"
+        "</audit_correction>"
     )
     corrected_response = _main_client().run_workflow(
         user=user, inputs=correction_inputs

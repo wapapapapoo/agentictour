@@ -184,6 +184,11 @@ def test_user_flows_send_only_agent_owned_context(monkeypatch, db: Session) -> N
     trip_context = json.loads(calls[1]["inputs"]["trip_context"])
     assert trip_context["destination_city"] == "上海"
     assert trip_context["origin_city"] == "杭州"
+    assert trip_context["route_context"] == {
+        "departure_city": "杭州",
+        "tourism_destination_city": "上海",
+        "cross_city": True,
+    }
     stored = db.query(UserLocation).filter(UserLocation.user_id == 1).one()
     assert stored.city == "310115"
     assert LocationResponse.model_validate(stored).city_adcode == "310115"
@@ -437,6 +442,51 @@ def test_failed_audit_advice_is_not_persisted(
     assert db.query(AIAdvice).count() == 0
 
 
+def test_wrong_origin_city_candidate_is_rejected_even_if_audit_passed(
+    db: Session, monkeypatch
+) -> None:
+    output = _audited_output(
+        content="错误城市候选",
+        main_response={
+            "data": {
+                "outputs": {
+                    "reply": "明天在杭州游览",
+                    "cancelled_itinerary_ids": [],
+                    "itinerary_items": [
+                        {
+                            "title": "西湖游览",
+                            "place_name": "西湖",
+                            "city_name": "杭州",
+                            "start_time": "2026-07-16T09:00:00+08:00",
+                            "end_time": "2026-07-16T11:00:00+08:00",
+                            "itinerary_type": "play",
+                            "status": "pending",
+                        }
+                    ],
+                }
+            }
+        },
+    )
+    monkeypatch.setattr(
+        accompany_service,
+        "run_hikari_once_audited",
+        lambda **_kwargs: output,
+    )
+
+    with pytest.raises(AuditRejectedError, match="旅游目的地是 上海"):
+        accompany_service.generate_advice(
+            db,
+            AdviceGenerateRequest(
+                trip_id=1,
+                user_id=1,
+                reason="请为我安排明天的行程",
+                location_name="杭州",
+            ),
+        )
+
+    assert db.query(AIAdvice).count() == 0
+
+
 def test_failed_audit_chat_does_not_persist_ai_reply(
     db: Session, monkeypatch
 ) -> None:
@@ -562,7 +612,11 @@ def test_gateway_retries_and_audits_at_most_twice(monkeypatch) -> None:
     assert result.audit_count == 2
     assert calls == {"main": 2, "audit": 2}
     assert [item["turn"] for item in audit_inputs] == ["first", "second"]
-    assert "给Hikari的内部修正指令" in main_inputs[1]["user_query"]
+    correction = main_inputs[1]["user_query"]
+    assert correction.startswith("<audit_correction>")
+    assert "这不是用户的新消息" in correction
+    assert "<original_user_request>问题</original_user_request>" in correction
+    assert "<audit_feedback>给Hikari的内部修正指令</audit_feedback>" in correction
     assert "给用户的失败说明" not in main_inputs[1]["user_query"]
 
 

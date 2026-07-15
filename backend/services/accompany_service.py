@@ -31,7 +31,7 @@ from schemas.accompany import (
     MemoUpdate,
 )
 from services.ai_gateway import AuditRejectedError, run_hikari_once_audited
-from utils.trip_time import trip_time_context
+from utils.trip_time import trip_route_context, trip_time_context
 
 CHAT_HISTORY_MAX_MESSAGES_DEFAULT = 20
 CHAT_HISTORY_MAX_CHARS_DEFAULT = 12000
@@ -48,6 +48,7 @@ def _trip_context(db: Session, trip_id: int) -> str:
             "title": trip.title,
             "origin_city": trip.origin_city,
             "destination_city": trip.destination_city,
+            **trip_route_context(trip.origin_city, trip.destination_city),
             "start_date": trip.start_date.isoformat(),
             "end_date": trip.end_date.isoformat(),
             **trip_time_context(trip.timezone),
@@ -546,6 +547,11 @@ def _attach_and_validate_replan_scope(
     proposed: dict[str, Any] | None,
     selected_ids: list[int],
     locked_ids: list[int],
+    *,
+    trip: Trip,
+    original: str,
+    location_name: str,
+    has_pending_transit: bool,
 ) -> dict[str, Any] | None:
     if proposed is None:
         return None
@@ -562,7 +568,64 @@ def _attach_and_validate_replan_scope(
         )
     proposed["selected_itinerary_ids"] = selected_ids
     proposed["locked_itinerary_ids"] = locked_ids
+    _validate_cross_city_candidate(
+        proposed,
+        trip=trip,
+        original=original,
+        location_name=location_name,
+        has_pending_transit=has_pending_transit,
+    )
     return proposed
+
+
+def _city_key(value: str) -> str:
+    return re.sub(r"[\s省市区县]+$", "", value.strip())
+
+
+def _validate_cross_city_candidate(
+    proposed: dict[str, Any],
+    *,
+    trip: Trip,
+    original: str,
+    location_name: str,
+    has_pending_transit: bool,
+) -> None:
+    """Reject a passed-but-directionally-wrong generic future-day candidate."""
+    if _city_key(trip.origin_city) == _city_key(trip.destination_city):
+        return
+    if not re.search(r"明天|第二天|次日|后天", original):
+        return
+    origin = re.escape(_city_key(trip.origin_city))
+    if re.search(rf"(?:留在|待在|在){origin}.*(?:游|玩|逛|安排)", original):
+        return
+    items = proposed.get("itinerary_items", [])
+    if not isinstance(items, list):
+        return
+    destination = _city_key(trip.destination_city)
+    for item in items:
+        if not isinstance(item, dict) or item.get("itinerary_type") != "play":
+            continue
+        city_name = item.get("city_name")
+        if not isinstance(city_name, str) or not city_name.strip():
+            raise AuditRejectedError(
+                "跨城候选日程缺少 city_name，无法确认游览活动是否位于旅游目的地。"
+            )
+        if _city_key(city_name) != destination:
+            raise AuditRejectedError(
+                f"候选方案把游览活动安排在 {city_name}，但当前旅游目的地是 "
+                f"{trip.destination_city}。"
+            )
+    user_at_origin = _city_key(trip.origin_city) in _city_key(location_name)
+    if user_at_origin and any(
+        isinstance(item, dict) and item.get("itinerary_type") == "play"
+        for item in items
+    ) and not any(
+        isinstance(item, dict) and item.get("itinerary_type") == "transit"
+        for item in items
+    ) and not has_pending_transit:
+        raise AuditRejectedError(
+            "用户仍在出发城市，跨城候选方案必须先提供到旅游目的地的交通日程。"
+        )
 
 
 def _generate_replan(
@@ -600,8 +663,24 @@ def _generate_replan(
     )
     if not audited.passed:
         raise AuditRejectedError(audited.reason)
+    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+    if trip is None:
+        raise LookupError("trip not found")
     proposed = _attach_and_validate_replan_scope(
-        _replan_payload(audited), selected_ids, locked_ids
+        _replan_payload(audited),
+        selected_ids,
+        locked_ids,
+        trip=trip,
+        original=original,
+        location_name=str(location_inputs.get("location_name") or ""),
+        has_pending_transit=db.query(ItineraryItem.itinerary_id)
+        .filter(
+            ItineraryItem.trip_id == trip_id,
+            ItineraryItem.itinerary_type == "transit",
+            ItineraryItem.status == "pending",
+        )
+        .first()
+        is not None,
     )
     row = crud.create(
         db,
