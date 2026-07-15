@@ -12,6 +12,7 @@ const { apiMock } = vi.hoisted(() => ({
     listAdvice: vi.fn(),
     listNotifications: vi.fn(),
     getTripChat: vi.fn(),
+    sendChatMessage: vi.fn(),
     actOnAdvice: vi.fn(),
     markNotificationRead: vi.fn(),
     deleteTrip: vi.fn(),
@@ -54,8 +55,9 @@ async function mountCompanion(
   itineraryRows: Record<string, unknown>[] = [],
   notificationRows: Record<string, unknown>[] = [],
   chatRows: Record<string, unknown>[] = [],
+  tripRows: Record<string, unknown>[] = [trip],
 ) {
-  apiMock.listTrips.mockResolvedValue([trip])
+  apiMock.listTrips.mockResolvedValue(tripRows)
   apiMock.listMemos.mockResolvedValue(memoRows)
   apiMock.listItineraries.mockResolvedValue(itineraryRows)
   apiMock.listAdvice.mockResolvedValue(adviceRows)
@@ -84,7 +86,7 @@ describe('Companion adjustment dialog', () => {
     const wrapper = await mountCompanion([], [], [], [], [{
       message_id: 9,
       sender_type: 'ai',
-      content: '开放信息见[景区官网](https://example.com/visit)。',
+      content: '开放信息以景区公告为准。\n\n参考来源：\n- [景区官网](https://example.com/visit)',
       audit_status: 'pass',
       audit_reason: null,
     }])
@@ -94,6 +96,78 @@ describe('Companion adjustment dialog', () => {
     expect(source.attributes('href')).toBe('https://example.com/visit')
     expect(source.attributes('target')).toBe('_blank')
     expect(source.attributes('rel')).toBe('noopener noreferrer')
+    expect(wrapper.find('.message .markdown-body').text()).not.toContain('参考来源')
+    wrapper.unmount()
+  })
+
+  it('prevents the same message from being submitted twice while pending', async () => {
+    apiMock.sendChatMessage.mockReturnValue(new Promise(() => undefined))
+    const wrapper = await mountCompanion()
+    const input = wrapper.find('.composer input')
+    await input.setValue('介绍一下天津工业大学')
+
+    void wrapper.find('.composer').trigger('submit')
+    void wrapper.find('.composer').trigger('submit')
+    await flushPromises()
+
+    expect(apiMock.sendChatMessage).toHaveBeenCalledTimes(1)
+    expect(wrapper.findAll('.message.user')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
+  it('collapses consecutive duplicate user messages restored from history', async () => {
+    const wrapper = await mountCompanion([], [], [], [], [
+      { message_id: 1, sender_type: 'user', content: '介绍一下天津工业大学' },
+      { message_id: 2, sender_type: 'user', content: '介绍一下天津工业大学' },
+      { message_id: 3, sender_type: 'ai', content: '这里是介绍。', audit_status: 'pass' },
+    ])
+
+    expect(wrapper.findAll('.message.user')).toHaveLength(1)
+    expect(wrapper.findAll('.message.agent')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
+  it('shows an empty state instead of a live trip when no plan exists', async () => {
+    const wrapper = await mountCompanion([], [], [], [], [], [])
+
+    expect(wrapper.text()).toContain('目前还没有旅行计划')
+    expect(wrapper.text()).not.toContain('LIVE · 正在进行')
+    wrapper.unmount()
+  })
+
+  it('renders upcoming trip and time-driven itinerary lifecycle labels', async () => {
+    const current = Date.now()
+    const itinerary = (id: number, start: number, end: number, status = 'pending') => ({
+      itinerary_id: id,
+      trip_id: 2,
+      title: `日程 ${id}`,
+      place_name: '测试地点',
+      start_time: new Date(start).toISOString(),
+      end_time: new Date(end).toISOString(),
+      itinerary_type: 'play',
+      status,
+    })
+    const wrapper = await mountCompanion(
+      [],
+      [],
+      [
+        itinerary(1, current + 3_600_000, current + 7_200_000),
+        itinerary(2, current - 3_600_000, current + 3_600_000),
+        itinerary(3, current - 7_200_000, current - 3_600_000),
+        itinerary(4, current + 3_600_000, current + 7_200_000, 'cancelled'),
+      ],
+      [],
+      [],
+      [{ ...trip, id: 2, start_date: '2099-07-15', end_date: '2099-07-16', status: 'planned' }],
+    )
+
+    expect(wrapper.text()).toContain('UPCOMING · 尚未开始')
+    expect(wrapper.findAll('.itinerary-status').map((item) => item.text())).toEqual([
+      '待开始',
+      '进行中',
+      '已完成',
+      '已取消',
+    ])
     wrapper.unmount()
   })
 
@@ -136,6 +210,7 @@ describe('Companion adjustment dialog', () => {
 
     expect((wrapper.text().match(new RegExp(reason, 'g')) || [])).toHaveLength(1)
     expect(wrapper.findAll('.audit-failure-only')).toHaveLength(1)
+    expect(wrapper.find('.audit-failure-summary').exists()).toBe(true)
     wrapper.unmount()
   })
 

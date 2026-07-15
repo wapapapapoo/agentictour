@@ -10,6 +10,7 @@ from utils.dify_client import DifyClient, DifyConfigError, DifyResponseError
 AUDIT_REQUEST_KEYS = (
     "trigger_type",
     "tour_id",
+    "trip_context",
     "city_adcode",
     "latitude",
     "longitude",

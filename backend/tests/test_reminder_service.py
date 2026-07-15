@@ -139,6 +139,9 @@ def test_due_reminder_uses_trip_as_context_and_keeps_dify_tour_key(
     assert count == 1
     assert calls[0]["user"] == str(trip.user_id)
     assert calls[0]["inputs"]["tour_id"] == trip.id
+    assert json.loads(calls[0]["inputs"]["trip_context"])[
+        "destination_city"
+    ] == "上海"
     assert calls[0]["inputs"]["city_adcode"] == "310115"
     assert "city" not in calls[0]["inputs"]
     assert "location_context" not in calls[0]["inputs"]
@@ -210,6 +213,7 @@ def test_agent_jobs_use_latest_frontend_adcode(
 
     inputs = calls[0]["inputs"]
     assert inputs["city_adcode"] == "310115"
+    assert json.loads(inputs["trip_context"])["destination_city"] == "上海"
     assert "city" not in inputs
     assert "location_context" not in inputs
 

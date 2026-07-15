@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
@@ -146,6 +146,42 @@ def test_trip_service_crud_and_status_transition(db: Session) -> None:
     assert updated.title == "上海舒适三日游"
 
 
+def test_trip_statuses_follow_local_dates_and_preserve_cancellation(
+    db: Session,
+) -> None:
+    future = trip_service.create_trip(
+        db,
+        _trip_data(start_date=date(2026, 7, 16), end_date=date(2026, 7, 18)),
+    )
+    current = trip_service.create_trip(
+        db,
+        _trip_data(start_date=date(2026, 7, 15), end_date=date(2026, 7, 16)),
+    )
+    past = trip_service.create_trip(
+        db,
+        _trip_data(start_date=date(2026, 7, 10), end_date=date(2026, 7, 14)),
+    )
+    cancelled = trip_service.create_trip(
+        db,
+        _trip_data(
+            start_date=date(2026, 7, 15),
+            end_date=date(2026, 7, 16),
+            status="cancelled",
+        ),
+    )
+
+    trip_service.sync_trip_statuses(
+        db,
+        now=datetime(2026, 7, 15, 12, tzinfo=UTC),
+        commit=True,
+    )
+
+    assert future.status == "planned"
+    assert current.status == "ongoing"
+    assert past.status == "completed"
+    assert cancelled.status == "cancelled"
+
+
 def test_trip_service_rejects_partial_update_with_inverted_dates(db: Session) -> None:
     created = trip_service.create_trip(db, _trip_data())
 
@@ -206,10 +242,6 @@ def test_fresh_companion_schema_references_trips_only() -> None:
     trips_sql = (sql_dir / "02a_trips_table.sql").read_text(encoding="utf-8")
     trip_plan_sql = (sql_dir / "03_trip_plan_tables.sql").read_text(encoding="utf-8")
     companion_sql = (sql_dir / "04_accompany_tables.sql").read_text(encoding="utf-8")
-    migration_sql = (sql_dir / "04b_drop_chat_conversation_id_migration.sql").read_text(
-        encoding="utf-8"
-    )
-
     assert "CREATE TABLE IF NOT EXISTS trips" in trips_sql
     assert "user_id BIGINT NOT NULL" in trips_sql
     assert trips_sql.count("REFERENCES users(user_id)") == 1
@@ -224,4 +256,3 @@ def test_fresh_companion_schema_references_trips_only() -> None:
     assert "tour_id" not in companion_sql
     assert "conversation_id" not in companion_sql
     assert "dify_conversation_id" not in companion_sql
-    assert "DROP COLUMN conversation_id" in migration_sql

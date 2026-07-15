@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { extractReferenceSources } from '@/utils/markdown'
+import { extractReferenceSources, stripReferenceSection } from '@/utils/markdown'
 
 describe('extractReferenceSources', () => {
   it('extracts and deduplicates safe markdown and bare web sources', () => {
@@ -26,5 +26,18 @@ describe('extractReferenceSources', () => {
 
     expect(sources).toHaveLength(6)
     expect(sources.every((source) => source.url.startsWith('https://'))).toBe(true)
+  })
+
+  it('removes a trailing source section from the visible answer body', () => {
+    const markdown = [
+      '这里是地点介绍正文。',
+      '',
+      '参考来源：',
+      '- [地点官网](https://example.com/visit)',
+      '- https://example.com/news',
+    ].join('\n')
+
+    expect(stripReferenceSection(markdown)).toBe('这里是地点介绍正文。')
+    expect(extractReferenceSources(markdown)).toHaveLength(2)
   })
 })

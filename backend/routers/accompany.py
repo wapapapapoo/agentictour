@@ -98,7 +98,7 @@ def list_itineraries(
     current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
-    return crud.list_itineraries(db, trip_id)
+    return service.list_itineraries(db, trip_id)
 
 
 @router.patch("/itineraries/{itinerary_id}", response_model=ItineraryResponse)
