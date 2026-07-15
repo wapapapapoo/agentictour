@@ -38,7 +38,10 @@ def list_itineraries(db: Session, trip_id: int) -> list[ItineraryItem]:
 def list_advice(db: Session, trip_id: int) -> list[AIAdvice]:
     return (
         db.query(AIAdvice)
-        .filter(AIAdvice.trip_id == trip_id)
+        .filter(
+            AIAdvice.trip_id == trip_id,
+            AIAdvice.advice_type.in_(("replan", "itinerary_replan")),
+        )
         .order_by(AIAdvice.created_at.desc())
         .all()
     )

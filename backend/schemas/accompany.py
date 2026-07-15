@@ -38,6 +38,10 @@ class ItineraryCreate(BaseModel):
     def validate_times(self) -> Self:
         if self.end_time <= self.start_time:
             raise ValueError("end_time must be later than start_time")
+        if self.reminder_time is not None and self.reminder_time > self.start_time:
+            raise ValueError(
+                "reminder_time must not be later than itinerary start_time"
+            )
         if self.itinerary_type == "transit" and self.reminder_time is None:
             raise ValueError("transit itinerary requires reminder_time")
         return self
