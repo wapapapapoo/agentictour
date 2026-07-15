@@ -354,11 +354,11 @@ async function saveLocation() {
 }
 
 function useBrowserLocation() {
-  if (!navigator.geolocation) {
+  if (!globalThis.navigator.geolocation) {
     error.value = '当前浏览器不支持定位。'
     return
   }
-  navigator.geolocation.getCurrentPosition(
+  globalThis.navigator.geolocation.getCurrentPosition(
     (position) => {
       location.value.latitude = position.coords.latitude
       location.value.longitude = position.coords.longitude
@@ -389,9 +389,9 @@ watch(tripId, () => {
 })
 onMounted(async () => {
   await loadTrips()
-  notificationTimer = window.setInterval(() => { void loadNotifications() }, 30_000)
+  notificationTimer = globalThis.setInterval(() => { void loadNotifications() }, 30_000)
 })
-onUnmounted(() => window.clearInterval(notificationTimer))
+onUnmounted(() => globalThis.clearInterval(notificationTimer))
 </script>
 
 <template>
