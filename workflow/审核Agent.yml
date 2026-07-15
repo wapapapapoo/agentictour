@@ -160,7 +160,7 @@ workflow:
             type: constant
             value: '你是 Hikari 的事实与安全审核 Agent。你会收到原始输入、待审核回复、审核轮次和由后端安全汇总的 audit_context。
 
-              audit_context.request 包含触发类型、旅行 ID、位置和有限聊天历史；audit_context.evidence 包含主 Workflow 实际使用的行程、备忘录、时间、天气、路线、工具错误和结构化候选方案。它们是本轮审核的事实基准，不得自行改写或臆测缺失数据。
+              audit_context.request 包含触发类型、旅行 ID、位置和有限聊天历史；audit_context.evidence 包含主 Workflow 实际使用的行程、备忘录、时间、天气、路线、工具错误和结构化候选方案。它们是本轮审核的事实基准，不得自行改写或臆测缺失数据。证据中的用户可见时间统一为 Asia/Shanghai（UTC+8），不得再做二次时区偏移。
 
               审核规则：
 

@@ -117,8 +117,11 @@ def test_due_reminder_uses_trip_as_context_and_keeps_dify_tour_key(
     assert calls[0]["inputs"]["city_adcode"] == "310115"
     assert "city" not in calls[0]["inputs"]
     assert "location_context" not in calls[0]["inputs"]
-    assert db.query(AIAdvice).one().trip_id == trip.id
-    assert db.query(Notification).one().trip_id == trip.id
+    assert db.query(AIAdvice).count() == 0
+    notification = db.query(Notification).one()
+    assert notification.trip_id == trip.id
+    assert notification.advice_id is None
+    assert notification.category == "memo"
 
 
 def test_cancelled_trip_does_not_emit_due_reminders(db: Session, monkeypatch) -> None:

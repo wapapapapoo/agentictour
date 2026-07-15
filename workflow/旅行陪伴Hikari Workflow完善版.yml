@@ -214,6 +214,7 @@ workflow:
     - DB_SCHEMA_CONTEXT
     value: |-
       只允许单条 SELECT，禁止 INSERT、UPDATE、DELETE、DROP、ALTER、SHOW 和 information_schema。只能查询当前用户、当前旅行所需数据，不得读取 users.password_hash。
+      时间规则：数据库中的 DATETIME（包括 start_time、end_time、reminder_time、reminded_at、created_at、updated_at）统一存储为 UTC；面向用户和 Agent 的时间统一使用 Asia/Shanghai（UTC+8）。查询后必须先加 8 小时再解释或展示，禁止把数据库原始 UTC 当作北京时间。
       Workflow 输入 tour_id 对应 trips.id，也对应带 trip_id 字段的业务表中的 trip_id；不要使用 tour_schedule，该表不存在。
       users(user_id, username, password_hash[禁止查询], nickname, phone, email, status, created_at, updated_at)
       trips(id, user_id, title, origin_city, destination_city, start_date, end_date, timezone, status, created_at, updated_at)
@@ -245,9 +246,9 @@ workflow:
       2. 只能使用 DB_SCHEMA_CONTEXT 中明确列出的表名和字段名；禁止猜测 tour_schedule 等不存在的表，禁止访问 information_schema。
       3. 禁止 SELECT *，只选择完成当前任务所需字段；禁止查询 users.password_hash 等认证或敏感数据。
       4. Workflow 的 tour_id 对应 trips.id 和其他业务表的 trip_id。涉及旅行的数据必须使用 WHERE trip_id = 当前 tour_id；查询 trips 时使用 WHERE id = 当前 tour_id。不得查询其他旅行。
-      5. 查询行程优先使用：SELECT itinerary_id, trip_id, title, place_name, start_time, end_time, itinerary_type, reminder_time, is_initial, reminded_at, status FROM itinerary_items WHERE trip_id = 当前 tour_id ORDER BY start_time ASC
-      6. 查询备忘录优先使用：SELECT memo_id, trip_id, memo_text, reminder_time, reminded_at, created_at FROM memos WHERE trip_id = 当前 tour_id ORDER BY created_at ASC
-      7. 自动检查未来行程使用：SELECT itinerary_id, trip_id, title, place_name, start_time, end_time, itinerary_type, reminder_time, is_initial, status FROM itinerary_items WHERE trip_id = 当前 tour_id AND status = 'pending' ORDER BY start_time ASC
+      5. 查询行程时必须把 UTC 转为北京时间，优先使用：SELECT itinerary_id, trip_id, title, place_name, DATE_FORMAT(DATE_ADD(start_time, INTERVAL 8 HOUR), '%Y-%m-%d %H:%i:%s') AS start_time, DATE_FORMAT(DATE_ADD(end_time, INTERVAL 8 HOUR), '%Y-%m-%d %H:%i:%s') AS end_time, itinerary_type, DATE_FORMAT(DATE_ADD(reminder_time, INTERVAL 8 HOUR), '%Y-%m-%d %H:%i:%s') AS reminder_time, is_initial, status FROM itinerary_items WHERE trip_id = 当前 tour_id ORDER BY start_time ASC
+      6. 查询备忘录时必须把 UTC 转为北京时间，优先使用：SELECT memo_id, trip_id, memo_text, DATE_FORMAT(DATE_ADD(reminder_time, INTERVAL 8 HOUR), '%Y-%m-%d %H:%i:%s') AS reminder_time, DATE_FORMAT(DATE_ADD(reminded_at, INTERVAL 8 HOUR), '%Y-%m-%d %H:%i:%s') AS reminded_at FROM memos WHERE trip_id = 当前 tour_id ORDER BY created_at ASC
+      7. 自动检查未来行程同样必须先将 start_time、end_time、reminder_time 从 UTC 加 8 小时转换为北京时间，再与 Asia/Shanghai 当前时间比较和输出。
       8. SQL 因表名或字段名失败时，只能依据 DB_SCHEMA_CONTEXT 修正一次；再次失败就停止查询并明确说明数据库暂时不可用，不得继续猜表、探库或泄露工具错误详情。
       9. 每个任务最多调用数据库工具两次。最终回复只呈现查询结论，不输出 SQL、数据库连接信息、工具调用过程或内部思考。
     value_type: string
@@ -1060,13 +1061,13 @@ workflow:
               \n重要约束：\n1. 涉及数据库事实时必须严格按照上述结构和规范调用 SQL查询 工具，只使用真实表名和字段名；context 是基准行程快照，最新查询与其冲突时以同一 tour_id 的最新 SELECT 结果为准。数据库只允许 SELECT，不能直接修改任何表。\n2. 只调整当前时间之后、确实受影响且状态为 pending 的安排；已完成、已开始或已取消的行程不能修改。\n\
               3. cancelled_itinerary_ids 只返回需要取消的旧行程 itinerary_id；itinerary_items\
               \ 只返回后端需要创建的新行程，不要重复输出未变化的旧行程。\n4. 每项必须包含 title、place_name、start_time、end_time、itinerary_type、status。\n\
-              5. start_time/end_time 使用 ISO 8601；end_time 必须晚于 start_time。\n6. itinerary_type\
+              5. start_time/end_time 使用带 +08:00 时区偏移的 ISO 8601 北京时间；end_time 必须晚于 start_time，正文时间必须与结构化字段一致。\n6. itinerary_type\
               \ 只能是 play 或 transit；transit 必须提供 reminder_time。\n7. 不确定的营业时间、票价、天气或路线必须先调用工具；无法确认时不要伪造候选行程。\n\
               8. 用户同意“生成重推荐”不等于同意“采纳方案”。reply 只能说明候选调整及理由，不能声称已经修改成功；后端会先把本次结果保存为 pending，等待用户采纳、进一步修改或放弃。\n9. cancelled_itinerary_ids 与 itinerary_items 必须共同表达最小增量变化，未变化的旧行程不要返回。\n10. 当 user_query 包含“推荐版本历史”时，这些内容由后端根据 ai_advice.parent_advice_id 按旧到新整理，是本次进一步修改的可信上下文。保留仍有效的约束，以“当前用户新要求”为最高优先级，不要恢复已被后续版本否定的内容，也不要自行猜测、改写或查询其他行程的建议链。\n\n最终只输出一个合法 JSON 对象，不要输出 Markdown 代码块或思考过程：\n\
               {\n  \"reply\": \"面向用户的简洁说明\",\n  \"cancelled_itinerary_ids\": [123],\n\
               \  \"itinerary_items\": [\n    {\n      \"title\": \"候选行程标题\",\n   \
-              \   \"place_name\": \"地点名称\",\n      \"start_time\": \"2026-08-20T14:00:00\"\
-              ,\n      \"end_time\": \"2026-08-20T15:00:00\",\n      \"itinerary_type\"\
+              \   \"place_name\": \"地点名称\",\n      \"start_time\": \"2026-08-20T14:00:00+08:00\"\
+              ,\n      \"end_time\": \"2026-08-20T15:00:00+08:00\",\n      \"itinerary_type\"\
               : \"play\",\n      \"reminder_time\": null,\n      \"is_initial\": false,\n\
               \      \"status\": \"pending\"\n    }\n  ]\n}\n没有需要取消的旧行程时 cancelled_itinerary_ids\
               \ 返回空数组；没有可靠新增项时 itinerary_items 返回空数组。"
@@ -2113,9 +2114,13 @@ workflow:
             value: '{{#env.User#}}'
           query_sql:
             type: mixed
-            value: SELECT itinerary_id, trip_id, title, place_name, start_time, end_time,
-              itinerary_type, reminder_time, is_initial, status FROM {{#env.TABLE_ITINERARY_ITEMS#}}
-              WHERE trip_id = {{#1782285385726.tour_id#}} ORDER BY start_time ASC;
+            value: SELECT itinerary_id, trip_id, title, place_name, DATE_FORMAT(DATE_ADD(start_time,
+              INTERVAL 8 HOUR), '%Y-%m-%d %H:%i:%s') AS start_time, DATE_FORMAT(DATE_ADD(end_time,
+              INTERVAL 8 HOUR), '%Y-%m-%d %H:%i:%s') AS end_time, itinerary_type,
+              DATE_FORMAT(DATE_ADD(reminder_time, INTERVAL 8 HOUR), '%Y-%m-%d %H:%i:%s')
+              AS reminder_time, is_initial, status FROM {{#env.TABLE_ITINERARY_ITEMS#}}
+              WHERE trip_id = {{#1782285385726.tour_id#}} ORDER BY start_time
+              ASC;
         type: tool
       height: 87
       id: '1782441291535'
@@ -2610,7 +2615,9 @@ workflow:
             value: '{{#env.User#}}'
           query_sql:
             type: mixed
-            value: SELECT memo_id, memo_text, reminder_time, reminded_at FROM {{#env.TABLE_MEMOS#}}
+            value: SELECT memo_id, memo_text, DATE_FORMAT(DATE_ADD(reminder_time,
+              INTERVAL 8 HOUR), '%Y-%m-%d %H:%i:%s') AS reminder_time, DATE_FORMAT(DATE_ADD(reminded_at,
+              INTERVAL 8 HOUR), '%Y-%m-%d %H:%i:%s') AS reminded_at FROM {{#env.TABLE_MEMOS#}}
               WHERE trip_id = {{#1782285385726.tour_id#}} ORDER BY created_at ASC;
         type: tool
       height: 87

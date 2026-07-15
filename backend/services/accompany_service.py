@@ -158,9 +158,9 @@ def _recalculate_day(db: Session, trip_id: int, day: datetime) -> None:
         previous = items[index - 1]
         if was_initial or item.reminder_time is None:
             item.reminder_time = _default_from_previous(previous)
-        if not (previous.start_time <= item.reminder_time <= previous.end_time):
+        if item.reminder_time > item.start_time:
             raise ValueError(
-                "reminder_time must be within the previous itinerary start and end time"
+                "reminder_time must not be later than itinerary start_time"
             )
 
 
@@ -191,15 +191,12 @@ def create_itinerary(
         values["reminder_time"] = data.start_time
     elif data.itinerary_type == "play" and data.reminder_time is None:
         values["reminder_time"] = _default_play_reminder(db, data)
-    previous = _previous_itinerary(db, data)
     if (
-        not values["is_initial"]
-        and previous
-        and values["reminder_time"] is not None
-        and not (previous.start_time <= values["reminder_time"] <= previous.end_time)
+        values["reminder_time"] is not None
+        and values["reminder_time"] > data.start_time
     ):
         raise ValueError(
-            "reminder_time must be within the previous itinerary start and end time"
+            "reminder_time must not be later than itinerary start_time"
         )
     row = crud.create(db, ItineraryItem, values)
     _recalculate_day(db, data.trip_id, data.start_time)

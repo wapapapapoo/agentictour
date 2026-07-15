@@ -6,6 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
+from crud import accompany as accompany_crud
 from database import Base
 from models.accompany import (
     AIAdvice,
@@ -298,6 +299,66 @@ def test_play_reminder_uses_previous_end_minus_twenty_minutes(db: Session) -> No
         db, _item(datetime(2026, 7, 20, 10), datetime(2026, 7, 20, 11))
     )
     assert second.reminder_time == datetime(2026, 7, 20, 8, 40)
+
+
+def test_custom_reminder_may_be_after_previous_item_if_before_current_start(
+    db: Session,
+) -> None:
+    accompany_service.create_itinerary(
+        db, _item(datetime(2026, 7, 20, 8), datetime(2026, 7, 20, 9))
+    )
+    second = accompany_service.create_itinerary(
+        db,
+        _item(
+            datetime(2026, 7, 20, 10),
+            datetime(2026, 7, 20, 11),
+            reminder_time=datetime(2026, 7, 20, 9, 30),
+        ),
+    )
+
+    assert second.reminder_time == datetime(2026, 7, 20, 9, 30)
+
+
+def test_custom_reminder_cannot_be_after_current_start(db: Session) -> None:
+    accompany_service.create_itinerary(
+        db, _item(datetime(2026, 7, 20, 8), datetime(2026, 7, 20, 9))
+    )
+
+    with pytest.raises(ValueError, match="not be later than itinerary start_time"):
+        accompany_service.create_itinerary(
+            db,
+            _item(
+                datetime(2026, 7, 20, 10),
+                datetime(2026, 7, 20, 11),
+                reminder_time=datetime(2026, 7, 20, 10, 30),
+            ),
+        )
+
+
+def test_advice_list_only_contains_itinerary_replans(db: Session) -> None:
+    db.add_all(
+        [
+            AIAdvice(
+                trip_id=1,
+                advice_type="replan",
+                advice_text="候选日程",
+                result="pending",
+                audit_status="pass",
+            ),
+            AIAdvice(
+                trip_id=1,
+                advice_type="memo",
+                advice_text="旧版重复备忘提醒",
+                result="pending",
+                audit_status="pass",
+            ),
+        ]
+    )
+    db.commit()
+
+    assert [row.advice_type for row in accompany_crud.list_advice(db, 1)] == [
+        "replan"
+    ]
 
 
 def test_short_previous_item_uses_five_minutes_or_end(db: Session) -> None:

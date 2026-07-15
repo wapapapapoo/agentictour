@@ -52,7 +52,7 @@ PROMPTS = {
 
 def _emit(
     db: Session, trip_id: int, user_id: int, category: str, detail: str
-) -> AIAdvice:
+) -> Notification:
     original = f"{PROMPTS[category]}\n{detail}"
     audited = run_hikari_once_audited(
         user=str(user_id),
@@ -64,32 +64,16 @@ def _emit(
             **_location_inputs(db, user_id),
         },
     )
-    advice = create(
-        db,
-        AIAdvice,
-        {
-            "trip_id": trip_id,
-            "advice_type": category,
-            "reason_text": detail,
-            "advice_text": audited.content,
-            "result": "pending",
-            "audit_status": "pass" if audited.passed else "failed",
-            "audit_reason": audited.reason,
-        },
-    )
-    db.flush()
-    create(
+    return create(
         db,
         Notification,
         {
             "trip_id": trip_id,
             "user_id": user_id,
-            "advice_id": advice.advice_id,
             "category": category,
             "content": audited.content,
         },
     )
-    return advice
 
 
 def _agent_check(
