@@ -17,11 +17,14 @@ export interface Trip { id: number; title: string; origin_city: string; destinat
 export interface Plan { id: number; trip_id: number; destination_city: string; origin_city: string; start_date: string; end_date: string; latest_version?: { version_no: number; plan_json: unknown }; [key: string]: unknown }
 export interface BlogMaterial { id: number; title: string; destination: string }
 export interface BlogGeneration { id: number; generated_title?: string; generated_content: string; tags?: string; risk_note?: string; content_type?: string; writing_style?: string }
-export interface ChatReply { id?: number; reply: string; content?: string; created_at?: string }
-export interface Memo { memo_id: number; trip_id: number; memo_text: string; reminder_time?: string | null }
-export interface Itinerary { itinerary_id: number; trip_id: number; title: string; place_name: string; start_time: string; end_time: string; itinerary_type: 'transit' | 'play'; status: string; reminder_time?: string | null; is_initial?: boolean }
-export interface Advice { advice_id: number; trip_id: number; advice_text: string; result: string; audit_status: string; audit_reason?: string | null; created_at: string }
+export interface ChatReply { session_id: number; user_message_id: number; ai_message_id: number; reply: string; audit_status: string; audit_reason?: string | null }
+export interface ChatMessage { message_id: number; session_id: number; sender_type: 'user' | 'ai' | 'system'; content: string; message_order: number; audit_status: string; audit_reason?: string | null; created_at: string }
+export interface ChatHistory { session_id: number; trip_id: number; user_id: number; title?: string | null; status: string; messages: ChatMessage[] }
+export interface Memo { memo_id: number; trip_id: number; memo_text: string; reminder_time?: string | null; reminded_at?: string | null; created_at?: string; updated_at?: string | null }
+export interface Itinerary { itinerary_id: number; trip_id: number; title: string; place_name: string; start_time: string; end_time: string; itinerary_type: 'transit' | 'play'; status: 'pending' | 'done' | 'cancelled'; reminder_time?: string | null; is_initial?: boolean; reminded_at?: string | null; created_at?: string; updated_at?: string | null }
+export interface Advice { advice_id: number; trip_id: number; advice_type: string; parent_advice_id?: number | null; input_text?: string | null; reason_text?: string | null; advice_text: string; proposed_itinerary?: unknown; result: string; audit_status: string; audit_reason?: string | null; generation_stopped?: boolean; created_at: string }
 export interface Notification { notification_id: number; trip_id: number; content: string; category: string; read_at?: string | null; created_at: string }
+export interface Location { user_id: number; latitude: number; longitude: number; city_adcode?: string; place_name?: string; updated_at: string }
 export interface KnowledgeSearchResult { chunk_content: string; score: number; document_id: string; plan_id?: number | null; plan_title?: string | null; like_count: number; is_liked: boolean }
 export interface KnowledgeSearchResponse { results: KnowledgeSearchResult[] }
 export interface PlanLikeResponse { id: number; user_id: number; plan_id: number; chunk_ids: string[]; created_at: string }
@@ -82,7 +85,7 @@ export const api = {
   createItinerary: (payload: Omit<Itinerary, 'itinerary_id'>) => request<Itinerary>('/itineraries', { method: 'POST', body: JSON.stringify(payload) }),
   updateItinerary: (id: number, payload: Partial<Omit<Itinerary, 'itinerary_id' | 'trip_id'>>) => request<Itinerary>(`/itineraries/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   deleteItinerary: (id: number) => request<void>(`/itineraries/${id}`, { method: 'DELETE' }),
-  generateAdvice: (payload: { trip_id: number; reason: string; city?: string; current_itinerary?: unknown; additional_requirement?: string }) => request<Advice>('/ai-advice/generate', { method: 'POST', body: JSON.stringify({ ...payload, user_id: requireUserId() }) }),
+  generateAdvice: (payload: { trip_id: number; reason: string; city_adcode?: string; additional_requirement?: string; latitude?: number; longitude?: number; location_name?: string }) => request<Advice>('/ai-advice/generate', { method: 'POST', body: JSON.stringify({ ...payload, user_id: requireUserId() }) }),
   listAdvice: (tripId: number) => request<Advice[]>(`/trips/${tripId}/ai-advice`),
   actOnAdvice: (id: number, action: 'accept' | 'reject' | 'revise', additional_requirement = '') => request<Advice>(`/ai-advice/${id}/action`, { method: 'POST', body: JSON.stringify({ action, user_id: requireUserId(), additional_requirement }) }),
   listNotifications: (unreadOnly = true) => request<Notification[]>(`/notifications?user_id=${requireUserId()}&unread_only=${unreadOnly}`),
@@ -93,6 +96,7 @@ export const api = {
   syncPlanToKnowledge: (planId: number) => request<PlanKnowledgeResponse>(`/trip-plans/${planId}/knowledge`, { method: 'POST', body: JSON.stringify({ user_id: requireUserId(), chunk_size: 4000 }) }),
   recommendFeed: (page = 0, pageSize = 20, topK = 5) => request<{ results: KnowledgeSearchResult[]; page: number; has_more: boolean }>(`/trip-plans/recommend/${requireUserId()}?page=${page}&page_size=${pageSize}&top_k=${topK}`),
   trending: () => request<{ hot_destinations: Array<{ destination: string; plan_count: number }>; top_liked_posts: Array<{ plan_id: number; destination: string; like_count: number }> }>('/trip-plans/trending'),
-  sendChatMessage: (payload: { trip_id: number; message: string; city?: string; nearby_context?: string; latitude?: number; longitude?: number; location_name?: string }) => request<ChatReply>('/chat/messages', { method: 'POST', body: JSON.stringify({ ...payload, user_id: requireUserId() }) }),
-  updateLocation: (payload: { latitude: number; longitude: number; city?: string; place_name?: string; location_context?: string }) => request('/locations', { method: 'PUT', body: JSON.stringify({ ...payload, user_id: requireUserId() }) }),
+  getTripChat: (tripId: number) => request<ChatHistory>(`/trips/${tripId}/chat`),
+  sendChatMessage: (payload: { trip_id: number; message: string; city_adcode?: string; latitude?: number; longitude?: number; location_name?: string }) => request<ChatReply>('/chat/messages', { method: 'POST', body: JSON.stringify({ ...payload, user_id: requireUserId() }) }),
+  updateLocation: (payload: { latitude: number; longitude: number; city_adcode?: string; place_name?: string }) => request<Location>('/locations', { method: 'PUT', body: JSON.stringify({ ...payload, user_id: requireUserId() }) }),
 }

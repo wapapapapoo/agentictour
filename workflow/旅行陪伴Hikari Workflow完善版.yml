@@ -62,6 +62,195 @@ workflow:
     - password1
     value: ''
     value_type: secret
+  - description: 用户表名
+    id: 48f3d78e-f20d-4fb5-960d-17a5f2278e01
+    name: TABLE_USERS
+    selector:
+    - env
+    - TABLE_USERS
+    value: users
+    value_type: string
+  - description: 旅行主表名
+    id: 9da65465-ea43-4c1c-94af-f864da691b02
+    name: TABLE_TRIPS
+    selector:
+    - env
+    - TABLE_TRIPS
+    value: trips
+    value_type: string
+  - description: 行程明细表名
+    id: bbb475a8-7646-44c6-bcee-95f59c687103
+    name: TABLE_ITINERARY_ITEMS
+    selector:
+    - env
+    - TABLE_ITINERARY_ITEMS
+    value: itinerary_items
+    value_type: string
+  - description: 备忘录表名
+    id: 41ba62f8-90bf-4488-b50f-3794e89f6404
+    name: TABLE_MEMOS
+    selector:
+    - env
+    - TABLE_MEMOS
+    value: memos
+    value_type: string
+  - description: AI建议表名
+    id: ce83f3cf-a236-4396-96d6-cf585dfdb305
+    name: TABLE_AI_ADVICE
+    selector:
+    - env
+    - TABLE_AI_ADVICE
+    value: ai_advice
+    value_type: string
+  - description: 通知表名
+    id: 814702b5-cf2d-49e5-bf98-b752760e6b06
+    name: TABLE_NOTIFICATIONS
+    selector:
+    - env
+    - TABLE_NOTIFICATIONS
+    value: notifications
+    value_type: string
+  - description: Agent任务状态表名
+    id: df076bc8-e18f-427b-b63f-e44154c41407
+    name: TABLE_AGENT_JOB_STATES
+    selector:
+    - env
+    - TABLE_AGENT_JOB_STATES
+    value: agent_job_states
+    value_type: string
+  - description: 用户位置表名
+    id: 1068ed21-83ef-4379-919a-ddd04bd02e08
+    name: TABLE_USER_LOCATIONS
+    selector:
+    - env
+    - TABLE_USER_LOCATIONS
+    value: user_locations
+    value_type: string
+  - description: 聊天会话表名
+    id: 9bafbd63-5a89-4b38-942d-19317eb8ee09
+    name: TABLE_CHAT_SESSIONS
+    selector:
+    - env
+    - TABLE_CHAT_SESSIONS
+    value: chat_sessions
+    value_type: string
+  - description: 聊天消息表名
+    id: a8c3da97-ac86-4bec-9cf2-4fe496912210
+    name: TABLE_CHAT_MESSAGES
+    selector:
+    - env
+    - TABLE_CHAT_MESSAGES
+    value: chat_messages
+    value_type: string
+  - description: 行程计划请求表名
+    id: 4ae8a4f2-b31d-4505-a3b4-06a6340d5f11
+    name: TABLE_TRIP_PLAN_REQUESTS
+    selector:
+    - env
+    - TABLE_TRIP_PLAN_REQUESTS
+    value: trip_plan_requests
+    value_type: string
+  - description: 行程计划版本表名
+    id: 91b9b174-97a2-411c-a20f-e96db484ff12
+    name: TABLE_TRIP_PLAN_VERSIONS
+    selector:
+    - env
+    - TABLE_TRIP_PLAN_VERSIONS
+    value: trip_plan_versions
+    value_type: string
+  - description: 计划点赞表名
+    id: 7e324d56-ae82-4a1e-89cf-72340580df13
+    name: TABLE_PLAN_LIKES
+    selector:
+    - env
+    - TABLE_PLAN_LIKES
+    value: plan_likes
+    value_type: string
+  - description: 计划知识库映射表名
+    id: 0ec91502-37c9-4921-9dd4-e8cdece5ea14
+    name: TABLE_PLAN_KNOWLEDGE_MAPPINGS
+    selector:
+    - env
+    - TABLE_PLAN_KNOWLEDGE_MAPPINGS
+    value: plan_knowledge_mappings
+    value_type: string
+  - description: 用户偏好原型表名
+    id: 3ab8588f-9d62-4269-a7f1-df6901596b15
+    name: TABLE_USER_PREFERENCE_PROTOTYPES
+    selector:
+    - env
+    - TABLE_USER_PREFERENCE_PROTOTYPES
+    value: user_preference_prototypes
+    value_type: string
+  - description: 游记素材表名
+    id: e59cc649-e8b4-41c5-bce8-19e36985c516
+    name: TABLE_BLOG_MATERIALS
+    selector:
+    - env
+    - TABLE_BLOG_MATERIALS
+    value: blog_materials
+    value_type: string
+  - description: 游记照片表名
+    id: f815f8f7-ee6e-4396-9d26-d513c8010b17
+    name: TABLE_BLOG_PHOTOS
+    selector:
+    - env
+    - TABLE_BLOG_PHOTOS
+    value: blog_photos
+    value_type: string
+  - description: 游记生成结果表名
+    id: b8f54417-8c77-4c75-a832-ef2ac3e7ec18
+    name: TABLE_BLOG_GENERATIONS
+    selector:
+    - env
+    - TABLE_BLOG_GENERATIONS
+    value: blog_generations
+    value_type: string
+  - description: Agent只读数据库结构说明
+    id: 74acbc9f-76ad-4dcb-912e-689799551619
+    name: DB_SCHEMA_CONTEXT
+    selector:
+    - env
+    - DB_SCHEMA_CONTEXT
+    value: |-
+      只允许单条 SELECT，禁止 INSERT、UPDATE、DELETE、DROP、ALTER、SHOW 和 information_schema。只能查询当前用户、当前旅行所需数据，不得读取 users.password_hash。
+      Workflow 输入 tour_id 对应 trips.id，也对应带 trip_id 字段的业务表中的 trip_id；不要使用 tour_schedule，该表不存在。
+      users(user_id, username, password_hash[禁止查询], nickname, phone, email, status, created_at, updated_at)
+      trips(id, user_id, title, origin_city, destination_city, start_date, end_date, timezone, status, created_at, updated_at)
+      itinerary_items(itinerary_id, trip_id, title, place_name, start_time, end_time, itinerary_type, reminder_time, is_initial, reminded_at, status, created_at, updated_at)
+      memos(memo_id, trip_id, memo_text, reminder_time, reminded_at, created_at, updated_at)
+      ai_advice(advice_id, trip_id, advice_type, parent_advice_id, input_text, reason_text, advice_text, proposed_itinerary_json, result, audit_status, audit_reason, generation_stopped, created_at, updated_at)
+      notifications(notification_id, trip_id, user_id, advice_id, category, content, read_at, created_at)
+      agent_job_states(job_name, last_run_at)
+      user_locations(user_id, latitude, longitude, city, place_name, location_context, updated_at)
+      chat_sessions(session_id, trip_id, user_id, title, status, last_message_at, created_at, updated_at)
+      chat_messages(message_id, session_id, sender_type, content, message_order, audit_status, audit_reason, created_at, updated_at)
+      trip_plan_requests(id, trip_id, user_id, action, origin_city, destination_city, start_date, end_date, people_count, budget_total, interests, hotel_level, transport_preference, pace, special_requirements, created_at, updated_at)
+      trip_plan_versions(id, request_id, user_id, version_no, revision_request, workflow_run_id, task_id, plan_json, raw_response_json, created_at)
+      plan_likes(id, user_id, plan_id, chunk_ids, created_at)
+      plan_knowledge_mappings(id, plan_id, version_id, user_id, dataset_id, document_id, document_name, batch, humanized_text, indexing_status, created_at)
+      user_preference_prototypes(id, user_id, vector, chunk_count, created_at)
+      blog_materials(id, user_id, title, destination, start_date, end_date, people_count, itinerary_text, food_text, photo_text, expense_text, feeling_text, created_at, updated_at)
+      blog_photos(id, material_id, user_id, original_filename, stored_filename, content_type, file_size, created_at)
+      blog_generations(id, material_id, user_id, content_type, writing_style, generated_title, generated_content, tags, risk_note, created_at)
+    value_type: string
+  - description: Agent数据库查询统一规范
+    id: 95fdcf34-85f4-41db-ac6b-d64121486a20
+    name: DB_QUERY_RULES
+    selector:
+    - env
+    - DB_QUERY_RULES
+    value: |-
+      1. 只允许执行一条 SELECT；禁止 INSERT、UPDATE、DELETE、REPLACE、DROP、ALTER、TRUNCATE、CREATE、SHOW、DESCRIBE、EXPLAIN、存储过程和多语句。
+      2. 只能使用 DB_SCHEMA_CONTEXT 中明确列出的表名和字段名；禁止猜测 tour_schedule 等不存在的表，禁止访问 information_schema。
+      3. 禁止 SELECT *，只选择完成当前任务所需字段；禁止查询 users.password_hash 等认证或敏感数据。
+      4. Workflow 的 tour_id 对应 trips.id 和其他业务表的 trip_id。涉及旅行的数据必须使用 WHERE trip_id = 当前 tour_id；查询 trips 时使用 WHERE id = 当前 tour_id。不得查询其他旅行。
+      5. 查询行程优先使用：SELECT itinerary_id, trip_id, title, place_name, start_time, end_time, itinerary_type, reminder_time, is_initial, reminded_at, status FROM itinerary_items WHERE trip_id = 当前 tour_id ORDER BY start_time ASC
+      6. 查询备忘录优先使用：SELECT memo_id, trip_id, memo_text, reminder_time, reminded_at, created_at FROM memos WHERE trip_id = 当前 tour_id ORDER BY created_at ASC
+      7. 自动检查未来行程使用：SELECT itinerary_id, trip_id, title, place_name, start_time, end_time, itinerary_type, reminder_time, is_initial, status FROM itinerary_items WHERE trip_id = 当前 tour_id AND status = 'pending' ORDER BY start_time ASC
+      8. SQL 因表名或字段名失败时，只能依据 DB_SCHEMA_CONTEXT 修正一次；再次失败就停止查询并明确说明数据库暂时不可用，不得继续猜表、探库或泄露工具错误详情。
+      9. 每个任务最多调用数据库工具两次。最终回复只呈现查询结论，不输出 SQL、数据库连接信息、工具调用过程或内部思考。
+    value_type: string
   features:
     file_upload:
       allowed_file_extensions:
@@ -494,12 +683,16 @@ workflow:
 
               - 基准行程快照：由 Workflow 开头按 tour_id 固定查询并通过 context 提供
 
+              - 数据库完整结构：{{#env.DB_SCHEMA_CONTEXT#}}
+
+              - 数据库查询规范：{{#env.DB_QUERY_RULES#}}
+
 
               行为规则：
 
               1. 回答必须结合后端传入的本地历史消息，但不得声称 Dify 保存了会话。
 
-              2. context 中的行程是本次调用的基准快照。需要核对最新状态或查询额外字段时可使用数据库工具；再次查询与快照冲突时，以同一 tour_id 的最新 SELECT 结果为准，并避免重复查询。
+              2. 涉及行程、备忘录、旅行状态或其他数据库事实时，严格按照“数据库完整结构”和“数据库查询规范”调用 SQL查询 工具；只能使用列出的真实表名和字段名。context 是基准快照，再次查询与快照冲突时以同一 tour_id 的最新 SELECT 结果为准。
 
               3. 天气、附近地点、路线耗时等实时信息必须调用对应工具，工具失败时明确说明无法确认。
 
@@ -743,7 +936,7 @@ workflow:
               type: mcp
             - enabled: true
               extra:
-                description: 数据库SQL查询工具。
+                description: 只读数据库查询工具。真实表结构和查询规范已通过 DB_SCHEMA_CONTEXT、DB_QUERY_RULES 提供给 Agent；只能执行限定当前旅行的单条 SELECT，禁止猜表和探库。
               parameters:
                 db_host:
                   auto: 0
@@ -790,7 +983,7 @@ workflow:
                   value:
                     type: constant
                     value: markdown
-              tool_description: 数据库SQL查询工具。
+              tool_description: 只读数据库查询工具。仅使用 DB_SCHEMA_CONTEXT 中的表和字段，并严格遵守 DB_QUERY_RULES。
               tool_label: SQL查询
               tool_name: sql_query
               type: builtin
@@ -833,6 +1026,11 @@ workflow:
           - '1782351047886'
           - text
           variable: reply
+        - value_selector:
+          - hikari_itinerary_context_formatter_v1
+          - content
+          value_type: string
+          variable: itinerary_context
         selected: false
         title: 结束-聊天回复
         type: end
@@ -858,8 +1056,8 @@ workflow:
             - documents
           instruction:
             type: constant
-            value: "你是 Hikari 的行程调整 Agent。trigger_type=user_accident 表示用户主动要求修改；trigger_type=system_auto_accident 表示系统发现突发状况后，用户已经同意生成候选调整。两种情况都只生成待用户最终确认的方案。\n\
-              \n重要约束：\n1. context 是 Workflow 开头按 tour_id 查询的基准行程快照。需要确认最新状态或补充字段时可再次 SELECT；结果冲突时以同一 tour_id 的最新查询为准。数据库只允许 SELECT，不能直接修改任何表。\n2. 只调整当前时间之后、确实受影响且状态为 pending 的安排；已完成、已开始或已取消的行程不能修改。\n\
+            value: "你是 Hikari 的行程调整 Agent。trigger_type=user_accident 表示用户主动要求修改；trigger_type=system_auto_accident 表示系统发现突发状况后，用户已经同意生成候选调整。两种情况都只生成待用户最终确认的方案。\n\n数据库完整结构：{{#env.DB_SCHEMA_CONTEXT#}}\n\n数据库查询规范：{{#env.DB_QUERY_RULES#}}\n\
+              \n重要约束：\n1. 涉及数据库事实时必须严格按照上述结构和规范调用 SQL查询 工具，只使用真实表名和字段名；context 是基准行程快照，最新查询与其冲突时以同一 tour_id 的最新 SELECT 结果为准。数据库只允许 SELECT，不能直接修改任何表。\n2. 只调整当前时间之后、确实受影响且状态为 pending 的安排；已完成、已开始或已取消的行程不能修改。\n\
               3. cancelled_itinerary_ids 只返回需要取消的旧行程 itinerary_id；itinerary_items\
               \ 只返回后端需要创建的新行程，不要重复输出未变化的旧行程。\n4. 每项必须包含 title、place_name、start_time、end_time、itinerary_type、status。\n\
               5. start_time/end_time 使用 ISO 8601；end_time 必须晚于 start_time。\n6. itinerary_type\
@@ -1110,7 +1308,7 @@ workflow:
               type: builtin
             - enabled: true
               extra:
-                description: 数据库SQL查询工具。
+                description: 只读数据库查询工具。真实表结构和查询规范已通过 DB_SCHEMA_CONTEXT、DB_QUERY_RULES 提供给 Agent；只能执行限定当前旅行的单条 SELECT，禁止猜表和探库。
               parameters:
                 db_host:
                   auto: 0
@@ -1157,7 +1355,7 @@ workflow:
                   value:
                     type: constant
                     value: markdown
-              tool_description: 数据库SQL查询工具。
+              tool_description: 只读数据库查询工具。仅使用 DB_SCHEMA_CONTEXT 中的表和字段，并严格遵守 DB_QUERY_RULES。
               tool_label: SQL查询
               tool_name: sql_query
               type: builtin
@@ -1214,6 +1412,11 @@ workflow:
           - cancelled_itinerary_ids
           value_type: array[number]
           variable: cancelled_itinerary_ids
+        - value_selector:
+          - hikari_itinerary_context_formatter_v1
+          - content
+          value_type: string
+          variable: itinerary_context
         selected: false
         title: 结束-日程重推荐
         type: end
@@ -1911,7 +2114,7 @@ workflow:
           query_sql:
             type: mixed
             value: SELECT itinerary_id, trip_id, title, place_name, start_time, end_time,
-              itinerary_type, reminder_time, is_initial, status FROM itinerary_items
+              itinerary_type, reminder_time, is_initial, status FROM {{#env.TABLE_ITINERARY_ITEMS#}}
               WHERE trip_id = {{#1782285385726.tour_id#}} ORDER BY start_time ASC;
         type: tool
       height: 87
@@ -2042,6 +2245,26 @@ workflow:
           - text
           value_type: string
           variable: reply
+        - value_selector:
+          - hikari_itinerary_context_formatter_v1
+          - content
+          value_type: string
+          variable: itinerary_context
+        - value_selector:
+          - '17836716058920'
+          - text
+          value_type: string
+          variable: memo_context
+        - value_selector:
+          - '1783673975969'
+          - text
+          value_type: string
+          variable: weather_context
+        - value_selector:
+          - '1782441089142'
+          - text
+          value_type: string
+          variable: current_time
         selected: false
         title: 输出 3
         type: end
@@ -2387,7 +2610,7 @@ workflow:
             value: '{{#env.User#}}'
           query_sql:
             type: mixed
-            value: SELECT memo_id, memo_text, reminder_time, reminded_at FROM memos
+            value: SELECT memo_id, memo_text, reminder_time, reminded_at FROM {{#env.TABLE_MEMOS#}}
               WHERE trip_id = {{#1782285385726.tour_id#}} ORDER BY created_at ASC;
         type: tool
       height: 87
@@ -2466,8 +2689,12 @@ workflow:
             type: constant
             value: '你是 Hikari 的统一主动检查 Agent。你必须在三种结果中选择一种：无需提示、聊天主动推荐、日程重推荐。
 
+              数据库完整结构：{{#env.DB_SCHEMA_CONTEXT#}}
 
-              检查依据：当前时间、未来行程、城市天气、当前位置和必要的路线信息。context 是 Workflow 开头按 tour_id 查询的基准行程快照；需要确认最新状态或补充信息时可再次 SELECT，冲突时以同一 tour_id 的最新查询为准。数据库只允许 SELECT。
+              数据库查询规范：{{#env.DB_QUERY_RULES#}}
+
+
+              检查依据：当前时间、未来行程、城市天气、当前位置和必要的路线信息。涉及数据库事实时必须严格按照上述结构和规范调用 SQL查询 工具，只使用真实表名和字段名；context 是基准行程快照，最新查询与其冲突时以同一 tour_id 的最新 SELECT 结果为准。
 
 
               decision=chat_recommendation 的条件：
@@ -2750,7 +2977,7 @@ workflow:
               type: mcp
             - enabled: true
               extra:
-                description: 数据库SQL查询工具。
+                description: 只读数据库查询工具。真实表结构和查询规范已通过 DB_SCHEMA_CONTEXT、DB_QUERY_RULES 提供给 Agent；只能执行限定当前旅行的单条 SELECT，禁止猜表和探库。
               parameters:
                 db_host:
                   auto: 0
@@ -2797,7 +3024,7 @@ workflow:
                   value:
                     type: constant
                     value: markdown
-              tool_description: 数据库SQL查询工具。
+              tool_description: 只读数据库查询工具。仅使用 DB_SCHEMA_CONTEXT 中的表和字段，并严格遵守 DB_QUERY_RULES。
               tool_label: SQL查询
               tool_name: sql_query
               type: builtin
@@ -2890,6 +3117,11 @@ workflow:
           - decision
           value_type: string
           variable: decision
+        - value_selector:
+          - hikari_itinerary_context_formatter_v1
+          - content
+          value_type: string
+          variable: itinerary_context
         selected: false
         title: 结束-自动检查
         type: end

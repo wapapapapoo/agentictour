@@ -7,6 +7,26 @@ from typing import Any
 
 from utils.dify_client import DifyClient, DifyConfigError, DifyResponseError
 
+AUDIT_REQUEST_KEYS = (
+    "trigger_type",
+    "tour_id",
+    "city_adcode",
+    "latitude",
+    "longitude",
+    "location_name",
+    "conversation_history",
+)
+AUDIT_EVIDENCE_OUTPUTS = {
+    "itinerary": "itinerary_context",
+    "memos": "memo_context",
+    "weather": "weather_context",
+    "current_time": "current_time",
+    "nearby": "nearby_context",
+    "route": "route_context",
+    "tool_errors": "tool_errors",
+    "decision": "decision",
+}
+
 
 @dataclass
 class AuditedOutput:
@@ -37,6 +57,43 @@ def _structured_itinerary(response: dict[str, Any]) -> Any:
     return {
         "cancelled_itinerary_ids": cancelled_ids,
         "itinerary_items": items or [],
+    }
+
+
+def _audit_context(
+    inputs: dict[str, Any], response: dict[str, Any], structured: Any
+) -> str:
+    request = {
+        key: inputs[key]
+        for key in AUDIT_REQUEST_KEYS
+        if key in inputs and inputs[key] not in (None, "")
+    }
+    evidence: dict[str, Any] = {}
+    for context_key, output_key in AUDIT_EVIDENCE_OUTPUTS.items():
+        value = _output(response, output_key)
+        if value not in (None, "", [], {}):
+            evidence[context_key] = value
+    if structured is not None:
+        evidence["structured_itinerary"] = structured
+    return json.dumps(
+        {"request": request, "evidence": evidence}, ensure_ascii=False, default=str
+    )
+
+
+def _audit_inputs(
+    *,
+    original_input: str,
+    review_content: str,
+    turn: str,
+    inputs: dict[str, Any],
+    response: dict[str, Any],
+    structured: Any,
+) -> dict[str, str]:
+    return {
+        "input": original_input,
+        "ai_readout": review_content,
+        "turn": turn,
+        "audit_context": _audit_context(inputs, response, structured),
     }
 
 
@@ -82,7 +139,14 @@ def run_hikari_audited(
 
     audit_response = _audit_client().run_workflow(
         user=user,
-        inputs={"input": original_input, "ai_readout": review_content, "turn": "first"},
+        inputs=_audit_inputs(
+            original_input=original_input,
+            review_content=review_content,
+            turn="first",
+            inputs=inputs,
+            response=main_response,
+            structured=structured,
+        ),
     )
     result = _output(audit_response, "result")
     passed = result is True or (isinstance(result, str) and result.lower() == "true")
@@ -125,11 +189,14 @@ def run_hikari_audited(
         )
     second_audit = _audit_client().run_workflow(
         user=user,
-        inputs={
-            "input": original_input,
-            "ai_readout": corrected_review_content,
-            "turn": "second",
-        },
+        inputs=_audit_inputs(
+            original_input=original_input,
+            review_content=corrected_review_content,
+            turn="second",
+            inputs=correction_inputs,
+            response=corrected_response,
+            structured=corrected_structured,
+        ),
     )
     second_result = _output(second_audit, "result")
     second_passed = second_result is True or (
