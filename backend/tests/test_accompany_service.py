@@ -445,6 +445,110 @@ def test_accept_advice_inserts_structured_itinerary(db: Session) -> None:
     assert inserted.is_initial is True
 
 
+def test_accept_replan_cancels_old_item_and_adds_new_item(db: Session) -> None:
+    old = accompany_service.create_itinerary(
+        db,
+        _item(
+            datetime(2026, 7, 20, 14),
+            datetime(2026, 7, 20, 15),
+            title="原景点",
+        ),
+    )
+    advice = AIAdvice(
+        trip_id=1,
+        advice_type="replan",
+        advice_text="取消原景点，改去咖啡馆",
+        proposed_itinerary_json=json.dumps(
+            {
+                "cancelled_itinerary_ids": [old.itinerary_id],
+                "itinerary_items": [
+                    {
+                        "title": "咖啡馆休息",
+                        "place_name": "Hikari Cafe",
+                        "start_time": "2026-07-20T14:00:00",
+                        "end_time": "2026-07-20T15:00:00",
+                        "itinerary_type": "play",
+                        "status": "pending",
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+    )
+    db.add(advice)
+    db.commit()
+    db.refresh(advice)
+
+    result = accompany_service.act_on_advice(db, advice.advice_id, "accept", 1, "")
+
+    db.refresh(old)
+    assert result.result == "accepted"
+    assert old.status == "cancelled"
+    active = db.query(ItineraryItem).filter(ItineraryItem.status == "pending").one()
+    assert active.title == "咖啡馆休息"
+    assert active.is_initial is True
+
+
+def test_accept_auto_check_calls_system_replan_then_applies_changes(
+    db: Session, monkeypatch
+) -> None:
+    old = accompany_service.create_itinerary(
+        db,
+        _item(
+            datetime(2026, 7, 20, 14),
+            datetime(2026, 7, 20, 15),
+            title="临时闭馆景点",
+        ),
+    )
+    check = AIAdvice(
+        trip_id=1,
+        advice_type="itinerary_replan",
+        reason_text="景点临时闭馆",
+        advice_text="景点临时闭馆，是否同意重新推荐？",
+    )
+    db.add(check)
+    db.commit()
+    db.refresh(check)
+    calls = []
+
+    def fake_hikari(**kwargs):
+        calls.append(kwargs)
+        outputs = {
+            "reply": "已调整为咖啡馆休息",
+            "cancelled_itinerary_ids": [old.itinerary_id],
+            "itinerary_items": [
+                {
+                    "title": "咖啡馆休息",
+                    "place_name": "Hikari Cafe",
+                    "start_time": "2026-07-20T14:00:00",
+                    "end_time": "2026-07-20T15:00:00",
+                    "itinerary_type": "play",
+                    "status": "pending",
+                }
+            ],
+        }
+        return _audited_output(
+            content=outputs["reply"],
+            main_response={"data": {"outputs": outputs}},
+        )
+
+    monkeypatch.setattr(accompany_service, "run_hikari_once_audited", fake_hikari)
+
+    generated = accompany_service.act_on_advice(db, check.advice_id, "accept", 1, "")
+
+    db.refresh(check)
+    db.refresh(old)
+    assert calls[0]["inputs"]["trigger_type"] == "system_auto_accident"
+    assert generated.parent_advice_id == check.advice_id
+    assert generated.result == "accepted"
+    assert check.result == "accepted"
+    assert old.status == "cancelled"
+    assert (
+        db.query(ItineraryItem).filter(ItineraryItem.status == "pending").one().title
+        == "咖啡馆休息"
+    )
+
+
 def test_revise_advice_stores_one_combined_input(db: Session, monkeypatch) -> None:
     old = AIAdvice(
         trip_id=1,

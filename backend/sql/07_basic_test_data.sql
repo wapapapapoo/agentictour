@@ -370,8 +370,7 @@ JOIN trips AS trip ON trip.id = a.trip_id
 WHERE a.trip_id IN (@trip_1_id, @trip_2_id);
 
 INSERT INTO agent_job_states (job_name, last_run_at) VALUES
-('hourly_itinerary_check', '2026-07-13 00:00:00'),
-('three_hour_proactive', '2026-07-13 00:00:00');
+('hourly_itinerary_check', '2026-07-13 00:00:00');
 
 INSERT INTO user_locations (
     user_id, latitude, longitude, city, place_name, location_context, updated_at

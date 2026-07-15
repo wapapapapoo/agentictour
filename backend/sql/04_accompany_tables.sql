@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS ai_advice (
     input_text TEXT DEFAULT NULL COMMENT '生成本建议时的输入',
     proposed_itinerary_json LONGTEXT DEFAULT NULL COMMENT '待用户确认的行程JSON',
 
-    result VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '处理结果：pending/accepted/rejected/revising',
+    result VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '处理结果：pending/accepted/rejected/revising/not_required/delivered',
     audit_status VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '审核状态',
     audit_reason TEXT DEFAULT NULL COMMENT '审核说明',
     generation_stopped TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否停止继续生成',
