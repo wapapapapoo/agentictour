@@ -25,7 +25,7 @@ from schemas.accompany import (
     MemoCreate,
 )
 from services import accompany_service, ai_gateway
-from services.ai_gateway import AuditedOutput
+from services.ai_gateway import AuditedOutput, AuditRejectedError
 
 
 @pytest.fixture
@@ -317,6 +317,59 @@ def test_custom_reminder_may_be_after_previous_item_if_before_current_start(
     )
 
     assert second.reminder_time == datetime(2026, 7, 20, 9, 30)
+
+
+def _rejected_output(reason: str = "候选方案不满足审核要求") -> AuditedOutput:
+    return AuditedOutput(
+        content="不应保存的审核失败回复",
+        passed=False,
+        reason=reason,
+        main_response={},
+        audit_response={},
+        audit_count=1,
+    )
+
+
+def test_failed_audit_advice_is_not_persisted(
+    db: Session, monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        accompany_service,
+        "run_hikari_once_audited",
+        lambda **_kwargs: _rejected_output(),
+    )
+
+    with pytest.raises(AuditRejectedError, match="候选方案不满足审核要求"):
+        accompany_service.generate_advice(
+            db,
+            AdviceGenerateRequest(
+                trip_id=1,
+                user_id=1,
+                reason="把下午行程改到室内",
+            ),
+        )
+
+    assert db.query(AIAdvice).count() == 0
+
+
+def test_failed_audit_chat_does_not_persist_ai_reply(
+    db: Session, monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        accompany_service,
+        "run_hikari_once_audited",
+        lambda **_kwargs: _rejected_output("回复未通过安全审核"),
+    )
+
+    with pytest.raises(AuditRejectedError, match="回复未通过安全审核"):
+        accompany_service.chat(
+            db,
+            ChatRequest(trip_id=1, user_id=1, message="帮我看看今天的安排"),
+        )
+
+    replies = db.query(ChatMessage).filter(ChatMessage.sender_type == "ai").all()
+    assert replies == []
+    assert db.query(ChatMessage).filter(ChatMessage.sender_type == "user").count() == 1
 
 
 def test_custom_reminder_cannot_be_after_current_start(db: Session) -> None:

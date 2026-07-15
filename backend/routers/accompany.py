@@ -27,6 +27,7 @@ from schemas.accompany import (
     NotificationResponse,
 )
 from services import accompany_service as service
+from services.ai_gateway import AuditRejectedError
 from utils.dify_client import DifyError
 
 router = APIRouter(prefix="/api", tags=["Hikari Atlas"])
@@ -135,6 +136,8 @@ def generate_advice(
 ) -> Any:
     try:
         return service.advice_response(service.generate_advice(db, data))
+    except AuditRejectedError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except DifyError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
@@ -163,6 +166,8 @@ def act(
         )
     except LookupError as exc:
         _not_found(exc)
+    except AuditRejectedError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except DifyError as exc:
@@ -179,6 +184,8 @@ def chat(
         result = service.chat(db, data)
         write_log(current_user_id, "对话", data.message)
         return result
+    except AuditRejectedError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except DifyError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 

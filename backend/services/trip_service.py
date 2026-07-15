@@ -39,3 +39,15 @@ def update_trip(db: Session, trip_id: int, data: TripUpdate) -> Trip:
     db.commit()
     db.refresh(trip)
     return trip
+
+
+def delete_trip(db: Session, trip_id: int, user_id: int) -> None:
+    trip = (
+        db.query(Trip)
+        .filter(Trip.id == trip_id, Trip.user_id == user_id)
+        .first()
+    )
+    if trip is None:
+        raise LookupError("trip not found")
+    db.delete(trip)
+    db.commit()

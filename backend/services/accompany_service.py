@@ -27,7 +27,7 @@ from schemas.accompany import (
     MemoCreate,
     MemoUpdate,
 )
-from services.ai_gateway import run_hikari_once_audited
+from services.ai_gateway import AuditRejectedError, run_hikari_once_audited
 
 CHAT_HISTORY_MAX_MESSAGES_DEFAULT = 20
 CHAT_HISTORY_MAX_CHARS_DEFAULT = 12000
@@ -414,6 +414,8 @@ def _generate_replan(
             **location_inputs,
         },
     )
+    if not audited.passed:
+        raise AuditRejectedError(audited.reason)
     proposed = _replan_payload(audited)
     row = crud.create(
         db,
@@ -428,8 +430,8 @@ def _generate_replan(
             "proposed_itinerary_json": json.dumps(proposed, ensure_ascii=False)
             if proposed
             else None,
-            "audit_status": "pass" if audited.passed else "failed",
-            "audit_reason": audited.reason,
+            "audit_status": "pass",
+            "audit_reason": None,
         },
     )
     if commit:
@@ -642,6 +644,11 @@ def chat(db: Session, data: ChatRequest) -> dict[str, Any]:
             "location_name": data.location_name,
         },
     )
+    if not audited.passed:
+        session.last_message_at = datetime.now(UTC).replace(tzinfo=None)
+        db.commit()
+        db.refresh(user_msg)
+        raise AuditRejectedError(audited.reason)
     ai_msg = crud.create(
         db,
         ChatMessage,
@@ -650,8 +657,8 @@ def chat(db: Session, data: ChatRequest) -> dict[str, Any]:
             "sender_type": "ai",
             "content": audited.content,
             "message_order": order + 2,
-            "audit_status": "pass" if audited.passed else "failed",
-            "audit_reason": audited.reason,
+            "audit_status": "pass",
+            "audit_reason": None,
         },
     )
     session.last_message_at = datetime.now(UTC).replace(tzinfo=None)
