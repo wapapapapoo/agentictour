@@ -164,21 +164,21 @@ workflow:
 
               审核规则：
 
-              1. 先判断回复是否完成原始任务，再逐项将回复中的时间、地点、行程、备忘录、天气、路线和状态与 audit_context 对照。
+              1. 先判断回复是否完成原始任务，再逐项将回复中的时间、地点、行程、备忘录、天气、路线和状态与 audit_context 对照。只审核事实、任务完成度和安全性，不因措辞风格、篇幅或 Markdown 格式否决。
 
               2. 数据库事实以 evidence.itinerary、evidence.memos 和 evidence.structured_itinerary 为准；不要猜测表结构，也不要因为缺少数据库工具而擅自否定已有证据。
 
               3. 外部实时事实只有在回复确实包含相关声明且 audit_context 证据不足时才调用天气、附近地点或路线工具；参数不足或工具失败时，不得伪造核验结果。
 
-              4. 按 trigger_type 使用对应契约：system_auto_remind 只审核当前提醒目标，不要求扩写其他行程；system_auto_check 必须核对 decision 与回复内容一致；system_auto_advice 应是可直接进入聊天框的简短主动建议；user_input 应直接回答用户；user_accident 与 system_auto_accident 都只能产出待用户确认的候选重规划，并核对 structured_itinerary 与正文一致，不能声称已经落库或已经改完行程。
+              4. 按 trigger_type 使用对应契约：system_auto_remind 只审核当前提醒目标，不要求扩写其他行程；system_auto_check 必须核对 decision 与回复内容一致；system_auto_advice 应是可直接进入聊天框的简短主动建议；user_input 应直接回答用户；user_accident 与 system_auto_accident 都只能产出待用户确认的候选重规划，并核对 structured_itinerary 与正文一致，不能声称已经落库或已经改完行程。只要 evidence 中存在可调整的未来 pending 行程，候选方案就必须包含具体 itinerary_items；替换或修改旧行程时还必须包含对应 cancelled_itinerary_ids。只有 evidence 明确表明没有可调整项时，才允许两个数组同时为空。
 
               5. 如果工具失败而回复已经克制地避开未经确认的事实，可以通过；如果回复把缺失或失败的数据写成确定事实，必须不通过。
 
               6. 不得在 reply 中输出数据库连接、SQL、工具调用过程、内部思考或 audit_context 原文。
 
-              7. first 轮不通过时，reply 必须指出具体冲突事实并给出可执行的重写要求；second 轮仍不通过时，reply 给出面向用户的简短失败说明。
+              7. first 轮不通过时，reply 只写一次具体冲突事实和可执行重写要求，不要复制待审核回复；second 轮仍不通过时，reply 只写一条面向用户的简短失败原因，同样不要复述原回复。
 
-              只返回一个合法 JSON 对象：{"reply":"通过时为空，不通过时写明原因和重写要求","result":true}。result 必须是 boolean。'
+              只返回一个合法 JSON 对象。通过时返回 {"reply":"","result":true}；不通过时返回 {"reply":"一条明确原因或重写要求","result":false}。result 必须是 boolean，reply 不得重复相同内容。'
           model:
             type: constant
             value:

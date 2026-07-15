@@ -1,3 +1,5 @@
+from datetime import date, datetime
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
@@ -6,7 +8,7 @@ from sqlalchemy.pool import StaticPool
 
 from auth import get_current_user
 from database import Base, get_db
-from models import Trip, User  # noqa: F401 - load the complete model graph
+from models import ItineraryItem, Memo, Trip, User  # noqa: F401 - load complete graph
 from routers.trip import router
 
 
@@ -23,7 +25,12 @@ def test_trip_api_create_list_get_and_update() -> None:
 
     Base.metadata.create_all(engine)
     session = Session(engine)
-    session.add(User(user_id=42, username="test-user-42", password_hash="test"))
+    session.add_all(
+        [
+            User(user_id=42, username="test-user-42", password_hash="test"),
+            User(user_id=43, username="test-user-43", password_hash="test"),
+        ]
+    )
     session.commit()
     app = FastAPI()
     app.include_router(router)
@@ -64,6 +71,40 @@ def test_trip_api_create_list_get_and_update() -> None:
         )
         assert updated.status_code == 200
         assert updated.json()["status"] == "ongoing"
+
+        memo = Memo(trip_id=trip_id, memo_text="带充电宝")
+        itinerary = ItineraryItem(
+            trip_id=trip_id,
+            title="入住酒店",
+            place_name="沈阳站附近",
+            start_time=datetime(2026, 7, 20, 20, 0),
+            end_time=datetime(2026, 7, 20, 21, 0),
+        )
+        session.add_all([memo, itinerary])
+        session.commit()
+        memo_id = memo.memo_id
+        itinerary_id = itinerary.itinerary_id
+
+        other_trip = Trip(
+            user_id=43,
+            title="其他用户的计划",
+            origin_city="北京",
+            destination_city="天津",
+            start_date=date(2026, 7, 20),
+            end_date=date(2026, 7, 21),
+            status="planned",
+        )
+        session.add(other_trip)
+        session.commit()
+        assert client.delete(f"/api/trips/{other_trip.id}").status_code == 404
+        assert session.get(Trip, other_trip.id) is not None
+
+        deleted = client.delete(f"/api/trips/{trip_id}")
+        assert deleted.status_code == 204
+        assert session.get(Memo, memo_id) is None
+        assert session.get(ItineraryItem, itinerary_id) is None
+        assert client.get(f"/api/trips/{trip_id}").status_code == 404
+        assert client.get("/api/trips", params={"user_id": 42}).json() == []
     finally:
         session.close()
         Base.metadata.drop_all(engine)

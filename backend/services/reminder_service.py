@@ -16,7 +16,7 @@ from models.accompany import (
     UserLocation,
 )
 from models.trip import Trip
-from services.ai_gateway import run_hikari_once_audited
+from services.ai_gateway import AuditRejectedError, run_hikari_once_audited
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +64,8 @@ def _emit(
             **_location_inputs(db, user_id),
         },
     )
+    if not audited.passed:
+        raise AuditRejectedError(audited.reason)
     return create(
         db,
         Notification,
@@ -81,7 +83,7 @@ def _agent_check(
     trip: Trip,
     trigger_type: str,
     detail: str,
-) -> AIAdvice:
+) -> AIAdvice | None:
     audited = run_hikari_once_audited(
         user=str(trip.user_id),
         original_input=detail,
@@ -92,6 +94,14 @@ def _agent_check(
             **_location_inputs(db, trip.user_id),
         },
     )
+    if not audited.passed:
+        logger.warning(
+            "automatic agent output rejected by audit: trip_id=%s trigger=%s reason=%s",
+            trip.id,
+            trigger_type,
+            audited.reason,
+        )
+        return None
     decision = (
         "chat_recommendation"
         if trigger_type == "system_auto_advice"
@@ -101,9 +111,6 @@ def _agent_check(
         "chat_recommendation": "proactive_recommendation",
         "itinerary_replan": "itinerary_replan",
     }.get(decision, "itinerary_check")
-    if not audited.passed:
-        decision = "false"
-        category = "itinerary_check"
     result = {
         "false": "not_required",
         "chat_recommendation": "delivered",
@@ -121,8 +128,8 @@ def _agent_check(
             else detail,
             "advice_text": audited.content,
             "result": result,
-            "audit_status": "pass" if audited.passed else "failed",
-            "audit_reason": audited.reason,
+            "audit_status": "pass",
+            "audit_reason": None,
         },
     )
     db.flush()

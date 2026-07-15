@@ -1063,18 +1063,19 @@ workflow:
               \ 只返回后端需要创建的新行程，不要重复输出未变化的旧行程。\n4. 每项必须包含 title、place_name、start_time、end_time、itinerary_type、status。\n\
               5. start_time/end_time 使用带 +08:00 时区偏移的 ISO 8601 北京时间；end_time 必须晚于 start_time，正文时间必须与结构化字段一致。\n6. itinerary_type\
               \ 只能是 play 或 transit；transit 必须提供 reminder_time。\n7. 不确定的营业时间、票价、天气或路线必须先调用工具；无法确认时不要伪造候选行程。\n\
-              8. 用户同意“生成重推荐”不等于同意“采纳方案”。reply 只能说明候选调整及理由，不能声称已经修改成功；后端会先把本次结果保存为 pending，等待用户采纳、进一步修改或放弃。\n9. cancelled_itinerary_ids 与 itinerary_items 必须共同表达最小增量变化，未变化的旧行程不要返回。\n10. 当 user_query 包含“推荐版本历史”时，这些内容由后端根据 ai_advice.parent_advice_id 按旧到新整理，是本次进一步修改的可信上下文。保留仍有效的约束，以“当前用户新要求”为最高优先级，不要恢复已被后续版本否定的内容，也不要自行猜测、改写或查询其他行程的建议链。\n\n最终只输出一个合法 JSON 对象，不要输出 Markdown 代码块或思考过程：\n\
+              8. 用户同意“生成重推荐”不等于同意“采纳方案”。reply 只能说明候选调整及理由，不能声称已经修改成功；后端会先把本次结果保存为 pending，等待用户采纳、进一步修改或放弃。\n9. cancelled_itinerary_ids 与 itinerary_items 必须共同表达最小增量变化，未变化的旧行程不要返回。\n10. 当 user_query 包含“推荐版本历史”时，这些内容由后端根据 ai_advice.parent_advice_id 按旧到新整理，是本次进一步修改的可信上下文。保留仍有效的约束，以“当前用户新要求”为最高优先级，不要恢复已被后续版本否定的内容，也不要自行猜测、改写或查询其他行程的建议链。\n11. user_accident 或 system_auto_accident 的核心任务是产出可执行候选方案：只要存在可调整的未来 pending 行程，cancelled_itinerary_ids 与 itinerary_items 就不能同时为空。替换旧行程时必须返回旧 itinerary_id 和至少一个新行程；仅改时间或地点时也必须返回要取消的旧项及修改后的完整新项。\n12. 用户要求较概括时，选择受影响范围最小、风险最低的具体调整；不得只回复“请补充信息”“我查看一下”或复述用户要求。无法确认新 POI 时，可以基于已知地点安排休息、机动时间、缩短或顺延，但不能编造地点、营业时间和路线。\n13. reply 必须直接概括这一个候选方案及其取舍，并与结构化字段完全一致；不要输出多个互斥选项让用户二次选择。\n\n最终只输出一个合法 JSON 对象，不要输出 Markdown 代码块或思考过程：\n\
               {\n  \"reply\": \"面向用户的简洁说明\",\n  \"cancelled_itinerary_ids\": [123],\n\
               \  \"itinerary_items\": [\n    {\n      \"title\": \"候选行程标题\",\n   \
               \   \"place_name\": \"地点名称\",\n      \"start_time\": \"2026-08-20T14:00:00+08:00\"\
               ,\n      \"end_time\": \"2026-08-20T15:00:00+08:00\",\n      \"itinerary_type\"\
               : \"play\",\n      \"reminder_time\": null,\n      \"is_initial\": false,\n\
               \      \"status\": \"pending\"\n    }\n  ]\n}\n没有需要取消的旧行程时 cancelled_itinerary_ids\
-              \ 返回空数组；没有可靠新增项时 itinerary_items 返回空数组。"
+              \ 返回空数组；仅当数据库证据确认当前没有任何可调整的未来 pending 行程时，两个数组才可同时为空，并在 reply 中明确说明没有可调整项。"
           model:
             type: constant
             value:
-              completion_params: {}
+              completion_params:
+                response_format: json_object
               mode: chat
               model: deepseek-v4-flash
               model_type: llm
@@ -1090,7 +1091,7 @@ workflow:
 
               城市编码：{{#1782285385726.city_adcode#}}
 
-              当前行程基准快照由 context 提供；必要时用数据库工具核对最新状态。请根据当前触发类型提出最小候选调整方案。'
+              当前行程基准快照由 context 提供；必要时用数据库工具核对最新状态。请完成用户提出的调整任务，返回一个最小、具体、可执行且包含结构化增量的候选方案，不要只分析问题或要求用户再次补充。'
           tools:
             type: constant
             value:
@@ -2639,11 +2640,11 @@ workflow:
           , text, flags=re.S)\n    text = re.sub(r\"^```(?:json)?\\s*|\\s*```$\",\
           \ \"\", text, flags=re.I)\n    return text.strip()\n\n\ndef main(raw_text:\
           \ str):\n    text = _clean(raw_text)\n    try:\n        payload = json.loads(text)\n\
-          \    except Exception:\n        return {\"reply\": text or \"暂时无法生成可靠的调整方案。\"\
+          \    except Exception:\n        return {\"reply\": \"候选方案输出格式无效，请重新生成。\"\
           , \"cancelled_itinerary_ids\": [], \"itinerary_items\": []}\n\n    if not\
-          \ isinstance(payload, dict):\n        return {\"reply\": \"暂时无法生成可靠的调整方案。\"\
+          \ isinstance(payload, dict):\n        return {\"reply\": \"候选方案输出必须是 JSON 对象。\"\
           , \"cancelled_itinerary_ids\": [], \"itinerary_items\": []}\n    reply =\
-          \ str(payload.get(\"reply\") or \"已生成候选调整方案。\")\n    items = payload.get(\"\
+          \ str(payload.get(\"reply\") or \"候选方案缺少用户说明。\")\n    items = payload.get(\"\
           itinerary_items\")\n    if not isinstance(items, list):\n        items =\
           \ []\n    items = [item for item in items if isinstance(item, dict)]\n \
           \   cancelled = payload.get(\"cancelled_itinerary_ids\")\n    if not isinstance(cancelled,\

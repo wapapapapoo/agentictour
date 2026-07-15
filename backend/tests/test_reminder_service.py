@@ -73,6 +73,17 @@ def _agent_decision_output(decision: str) -> AuditedOutput:
     )
 
 
+def _rejected_output() -> AuditedOutput:
+    return AuditedOutput(
+        content="不应保存的审核失败回复",
+        passed=False,
+        reason="自动检查未通过审核",
+        main_response={},
+        audit_response={},
+        audit_count=1,
+    )
+
+
 def test_due_reminder_uses_trip_as_context_and_keeps_dify_tour_key(
     db: Session, monkeypatch
 ) -> None:
@@ -207,6 +218,29 @@ def test_system_auto_check_false_does_not_notify(db: Session, monkeypatch) -> No
     assert advice.result == "not_required"
     assert db.query(AIAdvice).count() == 1
     assert db.query(Notification).count() == 0
+
+
+def test_failed_audit_auto_check_is_not_persisted(
+    db: Session, monkeypatch
+) -> None:
+    trip = _trip()
+    db.add(trip)
+    db.commit()
+    monkeypatch.setattr(
+        reminder_service,
+        "run_hikari_once_audited",
+        lambda **_kwargs: _rejected_output(),
+    )
+
+    advice = reminder_service._agent_check(
+        db, trip, "system_auto_check", "check current conditions"
+    )
+    db.commit()
+
+    assert advice is None
+    assert db.query(AIAdvice).count() == 0
+    assert db.query(Notification).count() == 0
+    assert db.query(ChatMessage).count() == 0
 
 
 @pytest.mark.parametrize(

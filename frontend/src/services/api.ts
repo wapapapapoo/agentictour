@@ -23,7 +23,7 @@ export interface ChatHistory { session_id: number; trip_id: number; user_id: num
 export interface Memo { memo_id: number; trip_id: number; memo_text: string; reminder_time?: string | null; reminded_at?: string | null; created_at?: string; updated_at?: string | null }
 export interface Itinerary { itinerary_id: number; trip_id: number; title: string; place_name: string; start_time: string; end_time: string; itinerary_type: 'transit' | 'play'; status: 'pending' | 'done' | 'cancelled'; reminder_time?: string | null; is_initial?: boolean; reminded_at?: string | null; created_at?: string; updated_at?: string | null }
 export interface Advice { advice_id: number; trip_id: number; advice_type: string; parent_advice_id?: number | null; input_text?: string | null; reason_text?: string | null; advice_text: string; proposed_itinerary?: unknown; result: string; audit_status: string; audit_reason?: string | null; generation_stopped?: boolean; created_at: string }
-export interface Notification { notification_id: number; trip_id: number; content: string; category: string; read_at?: string | null; created_at: string }
+export interface Notification { notification_id: number; trip_id: number; advice_id?: number | null; content: string; category: string; read_at?: string | null; created_at: string }
 export interface Location { user_id: number; latitude: number; longitude: number; city_adcode?: string; place_name?: string; updated_at: string }
 export interface KnowledgeSearchResult { chunk_content: string; score: number; document_id: string; plan_id?: number | null; plan_title?: string | null; like_count: number; is_liked: boolean }
 export interface KnowledgeSearchResponse { results: KnowledgeSearchResult[] }
@@ -65,6 +65,7 @@ export const api = {
   listTrips: () => request<Trip[]>(`/trips?user_id=${requireUserId()}`),
   getTrip: (id: number) => request<Trip>(`/trips/${id}`),
   updateTrip: (id: number, payload: Partial<Omit<Trip, 'id'>>) => request<Trip>(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  deleteTrip: (id: number) => request<void>(`/trips/${id}`, { method: 'DELETE' }),
   generatePlan: (payload: Record<string, unknown>) => request<Plan>('/trip-plans/generate', { method: 'POST', body: JSON.stringify({ ...payload, user_id: requireUserId(), action: 'create' }) }),
   revisePlan: (id: number, revision_request: string) => request<Plan>(`/trip-plans/${id}/revise`, { method: 'POST', body: JSON.stringify({ user_id: requireUserId(), revision_request }) }),
   listPlans: () => request<Plan[]>(`/trip-plans?user_id=${requireUserId()}`),

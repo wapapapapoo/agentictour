@@ -53,3 +53,15 @@ def update_trip(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.delete("/{trip_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_trip(
+    trip_id: int,
+    current_user_id: int = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    try:
+        trip_service.delete_trip(db, trip_id, current_user_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc

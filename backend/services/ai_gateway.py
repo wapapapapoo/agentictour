@@ -39,6 +39,13 @@ class AuditedOutput:
     structured_output: Any = None
 
 
+class AuditRejectedError(ValueError):
+    """Raised when the audit agent rejects generated content."""
+
+    def __init__(self, reason: str | None = None) -> None:
+        super().__init__(reason or "AI 回复未通过审核，请调整要求后重试。")
+
+
 def _output(response: dict[str, Any], *keys: str) -> Any:
     outputs = response.get("data", {}).get("outputs", {})
     if not isinstance(outputs, dict):
