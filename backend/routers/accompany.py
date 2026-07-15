@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 from auth import get_current_user
 from crud import accompany as crud
 from database import get_db
-from routers.operation_log import write_log
 from models.accompany import Notification
+from routers.operation_log import write_log
 from schemas.accompany import (
     AdviceActionRequest,
     AdviceGenerateRequest,
@@ -191,6 +191,18 @@ def chat_history(
 ) -> Any:
     try:
         return service.chat_history(db, session_id, current_user_id)
+    except LookupError as exc:
+        _not_found(exc)
+
+
+@router.get("/trips/{trip_id}/chat", response_model=ChatHistoryResponse)
+def trip_chat_history(
+    trip_id: int,
+    current_user_id: int = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Any:
+    try:
+        return service.chat_history_by_trip(db, trip_id, current_user_id)
     except LookupError as exc:
         _not_found(exc)
 

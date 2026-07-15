@@ -135,7 +135,7 @@ def test_user_flows_send_only_agent_owned_context(monkeypatch, db: Session) -> N
         "longitude",
         "location_name",
     }
-    chat_keys = advice_keys | {"conversation_id", "conversation_history"}
+    chat_keys = advice_keys | {"conversation_history"}
     assert [set(call["inputs"]) for call in calls] == [advice_keys, chat_keys]
     assert all(call["inputs"]["city_adcode"] == "310115" for call in calls)
     stored = db.query(UserLocation).filter(UserLocation.user_id == 1).one()
@@ -167,9 +167,6 @@ def test_chat_uses_session_id_and_database_history(monkeypatch, db: Session) -> 
         {"role": "user", "content": "first question"},
         {"role": "assistant", "content": "reply-1"},
     ]
-    assert calls[0]["inputs"]["conversation_id"] == str(first["session_id"])
-    assert calls[1]["inputs"]["conversation_id"] == str(second["session_id"])
-
     session = db.query(ChatSession).one()
     assert session.session_id == first["session_id"]
     assert not hasattr(session, "conversation_id")
@@ -273,8 +270,11 @@ def test_list_chat_messages_reads_local_database_in_message_order(
     ]
     history = accompany_service.chat_history(db, result["session_id"], 1)
     assert history["messages"] == messages
+    assert accompany_service.chat_history_by_trip(db, 1, 1) == history
     with pytest.raises(LookupError, match="chat session not found"):
         accompany_service.chat_history(db, result["session_id"], 2)
+    with pytest.raises(LookupError, match="chat session not found"):
+        accompany_service.chat_history_by_trip(db, 1, 2)
 
 
 def test_first_item_each_day_is_initial_and_reminds_at_start(db: Session) -> None:
@@ -489,7 +489,7 @@ def test_accept_replan_cancels_old_item_and_adds_new_item(db: Session) -> None:
     assert active.is_initial is True
 
 
-def test_accept_auto_check_calls_system_replan_then_applies_changes(
+def test_accept_auto_check_generates_pending_replan_then_accept_applies_changes(
     db: Session, monkeypatch
 ) -> None:
     old = accompany_service.create_itinerary(
@@ -540,8 +540,16 @@ def test_accept_auto_check_calls_system_replan_then_applies_changes(
     db.refresh(old)
     assert calls[0]["inputs"]["trigger_type"] == "system_auto_accident"
     assert generated.parent_advice_id == check.advice_id
-    assert generated.result == "accepted"
+    assert generated.result == "pending"
     assert check.result == "accepted"
+    assert old.status == "pending"
+
+    accepted = accompany_service.act_on_advice(
+        db, generated.advice_id, "accept", 1, ""
+    )
+    db.refresh(old)
+
+    assert accepted.result == "accepted"
     assert old.status == "cancelled"
     assert (
         db.query(ItineraryItem).filter(ItineraryItem.status == "pending").one().title
@@ -549,10 +557,21 @@ def test_accept_auto_check_calls_system_replan_then_applies_changes(
     )
 
 
-def test_revise_advice_stores_one_combined_input(db: Session, monkeypatch) -> None:
+def test_revise_advice_uses_parent_chain_as_agent_context(
+    db: Session, monkeypatch
+) -> None:
+    root = AIAdvice(
+        trip_id=1,
+        advice_type="itinerary_replan",
+        reason_text="景点临时闭馆",
+        advice_text="景点临时闭馆，是否重新推荐？",
+    )
+    db.add(root)
+    db.flush()
     old = AIAdvice(
         trip_id=1,
         advice_type="replan",
+        parent_advice_id=root.advice_id,
         input_text="景点临时闭馆",
         reason_text="景点临时闭馆",
         advice_text="建议改去博物馆",
@@ -562,27 +581,26 @@ def test_revise_advice_stores_one_combined_input(db: Session, monkeypatch) -> No
     db.refresh(old)
     captured = {}
 
-    def fake_generate(session, data):
-        captured["reason"] = data.reason
-        generated = AIAdvice(
-            trip_id=data.trip_id,
-            advice_type="replan",
-            input_text=data.reason,
-            reason_text=data.reason,
-            advice_text="新版建议",
+    def fake_hikari(**kwargs):
+        captured.update(kwargs)
+        return _audited_output(
+            content="新版建议",
+            main_response={"data": {"outputs": {"reply": "新版建议"}}},
         )
-        session.add(generated)
-        session.commit()
-        session.refresh(generated)
-        return generated
 
-    monkeypatch.setattr(accompany_service, "generate_advice", fake_generate)
+    monkeypatch.setattr(accompany_service, "run_hikari_once_audited", fake_hikari)
     new = accompany_service.act_on_advice(
         db, old.advice_id, "revise", 1, "不要安排博物馆"
     )
 
-    assert captured["reason"] == (
-        "原输入：景点临时闭馆\n原建议：建议改去博物馆\n用户新要求：不要安排博物馆"
+    agent_input = captured["inputs"]["user_query"]
+    assert "推荐版本历史" in agent_input
+    assert f'"advice_id": {root.advice_id}' in agent_input
+    assert f'"advice_id": {old.advice_id}' in agent_input
+    assert agent_input.index(f'"advice_id": {root.advice_id}') < agent_input.index(
+        f'"advice_id": {old.advice_id}'
     )
-    assert new.input_text == captured["reason"]
+    assert "当前用户新要求：不要安排博物馆" in agent_input
+    assert captured["inputs"]["trigger_type"] == "user_accident"
+    assert new.input_text == agent_input
     assert new.parent_advice_id == old.advice_id

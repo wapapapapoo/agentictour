@@ -303,6 +303,55 @@ def _stored_location_inputs(db: Session, user_id: int) -> dict[str, str | float]
     }
 
 
+def _advice_revision_context(db: Session, row: AIAdvice) -> str:
+    """Build a bounded, oldest-to-newest recommendation history for the agent."""
+    max_versions = _history_limit("HIKARI_ADVICE_HISTORY_MAX_VERSIONS", 10)
+    max_chars = _history_limit("HIKARI_ADVICE_HISTORY_MAX_CHARS", 12000)
+    chain: list[AIAdvice] = []
+    seen: set[int] = set()
+    current: AIAdvice | None = row
+
+    while current is not None and len(chain) < max_versions:
+        if current.advice_id in seen:
+            break
+        seen.add(current.advice_id)
+        chain.append(current)
+        if current.parent_advice_id is None:
+            break
+        current = (
+            db.query(AIAdvice)
+            .filter(
+                AIAdvice.advice_id == current.parent_advice_id,
+                AIAdvice.trip_id == row.trip_id,
+            )
+            .first()
+        )
+
+    entries: list[str] = []
+    remaining = max_chars
+    for advice in chain:
+        payload = {
+            "advice_id": advice.advice_id,
+            "parent_advice_id": advice.parent_advice_id,
+            "advice_type": advice.advice_type,
+            "input_text": advice.input_text,
+            "reason_text": advice.reason_text,
+            "advice_text": advice.advice_text,
+            "proposed_itinerary": _json_or_none(advice.proposed_itinerary_json or ""),
+            "result": advice.result,
+        }
+        serialized = json.dumps(payload, ensure_ascii=False, default=str)
+        if len(serialized) > remaining:
+            if not entries:
+                entries.append(serialized[:remaining])
+            break
+        entries.append(serialized)
+        remaining -= len(serialized)
+
+    entries.reverse()
+    return "\n".join(entries)
+
+
 def _workflow_outputs(audited: Any) -> dict[str, Any]:
     response = getattr(audited, "main_response", {})
     if not isinstance(response, dict):
@@ -524,20 +573,26 @@ def act_on_advice(
         row.result, row.generation_stopped = "rejected", True
     else:
         row.result = "revising"
+        revision_context = _advice_revision_context(db, row)
         combined_input = (
-            f"原输入：{row.input_text or row.reason_text or ''}\n"
-            f"原建议：{row.advice_text}\n"
-            f"用户新要求：{additional}"
+            "这是对已有候选方案的进一步修改。以下版本历史由后端从 "
+            "ai_advice 按 parent_advice_id 读取，并按旧到新排列。请保留仍然"
+            "有效的约束，以当前用户的新要求为最高优先级；不要恢复已经被后续"
+            "版本否定的内容，也不要声称已经修改数据库。\n"
+            f"推荐版本历史：\n{revision_context}\n"
+            f"当前用户新要求：{additional}"
         )
-        generated = generate_advice(
+        generated = _generate_replan(
             db,
-            AdviceGenerateRequest(
-                trip_id=row.trip_id,
-                user_id=user_id,
-                reason=combined_input,
-            ),
+            trip_id=row.trip_id,
+            user_id=user_id,
+            original=combined_input,
+            reason=additional or row.reason_text or "进一步修改候选方案",
+            trigger_type="user_accident",
+            location_inputs=_stored_location_inputs(db, user_id),
+            parent_advice_id=row.advice_id,
+            commit=False,
         )
-        generated.parent_advice_id = row.advice_id
         generated.reason_text = None
         db.commit()
         db.refresh(generated)
@@ -583,7 +638,6 @@ def chat(db: Session, data: ChatRequest) -> dict[str, Any]:
             "user_query": data.message,
             "trigger_type": "user_input",
             "tour_id": data.trip_id,
-            "conversation_id": str(session.session_id),
             "conversation_history": json.dumps(history, ensure_ascii=False),
             "city_adcode": data.city_adcode,
             "latitude": data.latitude if data.latitude is not None else "",
@@ -706,3 +760,17 @@ def chat_history(db: Session, session_id: int, user_id: int) -> dict[str, Any]:
         "status": session.status,
         "messages": list_chat_messages(db, session_id),
     }
+
+
+def chat_history_by_trip(db: Session, trip_id: int, user_id: int) -> dict[str, Any]:
+    session = (
+        db.query(ChatSession)
+        .filter(
+            ChatSession.trip_id == trip_id,
+            ChatSession.user_id == user_id,
+        )
+        .first()
+    )
+    if session is None:
+        raise LookupError("chat session not found")
+    return chat_history(db, session.session_id, user_id)

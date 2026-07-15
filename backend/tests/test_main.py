@@ -28,3 +28,4 @@ def test_chat_history_route_uses_integer_session_id() -> None:
         if parameter["name"] == "session_id"
     )
     assert session_parameter["schema"]["type"] == "integer"
+    assert "/api/trips/{trip_id}/chat" in schema["paths"]

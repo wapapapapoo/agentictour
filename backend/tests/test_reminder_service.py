@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from database import Base
-from models.accompany import AIAdvice, Memo, Notification, UserLocation
+from models.accompany import AIAdvice, ChatMessage, Memo, Notification, UserLocation
 from models.trip import Trip
 from models.user import User
 from services import reminder_service
@@ -207,14 +207,20 @@ def test_system_auto_check_false_does_not_notify(db: Session, monkeypatch) -> No
 
 
 @pytest.mark.parametrize(
-    ("decision", "category"),
+    ("decision", "category", "result", "notification_count", "message_count"),
     [
-        ("chat_recommendation", "proactive_recommendation"),
-        ("itinerary_replan", "itinerary_replan"),
+        ("chat_recommendation", "proactive_recommendation", "delivered", 0, 1),
+        ("itinerary_replan", "itinerary_replan", "pending", 1, 0),
     ],
 )
-def test_system_auto_check_action_creates_typed_notification(
-    db: Session, monkeypatch, decision: str, category: str
+def test_system_auto_check_routes_action_to_chat_or_notification(
+    db: Session,
+    monkeypatch,
+    decision: str,
+    category: str,
+    result: str,
+    notification_count: int,
+    message_count: int,
 ) -> None:
     trip = _trip()
     db.add(trip)
@@ -230,8 +236,11 @@ def test_system_auto_check_action_creates_typed_notification(
     )
     db.commit()
 
-    assert advice.result == "pending"
+    assert advice.result == result
     assert advice.advice_type == category
-    notification = db.query(Notification).one()
-    assert notification.advice_id == advice.advice_id
-    assert notification.category == category
+    assert db.query(Notification).count() == notification_count
+    assert db.query(ChatMessage).count() == message_count
+    if notification_count:
+        notification = db.query(Notification).one()
+        assert notification.advice_id == advice.advice_id
+        assert notification.category == category
