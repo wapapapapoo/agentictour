@@ -116,6 +116,11 @@ def _agent_check(
         "chat_recommendation": "delivered",
         "itinerary_replan": "pending",
     }[decision]
+    conflict_ids = (
+        _auto_conflict_ids(db, trip, audited)
+        if decision == "itinerary_replan"
+        else []
+    )
     advice = create(
         db,
         AIAdvice,
@@ -127,6 +132,11 @@ def _agent_check(
             if decision == "itinerary_replan"
             else detail,
             "advice_text": audited.content,
+            "proposed_itinerary_json": json.dumps(
+                {"conflicting_itinerary_ids": conflict_ids}, ensure_ascii=False
+            )
+            if decision == "itinerary_replan"
+            else None,
             "result": result,
             "audit_status": "pass",
             "audit_reason": None,
@@ -224,6 +234,40 @@ def _auto_check_decision(audited: object) -> str:
     decision = _decision_from(parsed_content)
     # Unknown or malformed output must not create an unsolicited notification.
     return "false" if decision is None else decision
+
+
+def _auto_conflict_ids(db: Session, trip: Trip, audited: object) -> list[int]:
+    main_response = getattr(audited, "main_response", {})
+    outputs = (
+        main_response.get("data", {}).get("outputs", {})
+        if isinstance(main_response, dict)
+        else {}
+    )
+    raw = outputs.get("conflicting_itinerary_ids", [])
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except json.JSONDecodeError:
+            raw = []
+    if not isinstance(raw, list):
+        return []
+    requested = {
+        value
+        for value in raw
+        if isinstance(value, int) and not isinstance(value, bool)
+    }
+    if not requested:
+        return []
+    eligible = (
+        db.query(ItineraryItem.itinerary_id)
+        .filter(
+            ItineraryItem.trip_id == trip.id,
+            ItineraryItem.status == "pending",
+            ItineraryItem.itinerary_id.in_(requested),
+        )
+        .all()
+    )
+    return sorted(row[0] for row in eligible)
 
 
 def scan_due_reminders(db: Session, now: datetime | None = None) -> int:

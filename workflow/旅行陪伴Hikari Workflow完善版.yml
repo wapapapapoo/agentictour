@@ -578,6 +578,24 @@ workflow:
           variable: location_name
         - default: '[]'
           hide: false
+          hint: 用户主动勾选、允许候选方案替换的 pending 日程 itinerary_id JSON 数组
+          label: selected_itinerary_ids
+          options: []
+          placeholder: '[123,456]'
+          required: false
+          type: paragraph
+          variable: selected_itinerary_ids
+        - default: '[]'
+          hide: false
+          hint: 自动检查确认冲突并锁定、用户不能取消勾选的 itinerary_id JSON 数组
+          label: locked_itinerary_ids
+          options: []
+          placeholder: '[123]'
+          required: false
+          type: paragraph
+          variable: locked_itinerary_ids
+        - default: '[]'
+          hide: false
           hint: 后端从 chat_messages 读取并序列化的 JSON 历史消息
           label: conversation_history
           options: []
@@ -585,7 +603,7 @@ workflow:
           required: false
           type: paragraph
           variable: conversation_history
-      height: 316
+      height: 388
       id: '1782285385726'
       position:
         x: -304.90419462659685
@@ -1063,7 +1081,7 @@ workflow:
               \ 只返回后端需要创建的新行程，不要重复输出未变化的旧行程。\n4. 每项必须包含 title、place_name、start_time、end_time、itinerary_type、status。\n\
               5. start_time/end_time 使用带 +08:00 时区偏移的 ISO 8601 北京时间；end_time 必须晚于 start_time，正文时间必须与结构化字段一致。\n6. itinerary_type\
               \ 只能是 play 或 transit；transit 必须提供 reminder_time。\n7. 不确定的营业时间、票价、天气或路线必须先调用工具；无法确认时不要伪造候选行程。\n\
-              8. 用户同意“生成重推荐”不等于同意“采纳方案”。reply 只能说明候选调整及理由，不能声称已经修改成功；后端会先把本次结果保存为 pending，等待用户采纳、进一步修改或放弃。\n9. cancelled_itinerary_ids 与 itinerary_items 必须共同表达最小增量变化，未变化的旧行程不要返回。\n10. 当 user_query 包含“推荐版本历史”时，这些内容由后端根据 ai_advice.parent_advice_id 按旧到新整理，是本次进一步修改的可信上下文。保留仍有效的约束，以“当前用户新要求”为最高优先级，不要恢复已被后续版本否定的内容，也不要自行猜测、改写或查询其他行程的建议链。\n11. user_accident 或 system_auto_accident 的核心任务是产出可执行候选方案：只要存在可调整的未来 pending 行程，cancelled_itinerary_ids 与 itinerary_items 就不能同时为空。替换旧行程时必须返回旧 itinerary_id 和至少一个新行程；仅改时间或地点时也必须返回要取消的旧项及修改后的完整新项。\n12. 用户要求较概括时，选择受影响范围最小、风险最低的具体调整；不得只回复“请补充信息”“我查看一下”或复述用户要求。无法确认新 POI 时，可以基于已知地点安排休息、机动时间、缩短或顺延，但不能编造地点、营业时间和路线。\n13. reply 必须直接概括这一个候选方案及其取舍，并与结构化字段完全一致；不要输出多个互斥选项让用户二次选择。\n\n最终只输出一个合法 JSON 对象，不要输出 Markdown 代码块或思考过程：\n\
+              8. 用户同意“生成重推荐”不等于同意“采纳方案”。reply 只能说明候选调整及理由，不能声称已经修改成功；后端会先把本次结果保存为 pending，等待用户采纳、进一步修改或放弃。\n9. cancelled_itinerary_ids 与 itinerary_items 必须共同表达最小增量变化，未变化的旧行程不要返回。\n10. 当 user_query 包含“推荐版本历史”时，这些内容由后端根据 ai_advice.parent_advice_id 按旧到新整理，是本次进一步修改的可信上下文。保留仍有效的约束，以“当前用户新要求”为最高优先级，不要恢复已被后续版本否定的内容，也不要自行猜测、改写或查询其他行程的建议链。\n11. user_accident 或 system_auto_accident 的核心任务是产出可执行候选方案；不得因为用户把“夜游”写成“游行”等近音字、错别字、简称或口语表达就反复追问 tour_id。tour_id 由后端提供，是唯一可信旅行 ID。\n12. 用户要求较概括时，优先依据用户勾选的日程和语义相似度理解意图，选择范围最小、风险最低的具体调整；不得只回复“请补充信息”“我查看一下”或复述用户要求。无法确认新 POI 时，可以基于已知地点安排休息、机动时间、缩短或顺延，但不能编造地点、营业时间和路线。\n13. reply 必须直接概括这一个候选方案及其取舍，并与结构化字段完全一致；不要输出多个互斥选项让用户二次选择。\n14. selected_itinerary_ids 是用户明确允许替换的 pending 日程 ID。cancelled_itinerary_ids 必须是它的子集；未勾选日程必须原样保留，不得取消、改时间或用新项目覆盖。\n15. locked_itinerary_ids 是系统自动确认冲突并锁定的 ID，它一定包含在 selected_itinerary_ids 中，必须优先处理，不能忽略或要求用户取消选择。\n16. selected_itinerary_ids 为空时，cancelled_itinerary_ids 必须为空；只能在不与任何现有 pending 日程重叠的空档新增建议。若没有安全空档，reply 直接说明无法在不影响原行程的前提下安排，两个数组返回空。\n17. 只有 selected_itinerary_ids 非空时才允许替换旧项；此时每个被替换的 ID 都必须出现在 cancelled_itinerary_ids 中，并给出对应的完整新日程。\n\n最终只输出一个合法 JSON 对象，不要输出 Markdown 代码块或思考过程：\n\
               {\n  \"reply\": \"面向用户的简洁说明\",\n  \"cancelled_itinerary_ids\": [123],\n\
               \  \"itinerary_items\": [\n    {\n      \"title\": \"候选行程标题\",\n   \
               \   \"place_name\": \"地点名称\",\n      \"start_time\": \"2026-08-20T14:00:00+08:00\"\
@@ -1091,7 +1109,11 @@ workflow:
 
               城市编码：{{#1782285385726.city_adcode#}}
 
-              当前行程基准快照由 context 提供；必要时用数据库工具核对最新状态。请完成用户提出的调整任务，返回一个最小、具体、可执行且包含结构化增量的候选方案，不要只分析问题或要求用户再次补充。'
+              用户允许调整的日程 ID：{{#1782285385726.selected_itinerary_ids#}}
+
+              系统锁定的冲突日程 ID：{{#1782285385726.locked_itinerary_ids#}}
+
+              当前行程基准快照由 context 提供；必要时用数据库工具核对最新状态。tour_id 已由后端确认，不得质疑或要求用户重新提供。请完成用户提出的调整任务，容忍错别字、近音字、简称和口语表达，返回一个最小、具体、可执行且包含结构化增量的候选方案，不要只分析问题或要求用户再次补充。'
           tools:
             type: constant
             value:
@@ -2635,23 +2657,75 @@ workflow:
       type: custom
       width: 241
     - data:
-        code: "import json\nimport re\n\n\ndef _clean(text):\n    text = str(text\
-          \ or \"\").strip()\n    text = re.sub(r\"<think>.*?</think>\\s*\", \"\"\
-          , text, flags=re.S)\n    text = re.sub(r\"^```(?:json)?\\s*|\\s*```$\",\
-          \ \"\", text, flags=re.I)\n    return text.strip()\n\n\ndef main(raw_text:\
-          \ str):\n    text = _clean(raw_text)\n    try:\n        payload = json.loads(text)\n\
-          \    except Exception:\n        return {\"reply\": \"候选方案输出格式无效，请重新生成。\"\
-          , \"cancelled_itinerary_ids\": [], \"itinerary_items\": []}\n\n    if not\
-          \ isinstance(payload, dict):\n        return {\"reply\": \"候选方案输出必须是 JSON 对象。\"\
-          , \"cancelled_itinerary_ids\": [], \"itinerary_items\": []}\n    reply =\
-          \ str(payload.get(\"reply\") or \"候选方案缺少用户说明。\")\n    items = payload.get(\"\
-          itinerary_items\")\n    if not isinstance(items, list):\n        items =\
-          \ []\n    items = [item for item in items if isinstance(item, dict)]\n \
-          \   cancelled = payload.get(\"cancelled_itinerary_ids\")\n    if not isinstance(cancelled,\
-          \ list):\n        cancelled = []\n    cancelled = [item for item in cancelled\
-          \ if isinstance(item, int) and not isinstance(item, bool)]\n    return {\"\
-          reply\": reply, \"cancelled_itinerary_ids\": cancelled, \"itinerary_items\"\
-          : items}"
+        code: |-
+          import json
+          import re
+
+
+          REQUIRED_ITEM_FIELDS = {
+              "title", "place_name", "start_time", "end_time", "itinerary_type", "status"
+          }
+
+
+          def _clean(text):
+              text = str(text or "").strip()
+              text = re.sub(r"<think>.*?</think>\s*", "", text, flags=re.S)
+              return re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.I).strip()
+
+
+          def _object(text):
+              try:
+                  value = json.loads(text)
+                  return value if isinstance(value, dict) else None
+              except Exception:
+                  pass
+              decoder = json.JSONDecoder()
+              for index, char in enumerate(text):
+                  if char != "{":
+                      continue
+                  try:
+                      value, _ = decoder.raw_decode(text[index:])
+                  except Exception:
+                      continue
+                  if isinstance(value, dict):
+                      return value
+              return None
+
+
+          def main(raw_text: str):
+              payload = _object(_clean(raw_text))
+              if payload is None:
+                  return {
+                      "reply": "候选方案没有输出可解析的 JSON 对象。",
+                      "cancelled_itinerary_ids": [],
+                      "itinerary_items": [],
+                  }
+              reply = str(payload.get("reply") or "候选方案缺少用户说明。").strip()
+              raw_items = payload.get("itinerary_items", [])
+              if not isinstance(raw_items, list):
+                  raw_items = []
+              items = [
+                  item for item in raw_items
+                  if isinstance(item, dict) and REQUIRED_ITEM_FIELDS.issubset(item)
+              ]
+              raw_cancelled = payload.get("cancelled_itinerary_ids", [])
+              if not isinstance(raw_cancelled, list):
+                  raw_cancelled = []
+              cancelled = sorted({
+                  item for item in raw_cancelled
+                  if isinstance(item, int) and not isinstance(item, bool)
+              })
+              if raw_items and len(items) != len(raw_items):
+                  return {
+                      "reply": "候选方案中的日程字段不完整，必须重新生成完整结构。",
+                      "cancelled_itinerary_ids": [],
+                      "itinerary_items": [],
+                  }
+              return {
+                  "reply": reply,
+                  "cancelled_itinerary_ids": cancelled,
+                  "itinerary_items": items,
+              }
         code_language: python3
         desc: 规范化模型输出，保证后端获得稳定字段类型
         outputs:
@@ -2742,17 +2816,20 @@ workflow:
 
               3. chat_recommendation 时 reply 直接给出简短、可执行的聊天式主动建议。后端会把它写入 ai_advice 和该旅行的 chat_messages，不会创建通知，也不会修改行程。
 
-              4. itinerary_replan 时 reply 只能客观告知“发生了什么、影响哪个行程以及影响程度”。不得提供替代景点、调整时间、路线或任何解决方案；不得生成候选行程，也不能声称已经修改行程。是否同意重新推荐由客户端按钮处理。
+              4. itinerary_replan 时 reply 只能客观告知“发生了什么、影响哪个行程以及影响程度”。不得提供替代景点、调整时间、路线或任何解决方案；不得生成候选行程，也不能声称已经修改行程。是否同意重新推荐由客户端按钮处理。conflicting_itinerary_ids 必须列出被该变化直接影响的未来 pending 日程 itinerary_id，不能包含 done 或 cancelled 日程。
 
               5. false 时 reply 简短记录检查结论，后端只保存检查记录，不会通知用户或写入聊天消息。
 
-              6. 最终只输出合法 JSON，不要 Markdown 或思考过程，decision 只能是 false、chat_recommendation、itinerary_replan：
+              6. decision 不是 itinerary_replan 时 conflicting_itinerary_ids 必须为空数组；只有 itinerary_replan 才能返回实际冲突 ID。
 
-              {"reply":"检查结论或用户通知正文","decision":"false"}'
+              7. 最终只输出合法 JSON，不要 Markdown 或思考过程，decision 只能是 false、chat_recommendation、itinerary_replan：
+
+              {"reply":"检查结论或用户通知正文","decision":"false","conflicting_itinerary_ids":[]}'
           model:
             type: constant
             value:
-              completion_params: {}
+              completion_params:
+                response_format: json_object
               mode: chat
               model: deepseek-v4-flash
               model_type: llm
@@ -2766,7 +2843,7 @@ workflow:
 
               当前位置：{{#1782285385726.location_name#}}（{{#1782285385726.longitude#}},{{#1782285385726.latitude#}}）
 
-              请检查上下文中的未来待执行行程，只返回 reply 和 decision。'
+              请检查上下文中的未来待执行行程，只返回 reply、decision 和 conflicting_itinerary_ids。'
           tools:
             type: constant
             value:
@@ -3070,21 +3147,64 @@ workflow:
       type: custom
       width: 241
     - data:
-        code: "import json\nimport re\n\n\nDECISIONS = {\"false\", \"chat_recommendation\"\
-          , \"itinerary_replan\"}\n\n\ndef main(raw_text: str):\n    text = str(raw_text\
-          \ or \"\").strip()\n    text = re.sub(r\"<think>.*?</think>\\s*\", \"\"\
-          , text, flags=re.S)\n    text = re.sub(r\"^```(?:json)?\\s*|\\s*```$\",\
-          \ \"\", text, flags=re.I).strip()\n    try:\n        payload = json.loads(text)\n\
-          \    except Exception:\n        return {\"reply\": text or \"自动检查输出无法解析。\"\
-          , \"decision\": \"false\"}\n    if not isinstance(payload, dict):\n    \
-          \    return {\"reply\": \"自动检查输出无法解析。\", \"decision\": \"false\"}\n    decision\
-          \ = str(payload.get(\"decision\") or \"false\").strip().lower()\n    if\
-          \ decision not in DECISIONS:\n        decision = \"false\"\n    return {\n\
-          \        \"reply\": str(payload.get(\"reply\") or \"自动检查已完成。\"),\n     \
-          \   \"decision\": decision,\n    }"
+        code: |-
+          import json
+          import re
+
+
+          DECISIONS = {"false", "chat_recommendation", "itinerary_replan"}
+
+
+          def _object(text):
+              text = re.sub(r"<think>.*?</think>\s*", "", str(text or ""), flags=re.S)
+              text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.I).strip()
+              try:
+                  value = json.loads(text)
+                  return value if isinstance(value, dict) else None
+              except Exception:
+                  pass
+              decoder = json.JSONDecoder()
+              for index, char in enumerate(text):
+                  if char != "{":
+                      continue
+                  try:
+                      value, _ = decoder.raw_decode(text[index:])
+                  except Exception:
+                      continue
+                  if isinstance(value, dict):
+                      return value
+              return None
+
+
+          def main(raw_text: str):
+              payload = _object(raw_text)
+              if payload is None:
+                  return {
+                      "reply": "自动检查输出无法解析。",
+                      "decision": "false",
+                      "conflicting_itinerary_ids": [],
+                  }
+              decision = str(payload.get("decision") or "false").strip().lower()
+              if decision not in DECISIONS:
+                  decision = "false"
+              raw_ids = payload.get("conflicting_itinerary_ids", [])
+              if not isinstance(raw_ids, list) or decision != "itinerary_replan":
+                  raw_ids = []
+              conflict_ids = sorted({
+                  item for item in raw_ids
+                  if isinstance(item, int) and not isinstance(item, bool)
+              })
+              return {
+                  "reply": str(payload.get("reply") or "自动检查已完成。"),
+                  "decision": decision,
+                  "conflicting_itinerary_ids": conflict_ids,
+              }
         code_language: python3
         desc: 规范化模型输出，保证后端获得稳定字段类型
         outputs:
+          conflicting_itinerary_ids:
+            children: null
+            type: array[number]
           decision:
             children: null
             type: string
@@ -3125,6 +3245,11 @@ workflow:
           - decision
           value_type: string
           variable: decision
+        - value_selector:
+          - hikari_auto_check_parser_v2
+          - conflicting_itinerary_ids
+          value_type: array[number]
+          variable: conflicting_itinerary_ids
         - value_selector:
           - hikari_itinerary_context_formatter_v1
           - content

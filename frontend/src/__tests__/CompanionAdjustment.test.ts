@@ -15,6 +15,7 @@ const { apiMock } = vi.hoisted(() => ({
     actOnAdvice: vi.fn(),
     markNotificationRead: vi.fn(),
     deleteTrip: vi.fn(),
+    generateAdvice: vi.fn(),
   },
 }))
 
@@ -51,12 +52,13 @@ async function mountCompanion(
   adviceRows: ReturnType<typeof advice>[] = [],
   memoRows: Record<string, unknown>[] = [],
   itineraryRows: Record<string, unknown>[] = [],
+  notificationRows: Record<string, unknown>[] = [],
 ) {
   apiMock.listTrips.mockResolvedValue([trip])
   apiMock.listMemos.mockResolvedValue(memoRows)
   apiMock.listItineraries.mockResolvedValue(itineraryRows)
   apiMock.listAdvice.mockResolvedValue(adviceRows)
-  apiMock.listNotifications.mockResolvedValue([])
+  apiMock.listNotifications.mockResolvedValue(notificationRows)
   apiMock.getTripChat.mockResolvedValue({
     session_id: 1,
     trip_id: 1,
@@ -175,6 +177,156 @@ describe('Companion adjustment dialog', () => {
     expect(rowDeletes).toHaveLength(2)
     await rowDeletes[0]!.trigger('click')
     expect(document.body.textContent).toContain('将删除“带证件”')
+    wrapper.unmount()
+  })
+
+  it('highlights the ongoing trip near the top of the workspace', async () => {
+    const wrapper = await mountCompanion()
+
+    const card = wrapper.find('.active-trip-card')
+    expect(card.exists()).toBe(true)
+    expect(card.text()).toContain(trip.title)
+    expect(card.text()).toContain(trip.origin_city)
+    expect(card.text()).toContain(trip.destination_city)
+    wrapper.unmount()
+  })
+
+  it('opens a reminder inbox with unread count and unread filtering', async () => {
+    const wrapper = await mountCompanion([], [], [], [
+      {
+        notification_id: 31,
+        trip_id: 1,
+        content: '出发前记得携带身份证。',
+        category: 'memo_reminder',
+        read_at: null,
+        created_at: '2026-07-15T08:00:00',
+      },
+      {
+        notification_id: 32,
+        trip_id: 1,
+        content: '酒店入住时间已经确认。',
+        category: 'itinerary_reminder',
+        read_at: '2026-07-15T09:00:00',
+        created_at: '2026-07-15T08:30:00',
+      },
+    ])
+
+    expect(wrapper.find('.notification-inbox-trigger .unread-badge').text()).toBe('1')
+    await wrapper.find('.notification-inbox-trigger').trigger('click')
+    expect(document.body.querySelector('.notification-dialog')).toBeTruthy()
+    expect(document.body.querySelectorAll('.mail-row')).toHaveLength(2)
+
+    const unreadFilter = document.body.querySelector<HTMLInputElement>('.notification-dialog input[type="checkbox"]')!
+    unreadFilter.click()
+    await flushPromises()
+    expect(document.body.querySelectorAll('.mail-row')).toHaveLength(1)
+    expect(document.body.querySelector('.mail-row.unread')).toBeTruthy()
+    wrapper.unmount()
+  })
+
+  it('lets users select pending conflict items and excludes completed items', async () => {
+    const wrapper = await mountCompanion([], [], [
+      {
+        itinerary_id: 8,
+        trip_id: 1,
+        title: '夜游',
+        place_name: '河畔',
+        start_time: '2026-07-16T12:00:00',
+        end_time: '2026-07-16T14:00:00',
+        itinerary_type: 'play',
+        status: 'pending',
+      },
+      {
+        itinerary_id: 9,
+        trip_id: 1,
+        title: '已经完成的午餐',
+        place_name: '餐厅',
+        start_time: '2026-07-15T04:00:00',
+        end_time: '2026-07-15T05:00:00',
+        itinerary_type: 'play',
+        status: 'done',
+      },
+    ])
+
+    await wrapper.findAll('button').find((button) => button.text() === '调整行程')!.trigger('click')
+    const choices = document.body.querySelectorAll('.conflict-choice')
+    expect(choices).toHaveLength(1)
+    expect(choices[0]!.textContent).toContain('夜游')
+    expect(document.body.querySelector('.conflict-picker')!.textContent).not.toContain('已经完成的午餐')
+    wrapper.unmount()
+  })
+
+  it('locks automatically detected conflicts but allows extra selections', async () => {
+    const wrapper = await mountCompanion([
+      advice({ proposed_itinerary: { conflicting_itinerary_ids: [8] } }),
+    ], [], [
+      {
+        itinerary_id: 8,
+        trip_id: 1,
+        title: '自动识别的冲突行程',
+        place_name: '景点 A',
+        start_time: '2026-07-16T12:00:00',
+        end_time: '2026-07-16T14:00:00',
+        itinerary_type: 'play',
+        status: 'pending',
+      },
+      {
+        itinerary_id: 9,
+        trip_id: 1,
+        title: '用户可追加的行程',
+        place_name: '景点 B',
+        start_time: '2026-07-16T15:00:00',
+        end_time: '2026-07-16T17:00:00',
+        itinerary_type: 'play',
+        status: 'pending',
+      },
+    ])
+
+    const agree = Array.from(document.body.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === '同意更改',
+    )!
+    agree.click()
+    await flushPromises()
+    const checkboxes = document.body.querySelectorAll<HTMLInputElement>('.conflict-choice input')
+    expect(checkboxes).toHaveLength(2)
+    expect(checkboxes[0]!.checked).toBe(true)
+    expect(checkboxes[0]!.disabled).toBe(true)
+    expect(checkboxes[1]!.disabled).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('shows a visible progress state while a candidate request is pending', async () => {
+    apiMock.generateAdvice.mockReturnValue(new Promise(() => undefined))
+    const wrapper = await mountCompanion()
+    await wrapper.findAll('button').find((button) => button.text() === '调整行程')!.trigger('click')
+    const textarea = document.body.querySelector<HTMLTextAreaElement>('.adjustment-dialog textarea')!
+    textarea.value = '把夜游改成游行'
+    textarea.dispatchEvent(new Event('input'))
+    await flushPromises()
+    const submit = Array.from(document.body.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === '生成候选方案',
+    )!
+    submit.click()
+    await flushPromises()
+    expect(document.body.querySelector('.adjustment-progress')).toBeTruthy()
+    expect(document.body.textContent).toContain('正在生成候选方案')
+    wrapper.unmount()
+  })
+
+  it('shows progress after accepting an existing candidate', async () => {
+    apiMock.actOnAdvice.mockReturnValue(new Promise(() => undefined))
+    const wrapper = await mountCompanion([
+      advice({ advice_type: 'replan', result: 'pending' }),
+    ])
+    await wrapper.findAll('button').find((button) => button.text() === '继续处理候选方案')!.trigger('click')
+    const accept = Array.from(document.body.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === '采纳并更新日程',
+    )!
+    accept.click()
+    await flushPromises()
+
+    expect(document.body.querySelector('.adjustment-progress')).toBeTruthy()
+    expect(document.body.textContent).toContain('正在采纳方案并更新实时日程')
     wrapper.unmount()
   })
 })

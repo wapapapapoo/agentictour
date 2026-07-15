@@ -392,6 +392,90 @@ def _replan_payload(audited: Any) -> dict[str, Any] | None:
     }
 
 
+def _pending_scope_ids(
+    db: Session, trip_id: int, requested_ids: list[int] | None
+) -> list[int]:
+    selected = sorted(
+        {
+            value
+            for value in (requested_ids or [])
+            if isinstance(value, int) and not isinstance(value, bool)
+        }
+    )
+    if not selected:
+        return []
+    return sorted(
+        row[0]
+        for row in db.query(ItineraryItem.itinerary_id)
+        .filter(
+            ItineraryItem.trip_id == trip_id,
+            ItineraryItem.status == "pending",
+            ItineraryItem.itinerary_id.in_(selected),
+        )
+        .all()
+    )
+
+
+def _eligible_selected_ids(
+    db: Session, trip_id: int, requested_ids: list[int] | None
+) -> list[int]:
+    raw = requested_ids or []
+    if any(not isinstance(value, int) or isinstance(value, bool) for value in raw):
+        raise ValueError("selected itinerary ids must be integers")
+    requested = sorted(set(raw))
+    eligible = _pending_scope_ids(db, trip_id, requested)
+    if eligible != requested:
+        raise ValueError(
+            "selected itineraries must be pending items from the current trip"
+        )
+    return eligible
+
+
+def _advice_scope_ids(row: AIAdvice) -> tuple[list[int], list[int]]:
+    proposed = _json_or_none(row.proposed_itinerary_json or "")
+    if not isinstance(proposed, dict):
+        return [], []
+
+    def ids(key: str) -> list[int]:
+        values = proposed.get(key, [])
+        if not isinstance(values, list):
+            return []
+        return sorted(
+            {
+                value
+                for value in values
+                if isinstance(value, int) and not isinstance(value, bool)
+            }
+        )
+
+    locked = ids("locked_itinerary_ids") or ids("conflicting_itinerary_ids")
+    selected = ids("selected_itinerary_ids") or ids("cancelled_itinerary_ids")
+    return sorted(set(selected) | set(locked)), locked
+
+
+def _attach_and_validate_replan_scope(
+    proposed: dict[str, Any] | None,
+    selected_ids: list[int],
+    locked_ids: list[int],
+) -> dict[str, Any] | None:
+    if proposed is None:
+        return None
+    cancelled = proposed.get("cancelled_itinerary_ids", [])
+    cancelled_ids = {
+        value
+        for value in cancelled
+        if isinstance(value, int) and not isinstance(value, bool)
+    }
+    unselected = cancelled_ids - set(selected_ids)
+    if unselected:
+        raise AuditRejectedError(
+            "候选方案试图修改未勾选的日程，请重新选择冲突项后再生成。"
+        )
+    proposed["selected_itinerary_ids"] = selected_ids
+    proposed["locked_itinerary_ids"] = locked_ids
+    return proposed
+
+
 def _generate_replan(
     db: Session,
     *,
@@ -401,9 +485,17 @@ def _generate_replan(
     reason: str,
     trigger_type: str,
     location_inputs: dict[str, Any],
+    selected_itinerary_ids: list[int] | None = None,
+    locked_itinerary_ids: list[int] | None = None,
     parent_advice_id: int | None = None,
     commit: bool = True,
 ) -> AIAdvice:
+    locked_ids = _eligible_selected_ids(db, trip_id, locked_itinerary_ids)
+    selected_ids = _eligible_selected_ids(
+        db,
+        trip_id,
+        sorted(set(selected_itinerary_ids or []) | set(locked_ids)),
+    )
     audited = run_hikari_once_audited(
         user=_get_username(db, user_id),
         original_input=original,
@@ -411,12 +503,16 @@ def _generate_replan(
             "user_query": original,
             "trigger_type": trigger_type,
             "tour_id": trip_id,
+            "selected_itinerary_ids": json.dumps(selected_ids),
+            "locked_itinerary_ids": json.dumps(locked_ids),
             **location_inputs,
         },
     )
     if not audited.passed:
         raise AuditRejectedError(audited.reason)
-    proposed = _replan_payload(audited)
+    proposed = _attach_and_validate_replan_scope(
+        _replan_payload(audited), selected_ids, locked_ids
+    )
     row = crud.create(
         db,
         AIAdvice,
@@ -454,6 +550,7 @@ def generate_advice(db: Session, data: AdviceGenerateRequest) -> AIAdvice:
         original=original,
         reason=data.reason,
         trigger_type="user_accident",
+        selected_itinerary_ids=data.selected_itinerary_ids,
         location_inputs={
             "city_adcode": data.city_adcode,
             "latitude": data.latitude if data.latitude is not None else "",
@@ -527,7 +624,12 @@ def _apply_replan(db: Session, row: AIAdvice) -> None:
 
 
 def act_on_advice(
-    db: Session, advice_id: int, action: str, user_id: int, additional: str
+    db: Session,
+    advice_id: int,
+    action: str,
+    user_id: int,
+    additional: str,
+    selected_itinerary_ids: list[int] | None = None,
 ) -> AIAdvice:
     row = crud.get_or_none(db, AIAdvice, "advice_id", advice_id)
     if row is None:
@@ -538,6 +640,16 @@ def act_on_advice(
         try:
             if row.advice_type == "itinerary_replan":
                 incident = row.reason_text or row.advice_text
+                stored_selected, locked_ids = _advice_scope_ids(row)
+                stored_selected = _pending_scope_ids(
+                    db, row.trip_id, stored_selected
+                )
+                locked_ids = _pending_scope_ids(db, row.trip_id, locked_ids)
+                selected_ids = sorted(
+                    set(stored_selected)
+                    | set(selected_itinerary_ids or [])
+                    | set(locked_ids)
+                )
                 agent_input = (
                     "系统自动检查发现了以下突发状况，用户已经明确同意生成行程"
                     "调整方案。请像处理用户主动提出的行程修改请求一样，结合当前"
@@ -556,6 +668,8 @@ def act_on_advice(
                     reason=incident,
                     trigger_type="system_auto_accident",
                     location_inputs=_stored_location_inputs(db, user_id),
+                    selected_itinerary_ids=selected_ids,
+                    locked_itinerary_ids=locked_ids,
                     parent_advice_id=row.advice_id,
                     commit=False,
                 )
@@ -572,6 +686,12 @@ def act_on_advice(
         row.result, row.generation_stopped = "rejected", True
     else:
         row.result = "revising"
+        stored_selected, locked_ids = _advice_scope_ids(row)
+        stored_selected = _pending_scope_ids(db, row.trip_id, stored_selected)
+        locked_ids = _pending_scope_ids(db, row.trip_id, locked_ids)
+        selected_ids = sorted(
+            set(stored_selected) | set(selected_itinerary_ids or []) | set(locked_ids)
+        )
         revision_context = _advice_revision_context(db, row)
         combined_input = (
             "这是对已有候选方案的进一步修改。以下版本历史由后端从 "
@@ -589,6 +709,8 @@ def act_on_advice(
             reason=additional or row.reason_text or "进一步修改候选方案",
             trigger_type="user_accident",
             location_inputs=_stored_location_inputs(db, user_id),
+            selected_itinerary_ids=selected_ids,
+            locked_itinerary_ids=locked_ids,
             parent_advice_id=row.advice_id,
             commit=False,
         )
