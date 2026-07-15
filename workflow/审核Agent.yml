@@ -133,7 +133,7 @@ workflow:
           required: true
           type: select
           variable: turn
-      height: 159
+      height: 160
       id: '1783649676231'
       position:
         x: 209
@@ -416,7 +416,7 @@ workflow:
         title: Agent
         tool_node_version: '2'
         type: agent
-      height: 214
+      height: 215
       id: '1783649864380'
       position:
         x: 517
@@ -424,11 +424,11 @@ workflow:
       positionAbsolute:
         x: 517
         y: 236
-      selected: true
+      selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
     - data:
         instruction: 请根据Agent的输出，提取出所需要的变量
         model:
@@ -456,7 +456,7 @@ workflow:
         type: parameter-extractor
         vision:
           enabled: false
-      height: 86
+      height: 88
       id: '1783650107025'
       position:
         x: 826
@@ -464,11 +464,11 @@ workflow:
       positionAbsolute:
         x: 826
         y: 236
-      selected: false
+      selected: true
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
     - data:
         outputs:
         - value_selector:
@@ -484,7 +484,7 @@ workflow:
         selected: false
         title: 输出
         type: end
-      height: 113
+      height: 114
       id: '1783650315406'
       position:
         x: 1095
@@ -496,7 +496,7 @@ workflow:
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
     - data:
         author: wapapapapoo
         desc: ''
@@ -522,7 +522,7 @@ workflow:
       type: custom-note
       width: 297
     viewport:
-      x: -235.742850498895
-      y: 159.99271471333773
-      zoom: 1.1486983549970347
+      x: 163.1459855043454
+      y: 199.6230105661233
+      zoom: 0.7870599674079825
   rag_pipeline_variables: []

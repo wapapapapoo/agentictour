@@ -268,12 +268,14 @@ workflow:
               \n妈了个逼，不准在{\"后输出莫名其妙的think标签，傻逼\n\n"
           maximum_iterations:
             type: constant
-            value: 10
+            value: 40
           model:
             type: constant
             value:
               completion_params:
+                reasoning_effort: max
                 response_format: json_object
+                thinking: true
               mode: chat
               model: deepseek-v4-flash
               model_type: llm
@@ -317,12 +319,12 @@ workflow:
               {{#1783409402478.special_requirements#}}
 
 
-              已有的参考计划：
+              已有的计划，初次运行为空：
 
               {{#1783409402478.previous_plan_json#}}
 
 
-              来自其它agent的审查结果，初次运行为空：
+              修改意见，初次运行为空：
 
               {{#1783409402478.revision_request#}}
 
@@ -598,6 +600,72 @@ workflow:
               tool_label: Web Scraper
               tool_name: webscraper
               type: builtin
+            - enabled: true
+              extra:
+                description: '列出 Dify 中所有可用的知识库，返回每个知识库的 ID、名称、描述和文档数。
+
+
+                  模型应先调用此工具获取可用知识库清单，根据 description 判断哪个知识库适合用户的查询意图，
+
+                  然后用返回的 id 调用 search_knowledge。'
+              parameters: {}
+              provider_name: travel-mcp
+              provider_show_name: AI旅游MCP
+              settings: {}
+              tool_description: '列出 Dify 中所有可用的知识库，返回每个知识库的 ID、名称、描述和文档数。
+
+
+                模型应先调用此工具获取可用知识库清单，根据 description 判断哪个知识库适合用户的查询意图，
+
+                然后用返回的 id 调用 search_knowledge。'
+              tool_label: list_knowledge_bases
+              tool_name: list_knowledge_bases
+              type: mcp
+            - enabled: true
+              extra:
+                description: '在指定的 Dify 知识库中检索文档片段。
+
+
+                  适用场景：
+
+                  - 用户询问旅行攻略、美食推荐、行程安排等信息
+
+                  - 需要从已有知识库中查找相关内容
+
+
+                  参数：
+
+                  - dataset_id: 知识库 ID（由 list_knowledge_bases 返回）
+
+                  - query: 搜索关键词或问题'
+              parameters:
+                dataset_id:
+                  auto: 1
+                  value: null
+                query:
+                  auto: 1
+                  value: null
+              provider_name: travel-mcp
+              provider_show_name: AI旅游MCP
+              settings: {}
+              tool_description: '在指定的 Dify 知识库中检索文档片段。
+
+
+                适用场景：
+
+                - 用户询问旅行攻略、美食推荐、行程安排等信息
+
+                - 需要从已有知识库中查找相关内容
+
+
+                参数：
+
+                - dataset_id: 知识库 ID（由 list_knowledge_bases 返回）
+
+                - query: 搜索关键词或问题'
+              tool_label: search_knowledge
+              tool_name: search_knowledge
+              type: mcp
         agent_strategy_label: FunctionCalling
         agent_strategy_name: function_calling
         agent_strategy_provider_name: langgenius/agent/agent
@@ -606,7 +674,7 @@ workflow:
           version: 0.0.2
         output_schema: {}
         plugin_unique_identifier: langgenius/agent:0.0.39@ceea6a76b3a495de2df2a55bcea82e903d49b06f4d8e1463c2aa085657f27164
-        selected: false
+        selected: true
         title: Agent
         tool_node_version: '2'
         type: agent
@@ -624,7 +692,7 @@ workflow:
       type: custom
       width: 241
     viewport:
-      x: -296.5
-      y: 37.5
-      zoom: 1
+      x: 155.34676791820974
+      y: 75.70454477868728
+      zoom: 0.763837365535262
   rag_pipeline_variables: []
