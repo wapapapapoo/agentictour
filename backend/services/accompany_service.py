@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import re
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -26,6 +28,12 @@ from schemas.accompany import (
     MemoUpdate,
 )
 from services.ai_gateway import run_hikari_once_audited
+
+CHAT_HISTORY_MAX_MESSAGES_DEFAULT = 20
+CHAT_HISTORY_MAX_CHARS_DEFAULT = 12000
+THINK_BLOCK_RE = re.compile(
+    r"<think\b[^>]*>.*?</think\s*>", re.IGNORECASE | re.DOTALL
+)
 
 
 def upsert_location(db: Session, data: LocationUpdate) -> UserLocation:
@@ -451,21 +459,62 @@ def chat(db: Session, data: ChatRequest) -> dict[str, Any]:
     }
 
 
+def _history_limit(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a non-negative integer") from exc
+    if value < 0:
+        raise ValueError(f"{name} must be a non-negative integer")
+    return value
+
+
+def _history_content(message: ChatMessage) -> str:
+    content = message.content
+    if message.sender_type == "ai":
+        content = THINK_BLOCK_RE.sub("", content)
+    return content.strip()
+
+
 def _chat_history(db: Session, session_id: int) -> list[dict[str, str]]:
+    max_messages = _history_limit(
+        "HIKARI_CHAT_HISTORY_MAX_MESSAGES", CHAT_HISTORY_MAX_MESSAGES_DEFAULT
+    )
+    max_chars = _history_limit(
+        "HIKARI_CHAT_HISTORY_MAX_CHARS", CHAT_HISTORY_MAX_CHARS_DEFAULT
+    )
+    if max_messages == 0 or max_chars == 0:
+        return []
     messages = (
         db.query(ChatMessage)
         .filter(ChatMessage.session_id == session_id)
-        .order_by(ChatMessage.message_order, ChatMessage.message_id)
+        .order_by(ChatMessage.message_order.desc(), ChatMessage.message_id.desc())
+        .limit(max_messages)
         .all()
     )
     role_by_sender = {"ai": "assistant", "user": "user", "system": "system"}
-    return [
-        {
-            "role": role_by_sender.get(message.sender_type, message.sender_type),
-            "content": message.content,
-        }
-        for message in messages
-    ]
+    history: list[dict[str, str]] = []
+    remaining_chars = max_chars
+    for message in messages:
+        content = _history_content(message)
+        if not content:
+            continue
+        if len(content) > remaining_chars:
+            content = content[-remaining_chars:]
+        history.append(
+            {
+                "role": role_by_sender.get(message.sender_type, message.sender_type),
+                "content": content,
+            }
+        )
+        remaining_chars -= len(content)
+        if remaining_chars == 0:
+            break
+    history.reverse()
+    return history
 
 
 def list_chat_messages(db: Session, session_id: int) -> list[ChatMessage]:

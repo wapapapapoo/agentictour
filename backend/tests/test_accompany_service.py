@@ -148,7 +148,7 @@ def test_chat_uses_session_id_and_database_history(monkeypatch, db: Session) -> 
 
     def fake_hikari(**kwargs):
         calls.append(kwargs)
-        return _audited_output(content=f"reply-{len(calls)}")
+        return _audited_output(content=f"<think>hidden</think>reply-{len(calls)}")
 
     monkeypatch.setattr(accompany_service, "run_hikari_once_audited", fake_hikari)
 
@@ -174,6 +174,82 @@ def test_chat_uses_session_id_and_database_history(monkeypatch, db: Session) -> 
     assert session.session_id == first["session_id"]
     assert not hasattr(session, "conversation_id")
     assert [row.message_order for row in db.query(ChatMessage).all()] == [1, 2, 3, 4]
+
+
+def _stored_history(db: Session, *contents: tuple[str, str]) -> ChatSession:
+    session = ChatSession(trip_id=1, user_id=1, title="history test")
+    db.add(session)
+    db.flush()
+    for order, (sender_type, content) in enumerate(contents, start=1):
+        db.add(
+            ChatMessage(
+                session_id=session.session_id,
+                sender_type=sender_type,
+                content=content,
+                message_order=order,
+            )
+        )
+    db.commit()
+    return session
+
+
+def test_chat_history_strips_think_blocks_without_changing_stored_message(
+    monkeypatch, db: Session
+) -> None:
+    monkeypatch.setenv("HIKARI_CHAT_HISTORY_MAX_MESSAGES", "10")
+    monkeypatch.setenv("HIKARI_CHAT_HISTORY_MAX_CHARS", "1000")
+    raw = "<think>private\nreasoning</think>visible<think>more</think> answer"
+    session = _stored_history(db, ("user", "question"), ("ai", raw))
+
+    history = accompany_service._chat_history(db, session.session_id)
+
+    assert history == [
+        {"role": "user", "content": "question"},
+        {"role": "assistant", "content": "visible answer"},
+    ]
+    stored_ai_message = (
+        db.query(ChatMessage).filter(ChatMessage.sender_type == "ai").one()
+    )
+    assert stored_ai_message.content == raw
+
+
+def test_chat_history_keeps_latest_configured_number_of_messages(
+    monkeypatch, db: Session
+) -> None:
+    monkeypatch.setenv("HIKARI_CHAT_HISTORY_MAX_MESSAGES", "2")
+    monkeypatch.setenv("HIKARI_CHAT_HISTORY_MAX_CHARS", "1000")
+    session = _stored_history(
+        db,
+        ("user", "old question"),
+        ("ai", "old answer"),
+        ("user", "new question"),
+        ("ai", "new answer"),
+    )
+
+    assert accompany_service._chat_history(db, session.session_id) == [
+        {"role": "user", "content": "new question"},
+        {"role": "assistant", "content": "new answer"},
+    ]
+
+
+def test_chat_history_respects_character_budget_from_newest_message(
+    monkeypatch, db: Session
+) -> None:
+    monkeypatch.setenv("HIKARI_CHAT_HISTORY_MAX_MESSAGES", "10")
+    monkeypatch.setenv("HIKARI_CHAT_HISTORY_MAX_CHARS", "8")
+    session = _stored_history(db, ("user", "older"), ("ai", "abcdefghijk"))
+
+    assert accompany_service._chat_history(db, session.session_id) == [
+        {"role": "assistant", "content": "defghijk"}
+    ]
+
+
+def test_chat_history_rejects_invalid_context_limit(monkeypatch, db: Session) -> None:
+    monkeypatch.setenv("HIKARI_CHAT_HISTORY_MAX_MESSAGES", "invalid")
+    session = _stored_history(db, ("user", "question"))
+
+    with pytest.raises(ValueError, match="HIKARI_CHAT_HISTORY_MAX_MESSAGES"):
+        accompany_service._chat_history(db, session.session_id)
 
 
 def test_list_chat_messages_reads_local_database_in_message_order(
