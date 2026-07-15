@@ -17,6 +17,7 @@ from models.accompany import (
     Memo,
     UserLocation,
 )
+from models.trip import Trip
 from models.user import User
 from schemas.accompany import (
     AdviceGenerateRequest,
@@ -32,6 +33,25 @@ from services.ai_gateway import AuditRejectedError, run_hikari_once_audited
 CHAT_HISTORY_MAX_MESSAGES_DEFAULT = 20
 CHAT_HISTORY_MAX_CHARS_DEFAULT = 12000
 THINK_BLOCK_RE = re.compile(r"<think\b[^>]*>.*?</think\s*>", re.IGNORECASE | re.DOTALL)
+
+
+def _trip_context(db: Session, trip_id: int) -> str:
+    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+    if trip is None:
+        return "{}"
+    return json.dumps(
+        {
+            "trip_id": trip.id,
+            "title": trip.title,
+            "origin_city": trip.origin_city,
+            "destination_city": trip.destination_city,
+            "start_date": trip.start_date.isoformat(),
+            "end_date": trip.end_date.isoformat(),
+            "timezone": trip.timezone,
+            "status": trip.status,
+        },
+        ensure_ascii=False,
+    )
 
 
 def upsert_location(db: Session, data: LocationUpdate) -> UserLocation:
@@ -116,6 +136,36 @@ def _utc_naive(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value
     return value.astimezone(UTC).replace(tzinfo=None)
+
+
+def sync_itinerary_statuses(
+    db: Session,
+    *,
+    trip_id: int | None = None,
+    now: datetime | None = None,
+    commit: bool = False,
+) -> int:
+    effective_now = _utc_naive(now or datetime.now(UTC))
+    query = db.query(ItineraryItem).filter(
+        ItineraryItem.status == "pending",
+        ItineraryItem.end_time <= effective_now,
+    )
+    if trip_id is not None:
+        query = query.filter(ItineraryItem.trip_id == trip_id)
+    rows = query.all()
+    for row in rows:
+        row.status = "done"
+    if rows:
+        if commit:
+            db.commit()
+        else:
+            db.flush()
+    return len(rows)
+
+
+def list_itineraries(db: Session, trip_id: int) -> list[ItineraryItem]:
+    sync_itinerary_statuses(db, trip_id=trip_id, commit=True)
+    return crud.list_itineraries(db, trip_id)
 
 
 def _default_from_previous(previous: ItineraryItem) -> datetime:
@@ -503,6 +553,7 @@ def _generate_replan(
             "user_query": original,
             "trigger_type": trigger_type,
             "tour_id": trip_id,
+            "trip_context": _trip_context(db, trip_id),
             "selected_itinerary_ids": json.dumps(selected_ids),
             "locked_itinerary_ids": json.dumps(locked_ids),
             **location_inputs,
@@ -759,6 +810,7 @@ def chat(db: Session, data: ChatRequest) -> dict[str, Any]:
             "user_query": data.message,
             "trigger_type": "user_input",
             "tour_id": data.trip_id,
+            "trip_context": _trip_context(db, data.trip_id),
             "conversation_history": json.dumps(history, ensure_ascii=False),
             "city_adcode": data.city_adcode,
             "latitude": data.latitude if data.latitude is not None else "",

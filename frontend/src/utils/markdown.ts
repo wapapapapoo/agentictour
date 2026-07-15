@@ -50,3 +50,13 @@ export function extractReferenceSources(markdown: string, limit = 6): ReferenceS
 
   return sources
 }
+
+export function stripReferenceSection(markdown: string) {
+  if (!extractReferenceSources(markdown).length) return markdown
+  const heading = /^[ \t]*(?:#{1,6}[ \t]+)?(?:\*\*|__)?参考来源[ \t]*[:：]?[ \t]*(?:\*\*|__)?[ \t]*$/gim
+  const matches = [...markdown.matchAll(heading)]
+  const lastHeading = matches.at(-1)
+  return lastHeading?.index === undefined
+    ? markdown
+    : markdown.slice(0, lastHeading.index).trim()
+}

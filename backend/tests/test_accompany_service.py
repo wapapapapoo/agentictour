@@ -94,6 +94,42 @@ def test_accompany_request_models_use_city_adcode_without_manual_contexts() -> N
     assert "nearby_context" not in ChatRequest.model_fields
 
 
+def test_expired_pending_itineraries_are_automatically_completed(db: Session) -> None:
+    expired = accompany_service.create_itinerary(
+        db,
+        _item(
+            datetime(2026, 7, 15, 8, tzinfo=timezone.utc),
+            datetime(2026, 7, 15, 9, tzinfo=timezone.utc),
+        ),
+    )
+    active = accompany_service.create_itinerary(
+        db,
+        _item(
+            datetime(2026, 7, 15, 11, tzinfo=timezone.utc),
+            datetime(2026, 7, 15, 13, tzinfo=timezone.utc),
+        ),
+    )
+    cancelled = accompany_service.create_itinerary(
+        db,
+        _item(
+            datetime(2026, 7, 15, 8, tzinfo=timezone.utc),
+            datetime(2026, 7, 15, 9, tzinfo=timezone.utc),
+            status="cancelled",
+        ),
+    )
+
+    accompany_service.sync_itinerary_statuses(
+        db,
+        trip_id=1,
+        now=datetime(2026, 7, 15, 12),
+        commit=True,
+    )
+
+    assert expired.status == "done"
+    assert active.status == "pending"
+    assert cancelled.status == "cancelled"
+
+
 def test_user_flows_send_only_agent_owned_context(monkeypatch, db: Session) -> None:
     calls = []
 
@@ -132,6 +168,7 @@ def test_user_flows_send_only_agent_owned_context(monkeypatch, db: Session) -> N
         "user_query",
         "trigger_type",
         "tour_id",
+        "trip_context",
         "city_adcode",
         "latitude",
         "longitude",
@@ -144,6 +181,9 @@ def test_user_flows_send_only_agent_owned_context(monkeypatch, db: Session) -> N
     }
     assert [set(call["inputs"]) for call in calls] == [advice_keys, chat_keys]
     assert all(call["inputs"]["city_adcode"] == "310115" for call in calls)
+    trip_context = json.loads(calls[1]["inputs"]["trip_context"])
+    assert trip_context["destination_city"] == "上海"
+    assert trip_context["origin_city"] == "杭州"
     stored = db.query(UserLocation).filter(UserLocation.user_id == 1).one()
     assert stored.city == "310115"
     assert LocationResponse.model_validate(stored).city_adcode == "310115"
@@ -634,6 +674,7 @@ def test_gateway_passes_safe_request_and_tool_evidence_to_audit(monkeypatch) -> 
             "user_query": "今天有什么安排？",
             "trigger_type": "user_input",
             "tour_id": 109,
+            "trip_context": '{"destination_city":"天津","title":"天津旅行"}',
             "city_adcode": "310000",
             "latitude": 31.2,
             "longitude": 121.5,
@@ -647,6 +688,7 @@ def test_gateway_passes_safe_request_and_tool_evidence_to_audit(monkeypatch) -> 
     assert context["request"] == {
         "trigger_type": "user_input",
         "tour_id": 109,
+        "trip_context": '{"destination_city":"天津","title":"天津旅行"}',
         "city_adcode": "310000",
         "latitude": 31.2,
         "longitude": 121.5,

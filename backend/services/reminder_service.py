@@ -16,9 +16,29 @@ from models.accompany import (
     UserLocation,
 )
 from models.trip import Trip
+from services.accompany_service import sync_itinerary_statuses
 from services.ai_gateway import AuditRejectedError, run_hikari_once_audited
+from services.trip_service import sync_trip_statuses
 
 logger = logging.getLogger(__name__)
+
+
+def _trip_context(trip: Trip | None) -> str:
+    if trip is None:
+        return "{}"
+    return json.dumps(
+        {
+            "trip_id": trip.id,
+            "title": trip.title,
+            "origin_city": trip.origin_city,
+            "destination_city": trip.destination_city,
+            "start_date": trip.start_date.isoformat(),
+            "end_date": trip.end_date.isoformat(),
+            "timezone": trip.timezone,
+            "status": trip.status,
+        },
+        ensure_ascii=False,
+    )
 
 
 def _location_inputs(db: Session, user_id: int) -> dict[str, str | float]:
@@ -54,6 +74,7 @@ def _emit(
     db: Session, trip_id: int, user_id: int, category: str, detail: str
 ) -> Notification:
     original = f"{PROMPTS[category]}\n{detail}"
+    trip = db.query(Trip).filter(Trip.id == trip_id).first()
     audited = run_hikari_once_audited(
         user=str(user_id),
         original_input=original,
@@ -61,6 +82,7 @@ def _emit(
             "user_query": original,
             "trigger_type": "system_auto_remind",
             "tour_id": trip_id,
+            "trip_context": _trip_context(trip),
             **_location_inputs(db, user_id),
         },
     )
@@ -91,6 +113,7 @@ def _agent_check(
             "user_query": detail,
             "trigger_type": trigger_type,
             "tour_id": trip.id,
+            "trip_context": _trip_context(trip),
             **_location_inputs(db, trip.user_id),
         },
     )
@@ -272,6 +295,8 @@ def _auto_conflict_ids(db: Session, trip: Trip, audited: object) -> list[int]:
 
 def scan_due_reminders(db: Session, now: datetime | None = None) -> int:
     now = now or datetime.now(UTC).replace(tzinfo=None)
+    sync_trip_statuses(db, now=now, commit=False)
+    sync_itinerary_statuses(db, now=now, commit=False)
     count = 0
     due_memos = (
         db.query(Memo)
@@ -362,6 +387,8 @@ def scan_due_reminders(db: Session, now: datetime | None = None) -> int:
 
 def run_periodic_agent_jobs(db: Session, now: datetime | None = None) -> int:
     now = now or datetime.now(UTC).replace(tzinfo=None)
+    sync_trip_statuses(db, now=now, commit=False)
+    sync_itinerary_statuses(db, now=now, commit=False)
     executed = 0
     jobs = (("hourly_itinerary_check", timedelta(hours=1), "system_auto_check"),)
     for job_name, interval, trigger in jobs:
