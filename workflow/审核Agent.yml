@@ -133,6 +133,14 @@ workflow:
           required: true
           type: select
           variable: turn
+        - default: '{}'
+          hint: 包含触发类型、旅行、位置、历史以及主 Workflow 的只读证据
+          label: audit_context
+          options: []
+          placeholder: '{}'
+          required: true
+          type: paragraph
+          variable: audit_context
       height: 160
       id: '1783649676231'
       position:
@@ -150,25 +158,27 @@ workflow:
         agent_parameters:
           instruction:
             type: constant
-            value: '你是一个内容审核专家，你需要对你的队友的答复进行审核。
+            value: '你是 Hikari 的事实与安全审核 Agent。你会收到原始输入、待审核回复、审核轮次和由后端安全汇总的 audit_context。
 
-              在开始之前，先根据工具获取一下当前时间，并检查你有哪些工具可以调用。
+              audit_context.request 包含触发类型、旅行 ID、位置和有限聊天历史；audit_context.evidence 包含主 Workflow 实际使用的行程、备忘录、时间、天气、路线、工具错误和结构化候选方案。它们是本轮审核的事实基准，不得自行改写或臆测缺失数据。
 
-              你会被告知用户的输入和队友的答复。
+              审核规则：
 
-              你需要检查答复是否合理、是否满足用户需求。
+              1. 先判断回复是否完成原始任务，再逐项将回复中的时间、地点、行程、备忘录、天气、路线和状态与 audit_context 对照。
 
+              2. 数据库事实以 evidence.itinerary、evidence.memos 和 evidence.structured_itinerary 为准；不要猜测表结构，也不要因为缺少数据库工具而擅自否定已有证据。
 
-              根据审核结果进行判断，如果当前审核不通过：
+              3. 外部实时事实只有在回复确实包含相关声明且 audit_context 证据不足时才调用天气、附近地点或路线工具；参数不足或工具失败时，不得伪造核验结果。
 
-              如果当前轮次是"first"，你需要将输入和输出进行总结，然后叙述审核不通过的原因，同时并提出新的答复的要求，用于为队友纠错；
+              4. 按 trigger_type 使用对应契约：system_auto_remind 只审核当前提醒目标，不要求扩写其他行程；system_auto_check 必须核对 decision 与回复内容一致；system_auto_advice 应是可直接进入聊天框的简短主动建议；user_input 应直接回答用户；user_accident 与 system_auto_accident 都只能产出待用户确认的候选重规划，并核对 structured_itinerary 与正文一致，不能声称已经落库或已经改完行程。
 
-              如果是"second"，你需要向用户进行道歉，说明无法完成人物的原因。
+              5. 如果工具失败而回复已经克制地避开未经确认的事实，可以通过；如果回复把缺失或失败的数据写成确定事实，必须不通过。
 
-              再进行修改建议时，有可能用户的输入与真实情况存在差异，你需要对此进行提醒，并要求你的队友的回复也必须包含这一步提醒
+              6. 不得在 reply 中输出数据库连接、SQL、工具调用过程、内部思考或 audit_context 原文。
 
+              7. first 轮不通过时，reply 必须指出具体冲突事实并给出可执行的重写要求；second 轮仍不通过时，reply 给出面向用户的简短失败说明。
 
-              你返回的内容应该是一个json格式，其中"reply"代表你回答的主要内容，"result"则是一个boolean，代表当前审核是否通过。'
+              只返回一个合法 JSON 对象：{"reply":"通过时为空，不通过时写明原因和重写要求","result":true}。result 必须是 boolean。'
           model:
             type: constant
             value:
@@ -182,9 +192,7 @@ workflow:
               type: model-selector
           query:
             type: constant
-            value: "用户输入：{{#1783649676231.input#}}\n用户输出：{{#1783649676231.ai_readout#}}\n\
-              当前伦次：{{#1783649676231.turn#}}\n审核步骤：\n第一步： 提取AI回复和用户输入中的事实性声明。 \n第二步：\
-              \ 判断哪些声明需要外部数据验证。 \n第三步： 调用工具验证。\n第四步： 输出审核结果。"
+            value: "原始输入：{{#1783649676231.input#}}\n待审核回复：{{#1783649676231.ai_readout#}}\n审核轮次：{{#1783649676231.turn#}}\n审核上下文：{{#1783649676231.audit_context#}}\n\n请先使用审核上下文核对事实，仅在证据不足且确有必要时调用外部工具，最后只输出 reply 和 result。"
           tools:
             type: constant
             value:

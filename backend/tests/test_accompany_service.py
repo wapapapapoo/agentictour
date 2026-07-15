@@ -377,6 +377,66 @@ def test_gateway_stops_after_first_successful_audit(monkeypatch) -> None:
     assert calls == {"main": 1, "audit": 1}
 
 
+def test_gateway_passes_safe_request_and_tool_evidence_to_audit(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class Main:
+        def run_workflow(self, **_kwargs):
+            return {
+                "data": {
+                    "outputs": {
+                        "reply": "今天十点去博物馆。",
+                        "itinerary_context": '[{"title":"博物馆"}]',
+                        "memo_context": "带证件",
+                        "weather_context": "上海：小雨",
+                        "current_time": "2026-07-15 09:30:00",
+                    }
+                }
+            }
+
+    class Audit:
+        def run_workflow(self, **kwargs):
+            captured.update(kwargs["inputs"])
+            return {"data": {"outputs": {"result": True, "reply": ""}}}
+
+    monkeypatch.setattr(ai_gateway, "_main_client", lambda: Main())
+    monkeypatch.setattr(ai_gateway, "_audit_client", lambda: Audit())
+
+    ai_gateway.run_hikari_audited(
+        user="u1",
+        original_input="今天有什么安排？",
+        inputs={
+            "user_query": "今天有什么安排？",
+            "trigger_type": "user_input",
+            "tour_id": 109,
+            "city_adcode": "310000",
+            "latitude": 31.2,
+            "longitude": 121.5,
+            "location_name": "上海",
+            "conversation_history": '[{"role":"user","content":"你好"}]',
+            "db_password": "must-not-leak",
+        },
+    )
+
+    context = json.loads(str(captured["audit_context"]))
+    assert context["request"] == {
+        "trigger_type": "user_input",
+        "tour_id": 109,
+        "city_adcode": "310000",
+        "latitude": 31.2,
+        "longitude": 121.5,
+        "location_name": "上海",
+        "conversation_history": '[{"role":"user","content":"你好"}]',
+    }
+    assert context["evidence"] == {
+        "itinerary": '[{"title":"博物馆"}]',
+        "memos": "带证件",
+        "weather": "上海：小雨",
+        "current_time": "2026-07-15 09:30:00",
+    }
+    assert "must-not-leak" not in captured["audit_context"]
+
+
 def test_memo_reminder_is_stored_as_utc(db: Session) -> None:
     local_time = datetime(2026, 7, 20, 8, tzinfo=timezone(timedelta(hours=8)))
     memo = accompany_service.create_memo(
