@@ -91,8 +91,8 @@ export const api = {
   likePlan: (planId: number, chunkIds: string[]) => request<PlanLikeResponse>(`/trip-plans/${planId}/like`, { method: 'POST', body: JSON.stringify({ chunk_ids: chunkIds }) }),
   unlikePlan: (planId: number) => request<{ message: string }>(`/trip-plans/${planId}/like`, { method: 'DELETE' }),
   syncPlanToKnowledge: (planId: number) => request<PlanKnowledgeResponse>(`/trip-plans/${planId}/knowledge`, { method: 'POST', body: JSON.stringify({ user_id: requireUserId(), chunk_size: 4000 }) }),
-  recommendFeed: (page = 0, pageSize = 20, topK = 5) => request<{ results: KnowledgeSearchResult[]; page: number; has_more: boolean }>(`/debug/recommend/${requireUserId()}?page=${page}&page_size=${pageSize}&top_k=${topK}`),
-  trending: () => request<{ hot_destinations: Array<{ destination: string; plan_count: number }>; top_liked_posts: Array<{ plan_id: number; destination: string; like_count: number }> }>('/debug/trending'),
+  recommendFeed: (page = 0, pageSize = 20, topK = 5) => request<{ results: KnowledgeSearchResult[]; page: number; has_more: boolean }>(`/trip-plans/recommend/${requireUserId()}?page=${page}&page_size=${pageSize}&top_k=${topK}`),
+  trending: () => request<{ hot_destinations: Array<{ destination: string; plan_count: number }>; top_liked_posts: Array<{ plan_id: number; destination: string; like_count: number }> }>('/trip-plans/trending'),
   sendChatMessage: (payload: { trip_id: number; message: string; city?: string; nearby_context?: string; latitude?: number; longitude?: number; location_name?: string }) => request<ChatReply>('/chat/messages', { method: 'POST', body: JSON.stringify({ ...payload, user_id: requireUserId() }) }),
   updateLocation: (payload: { latitude: number; longitude: number; city?: string; place_name?: string; location_context?: string }) => request('/locations', { method: 'PUT', body: JSON.stringify({ ...payload, user_id: requireUserId() }) }),
 }
