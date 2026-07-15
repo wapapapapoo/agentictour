@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime, timedelta
 from typing import Any
-from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
@@ -393,12 +392,8 @@ def chat(db: Session, data: ChatRequest) -> dict[str, Any]:
                 "trip_id": data.trip_id,
                 "user_id": data.user_id,
                 "title": data.message[:100],
-                "conversation_id": str(uuid4()),
             },
         )
-    elif not session.conversation_id:
-        session.conversation_id = str(uuid4())
-        db.flush()
     history = _chat_history(db, session.session_id)
     order = (
         db.query(ChatMessage)
@@ -422,7 +417,7 @@ def chat(db: Session, data: ChatRequest) -> dict[str, Any]:
             "user_query": data.message,
             "trigger_type": "user_input",
             "tour_id": data.trip_id,
-            "conversation_id": session.conversation_id,
+            "conversation_id": str(session.session_id),
             "conversation_history": json.dumps(history, ensure_ascii=False),
             "city_adcode": data.city_adcode,
             "latitude": data.latitude if data.latitude is not None else "",
@@ -453,7 +448,6 @@ def chat(db: Session, data: ChatRequest) -> dict[str, Any]:
         "reply": ai_msg.content,
         "audit_status": ai_msg.audit_status,
         "audit_reason": ai_msg.audit_reason,
-        "conversation_id": session.conversation_id,
     }
 
 
@@ -474,14 +468,10 @@ def _chat_history(db: Session, session_id: int) -> list[dict[str, str]]:
     ]
 
 
-def list_chat_messages(db: Session, conversation_id: str) -> list[ChatMessage]:
-    session = (
-        db.query(ChatSession)
-        .filter(ChatSession.conversation_id == conversation_id)
-        .first()
-    )
+def list_chat_messages(db: Session, session_id: int) -> list[ChatMessage]:
+    session = db.query(ChatSession).filter(ChatSession.session_id == session_id).first()
     if session is None:
-        raise LookupError("conversation not found")
+        raise LookupError("chat session not found")
     return (
         db.query(ChatMessage)
         .filter(ChatMessage.session_id == session.session_id)
@@ -490,25 +480,22 @@ def list_chat_messages(db: Session, conversation_id: str) -> list[ChatMessage]:
     )
 
 
-def chat_history(
-    db: Session, conversation_id: str, user_id: int
-) -> dict[str, Any]:
+def chat_history(db: Session, session_id: int, user_id: int) -> dict[str, Any]:
     session = (
         db.query(ChatSession)
         .filter(
-            ChatSession.conversation_id == conversation_id,
+            ChatSession.session_id == session_id,
             ChatSession.user_id == user_id,
         )
         .first()
     )
     if session is None:
-        raise LookupError("conversation not found")
+        raise LookupError("chat session not found")
     return {
-        "conversation_id": session.conversation_id,
         "session_id": session.session_id,
         "trip_id": session.trip_id,
         "user_id": session.user_id,
         "title": session.title,
         "status": session.status,
-        "messages": list_chat_messages(db, conversation_id),
+        "messages": list_chat_messages(db, session_id),
     }

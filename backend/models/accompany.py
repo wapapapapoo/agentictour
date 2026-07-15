@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import TYPE_CHECKING
-from uuid import uuid4
 
 from sqlalchemy import (
     BigInteger,
@@ -198,9 +197,6 @@ class ChatSession(Base):
     title: Mapped[str | None] = mapped_column(String(100), nullable=True)
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="active"
-    )
-    conversation_id: Mapped[str] = mapped_column(
-        String(100), nullable=False, unique=True, default=lambda: str(uuid4())
     )
     last_message_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

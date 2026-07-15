@@ -36,7 +36,7 @@ workflow:
     selector:
     - env
     - User
-    value: root
+    value: hikari_agent
     value_type: string
   - description: 端口号
     id: 3a3cb0f1-f797-417b-9df6-631ee94e044a
@@ -44,8 +44,8 @@ workflow:
     selector:
     - env
     - port
-    value: '3306'
-    value_type: string
+    value: 3306
+    value_type: integer
   - description: 数据库地址
     id: 913b68ff-50d0-4267-b316-d12841a6b292
     name: IP
@@ -60,7 +60,7 @@ workflow:
     selector:
     - env
     - password1
-    value: ''
+    value: '!q1w2e3r4'
     value_type: secret
   features:
     file_upload:
@@ -141,10 +141,23 @@ workflow:
         isInIteration: false
         isInLoop: false
         sourceType: tool
-        targetType: if-else
-      id: 1782441291535-source-1782286303865-target
+        targetType: code
+      id: 1782441291535-source-hikari_itinerary_context_formatter_v1-target
       selected: false
       source: '1782441291535'
+      sourceHandle: source
+      target: hikari_itinerary_context_formatter_v1
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: code
+        targetType: if-else
+      id: hikari_itinerary_context_formatter_v1-source-1782286303865-target
+      selected: false
+      source: hikari_itinerary_context_formatter_v1
       sourceHandle: source
       target: '1782286303865'
       targetHandle: target
@@ -391,15 +404,15 @@ workflow:
           required: false
           type: paragraph
           variable: conversation_history
-      height: 350
+      height: 315
       id: '1782285385726'
       position:
-        x: -1.457267482617624
-        y: 184.19047619047615
+        x: -304.90419462659685
+        y: 246.22106350720122
       positionAbsolute:
-        x: -1.457267482617624
-        y: 184.19047619047615
-      selected: false
+        x: -304.90419462659685
+        y: 246.22106350720122
+      selected: true
       sourcePosition: right
       targetPosition: left
       type: custom
@@ -449,26 +462,26 @@ workflow:
         selected: false
         title: 条件分支
         type: if-else
-      height: 330
+      height: 340
       id: '1782286303865'
       position:
-        x: 683
-        y: 153.52380952380946
+        x: 800.3551651938042
+        y: 267.2210635072012
       positionAbsolute:
-        x: 683
-        y: 153.52380952380946
+        x: 800.3551651938042
+        y: 267.2210635072012
       selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 242
+      width: 241
     - data:
         agent_parameters:
           context:
             type: variable
             value:
-            - '1782441291535'
-            - json
+            - hikari_itinerary_context_formatter_v1
+            - documents
           instruction:
             type: constant
             value: '你是旅行陪伴助手 Hikari。语气温柔、克制、可靠，优先解决用户当下的旅行问题。
@@ -538,49 +551,10 @@ workflow:
                 timezone:
                   value:
                     type: constant
-                    value: UTC
+                    value: Asia/Shanghai
               tool_description: 一个用于获取当前时间的工具。
               tool_label: 获取当前时间
               tool_name: current_time
-              type: builtin
-            - enabled: true
-              extra:
-                description: 数据库SQL查询工具。
-              parameters:
-                db_host:
-                  auto: 1
-                  value: null
-                db_name:
-                  auto: 1
-                  value: null
-                db_password:
-                  auto: 1
-                  value: null
-                db_port:
-                  auto: 1
-                  value: null
-                db_properties:
-                  auto: 1
-                  value: null
-                db_type:
-                  auto: 1
-                  value: null
-                db_username:
-                  auto: 1
-                  value: null
-                query_sql:
-                  auto: 1
-                  value: null
-              provider_name: junjiem/db_query/db_query
-              provider_show_name: junjiem/db_query/db_query
-              settings:
-                output_format:
-                  value:
-                    type: constant
-                    value: markdown
-              tool_description: 数据库SQL查询工具。
-              tool_label: SQL查询
-              tool_name: sql_query
               type: builtin
             - enabled: true
               extra:
@@ -796,19 +770,19 @@ workflow:
         title: 聊天主Agent
         tool_node_version: '2'
         type: agent
-      height: 215
+      height: 214
       id: '1782351047886'
       position:
         x: 1270.8760092496725
-        y: 521.1856335457404
+        y: 843.0740866487456
       positionAbsolute:
         x: 1270.8760092496725
-        y: 521.1856335457404
+        y: 843.0740866487456
       selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 242
+      width: 241
     - data:
         outputs:
         - value_selector:
@@ -818,29 +792,40 @@ workflow:
         selected: false
         title: 结束-聊天回复
         type: end
-      height: 88
+      height: 87
       id: '1782351997056'
       position:
-        x: 1765.408209516841
-        y: 521.1856335457404
+        x: 2015.207061143653
+        y: 843.0740866487456
       positionAbsolute:
-        x: 1765.408209516841
-        y: 521.1856335457404
+        x: 2015.207061143653
+        y: 843.0740866487456
       selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 242
+      width: 241
     - data:
         agent_parameters:
           context:
             type: variable
             value:
-            - '1782441291535'
-            - json
+            - hikari_itinerary_context_formatter_v1
+            - documents
           instruction:
             type: constant
-            value: "你是 Hikari 的行程调整 Agent。根据用户原因、当前行程、当前位置、时间、天气和路线信息，提出最小且可执行的调整。\n\n重要约束：\n1. 数据库只允许 SELECT，不能直接修改任何表。\n2. 只调整当前时间之后、确实受影响的安排；已完成或已开始的行程不能修改。\n3. itinerary_items 只返回后端需要创建的候选新行程，不要重复输出未变化的旧行程。\n4. 每项必须包含 title、place_name、start_time、end_time、itinerary_type、status。\n5. start_time/end_time 使用 ISO 8601；end_time 必须晚于 start_time。\n6. itinerary_type 只能是 play 或 transit；transit 必须提供 reminder_time。\n7. 不确定的营业时间、票价、天气或路线必须先调用工具；无法确认时不要伪造候选行程。\n8. 用户没有明确同意前，只能提出方案，不能声称已经修改成功。\n\n最终只输出一个合法 JSON 对象，不要输出 Markdown 代码块或思考过程：\n{\n  \"reply\": \"面向用户的简洁说明\",\n  \"itinerary_items\": [\n    {\n      \"title\": \"候选行程标题\",\n      \"place_name\": \"地点名称\",\n      \"start_time\": \"2026-08-20T14:00:00\",\n      \"end_time\": \"2026-08-20T15:00:00\",\n      \"itinerary_type\": \"play\",\n      \"reminder_time\": null,\n      \"is_initial\": false,\n      \"status\": \"pending\"\n    }\n  ]\n}\n没有可靠候选项时 itinerary_items 返回空数组。"
+            value: "你是 Hikari 的行程调整 Agent。根据用户原因、当前行程、当前位置、时间、天气和路线信息，提出最小且可执行的调整。\n\
+              \n重要约束：\n1. 数据库只允许 SELECT，不能直接修改任何表。\n2. 只调整当前时间之后、确实受影响的安排；已完成或已开始的行程不能修改。\n\
+              3. itinerary_items 只返回后端需要创建的候选新行程，不要重复输出未变化的旧行程。\n4. 每项必须包含 title、place_name、start_time、end_time、itinerary_type、status。\n\
+              5. start_time/end_time 使用 ISO 8601；end_time 必须晚于 start_time。\n6. itinerary_type\
+              \ 只能是 play 或 transit；transit 必须提供 reminder_time。\n7. 不确定的营业时间、票价、天气或路线必须先调用工具；无法确认时不要伪造候选行程。\n\
+              8. 用户没有明确同意前，只能提出方案，不能声称已经修改成功。\n\n最终只输出一个合法 JSON 对象，不要输出 Markdown 代码块或思考过程：\n\
+              {\n  \"reply\": \"面向用户的简洁说明\",\n  \"itinerary_items\": [\n    {\n  \
+              \    \"title\": \"候选行程标题\",\n      \"place_name\": \"地点名称\",\n     \
+              \ \"start_time\": \"2026-08-20T14:00:00\",\n      \"end_time\": \"2026-08-20T15:00:00\"\
+              ,\n      \"itinerary_type\": \"play\",\n      \"reminder_time\": null,\n\
+              \      \"is_initial\": false,\n      \"status\": \"pending\"\n    }\n\
+              \  ]\n}\n没有可靠候选项时 itinerary_items 返回空数组。"
           model:
             type: constant
             value:
@@ -1072,49 +1057,10 @@ workflow:
                 timezone:
                   value:
                     type: constant
-                    value: UTC
+                    value: Asia/Shanghai
               tool_description: 一个用于获取当前时间的工具。
               tool_label: 获取当前时间
               tool_name: current_time
-              type: builtin
-            - enabled: true
-              extra:
-                description: 数据库SQL查询工具。
-              parameters:
-                db_host:
-                  auto: 1
-                  value: null
-                db_name:
-                  auto: 1
-                  value: null
-                db_password:
-                  auto: 1
-                  value: null
-                db_port:
-                  auto: 1
-                  value: null
-                db_properties:
-                  auto: 1
-                  value: null
-                db_type:
-                  auto: 1
-                  value: null
-                db_username:
-                  auto: 1
-                  value: null
-                query_sql:
-                  auto: 1
-                  value: null
-              provider_name: junjiem/db_query/db_query
-              provider_show_name: junjiem/db_query/db_query
-              settings:
-                output_format:
-                  value:
-                    type: constant
-                    value: markdown
-              tool_description: 数据库SQL查询工具。
-              tool_label: SQL查询
-              tool_name: sql_query
               type: builtin
         agent_strategy_label: FunctionCalling
         agent_strategy_name: function_calling
@@ -1139,7 +1085,7 @@ workflow:
         title: 日程重推荐Agent
         tool_node_version: '2'
         type: agent
-      height: 187
+      height: 186
       id: '17824362484760'
       position:
         x: 1270.8760092496725
@@ -1151,7 +1097,7 @@ workflow:
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 242
+      width: 241
     - data:
         outputs:
         - value_selector:
@@ -1167,7 +1113,7 @@ workflow:
         selected: false
         title: 结束-日程重推荐
         type: end
-      height: 88
+      height: 113
       id: '1782437042677'
       position:
         x: 1860
@@ -1179,7 +1125,7 @@ workflow:
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 242
+      width: 241
     - data:
         is_team_authorization: true
         paramSchemas:
@@ -1275,7 +1221,7 @@ workflow:
             type: mixed
             value: all
         type: tool
-      height: 84
+      height: 82
       id: '1783673975969'
       position:
         x: 1385
@@ -1287,14 +1233,21 @@ workflow:
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 242
+      width: 241
     - data:
         author: wapapapapoo
         desc: ''
         height: 222
         selected: false
         showAuthor: true
-        text: '{"root":{"children":[{"children":[{"detail":0,"format":0,"mode":"normal","style":"font-size: 16px;","text":"分支一是系统提示要带的东西，不做其他操作","type":"text","version":1}],"direction":null,"format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":"font-size: 16px;"},{"children":[],"direction":null,"format":"","indent":0,"type":"paragraph","version":1,"textStyle":"font-size: 16px;","textFormat":0},{"children":[{"detail":0,"format":0,"mode":"normal","style":"font-size: 16px;","text":"分支二是日程修改建议，获取当前行程表后进行建议。","type":"text","version":1}],"direction":null,"format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":"font-size: 16px;"},{"children":[],"direction":null,"format":"","indent":0,"type":"paragraph","version":1,"textStyle":"font-size: 16px;","textFormat":0},{"children":[{"detail":0,"format":0,"mode":"normal","style":"font-size: 16px;","text":"分支三是聊天和推荐agent，为用户提供一些旅程建议","type":"text","version":1}],"direction":null,"format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":"font-size:
+        text: '{"root":{"children":[{"children":[{"detail":0,"format":0,"mode":"normal","style":"font-size:
+          16px;","text":"分支一是系统提示要带的东西，不做其他操作","type":"text","version":1}],"direction":null,"format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":"font-size:
+          16px;"},{"children":[],"direction":null,"format":"","indent":0,"type":"paragraph","version":1,"textStyle":"font-size:
+          16px;","textFormat":0},{"children":[{"detail":0,"format":0,"mode":"normal","style":"font-size:
+          16px;","text":"分支二是日程修改建议，获取当前行程表后进行建议。","type":"text","version":1}],"direction":null,"format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":"font-size:
+          16px;"},{"children":[],"direction":null,"format":"","indent":0,"type":"paragraph","version":1,"textStyle":"font-size:
+          16px;","textFormat":0},{"children":[{"detail":0,"format":0,"mode":"normal","style":"font-size:
+          16px;","text":"分支三是聊天和推荐agent，为用户提供一些旅程建议","type":"text","version":1}],"direction":null,"format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":"font-size:
           16px;"}],"direction":null,"format":"","indent":0,"type":"root","version":1}}'
         theme: blue
         title: ''
@@ -1303,11 +1256,11 @@ workflow:
       height: 222
       id: '1782439705644'
       position:
-        x: 599.4796404464034
-        y: 457.4047619047619
+        x: 608.3909961853177
+        y: 1023.7772134228046
       positionAbsolute:
-        x: 599.4796404464034
-        y: 457.4047619047619
+        x: 608.3909961853177
+        y: 1023.7772134228046
       selected: false
       sourcePosition: right
       targetPosition: left
@@ -1514,7 +1467,7 @@ workflow:
         tool_node_version: '2'
         tool_parameters: {}
         type: tool
-      height: 114
+      height: 112
       id: '1782441089142'
       position:
         x: 1716
@@ -1526,7 +1479,7 @@ workflow:
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 242
+      width: 241
     - data:
         is_team_authorization: true
         paramSchemas:
@@ -1534,9 +1487,12 @@ workflow:
           default: mysql
           form: llm
           human_description:
-            en_US: Used for selecting the database type, mysql, oracle, oracle11g, postgresql or mssql.
-            ja_JP: Used for selecting the database type, mysql, oracle, oracle11g, postgresql or mssql.
-            pt_BR: Used for selecting the database type, mysql, oracle, oracle11g, postgresql or mssql.
+            en_US: Used for selecting the database type, mysql, oracle, oracle11g,
+              postgresql or mssql.
+            ja_JP: Used for selecting the database type, mysql, oracle, oracle11g,
+              postgresql or mssql.
+            pt_BR: Used for selecting the database type, mysql, oracle, oracle11g,
+              postgresql or mssql.
             zh_Hans: 用于选择数据库类型，mysql、oracle、oracle11g、postgresql或mssql。
           label:
             en_US: Database type
@@ -1593,9 +1549,12 @@ workflow:
           default: localhost
           form: llm
           human_description:
-            en_US: Database hostname or IP address (Original string, not URL-encoded string).
-            ja_JP: Database hostname or IP address (Original string, not URL-encoded string).
-            pt_BR: Database hostname or IP address (Original string, not URL-encoded string).
+            en_US: Database hostname or IP address (Original string, not URL-encoded
+              string).
+            ja_JP: Database hostname or IP address (Original string, not URL-encoded
+              string).
+            pt_BR: Database hostname or IP address (Original string, not URL-encoded
+              string).
             zh_Hans: 数据库的主机名或IP地址（原始字符串，非URL编码字符串）。
           label:
             en_US: Database Host
@@ -1824,16 +1783,18 @@ workflow:
         tool_parameters:
           db_host:
             type: mixed
-            value: 49.232.141.47
+            value: '{{#env.IP#}}'
           db_name:
             type: mixed
-            value: agentictour
+            value: '{{#env.sql#}}'
           db_password:
             type: mixed
             value: '{{#env.password1#}}'
           db_port:
-            type: constant
-            value: 3306
+            type: variable
+            value:
+            - env
+            - port
           db_properties:
             type: mixed
             value: ''
@@ -1842,24 +1803,65 @@ workflow:
             value: mysql
           db_username:
             type: mixed
-            value: root
+            value: '{{#env.User#}}'
           query_sql:
             type: mixed
-            value: SELECT itinerary_id, trip_id, title, place_name, start_time, end_time, itinerary_type, reminder_time, is_initial, status FROM itinerary_items WHERE trip_id = {{#1782285385726.tour_id#}} ORDER BY start_time ASC;
+            value: SELECT itinerary_id, trip_id, title, place_name, start_time, end_time,
+              itinerary_type, reminder_time, is_initial, status FROM itinerary_items
+              WHERE trip_id = {{#1782285385726.tour_id#}} ORDER BY start_time ASC;
         type: tool
-      height: 88
+      height: 86
       id: '1782441291535'
       position:
-        x: 326.28571428571433
-        y: 205.19047619047615
+        x: 106.66390513730948
+        y: 267.2210635072012
       positionAbsolute:
-        x: 326.28571428571433
-        y: 205.19047619047615
+        x: 106.66390513730948
+        y: 267.2210635072012
       selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 242
+      width: 241
+    - data:
+        code: "import json\n\n\ndef main(db_result):\n    if isinstance(db_result,\
+          \ dict):\n        records = db_result.get(\"records\", [])\n    elif isinstance(db_result,\
+          \ list):\n        records = db_result\n    else:\n        records = []\n\
+          \n    if not isinstance(records, list):\n        records = []\n\n    content\
+          \ = json.dumps(\n        records,\n        ensure_ascii=False,\n       \
+          \ default=str,\n    )\n    return {\n        \"documents\": [\n        \
+          \    {\n                \"content\": content,\n                \"title\"\
+          : \"当前行程数据\",\n                \"metadata\": {\n                    \"source\"\
+          : \"agentictour_mysql\",\n                    \"record_count\": len(records),\n\
+          \                },\n            }\n        ]\n    }"
+        code_language: python3
+        desc: 将数据库 records 转换为 Agent context 要求的 content/title/metadata 文档结构
+        outputs:
+          documents:
+            children: null
+            type: array[object]
+        selected: false
+        title: 格式化行程上下文
+        type: code
+        variables:
+        - value_selector:
+          - '1782441291535'
+          - json
+          value_type: object
+          variable: db_result
+      height: 110
+      id: hikari_itinerary_context_formatter_v1
+      position:
+        x: 421.08636076522225
+        y: 267.2210635072012
+      positionAbsolute:
+        x: 421.08636076522225
+        y: 267.2210635072012
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
     - data:
         context:
           enabled: false
@@ -1909,7 +1911,7 @@ workflow:
         type: llm
         vision:
           enabled: false
-      height: 88
+      height: 86
       id: '17836645655680'
       position:
         x: 2053.583110995708
@@ -1921,7 +1923,7 @@ workflow:
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 242
+      width: 241
       zIndex: 1002
     - data:
         desc: 系统提示
@@ -1934,19 +1936,19 @@ workflow:
         selected: false
         title: 输出 3
         type: end
-      height: 116
+      height: 115
       id: '1783664577609'
       position:
-        x: 2425.142857142857
+        x: 2426.620846966372
         y: 60.66666666666663
       positionAbsolute:
-        x: 2425.142857142857
+        x: 2426.620846966372
         y: 60.66666666666663
       selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 242
+      width: 241
     - data:
         desc: ''
         isInIteration: false
@@ -1957,9 +1959,12 @@ workflow:
           default: mysql
           form: llm
           human_description:
-            en_US: Used for selecting the database type, mysql, oracle, oracle11g, postgresql or mssql.
-            ja_JP: Used for selecting the database type, mysql, oracle, oracle11g, postgresql or mssql.
-            pt_BR: Used for selecting the database type, mysql, oracle, oracle11g, postgresql or mssql.
+            en_US: Used for selecting the database type, mysql, oracle, oracle11g,
+              postgresql or mssql.
+            ja_JP: Used for selecting the database type, mysql, oracle, oracle11g,
+              postgresql or mssql.
+            pt_BR: Used for selecting the database type, mysql, oracle, oracle11g,
+              postgresql or mssql.
             zh_Hans: 用于选择数据库类型，mysql、oracle、oracle11g、postgresql或mssql。
           label:
             en_US: Database type
@@ -2016,9 +2021,12 @@ workflow:
           default: localhost
           form: llm
           human_description:
-            en_US: Database hostname or IP address (Original string, not URL-encoded string).
-            ja_JP: Database hostname or IP address (Original string, not URL-encoded string).
-            pt_BR: Database hostname or IP address (Original string, not URL-encoded string).
+            en_US: Database hostname or IP address (Original string, not URL-encoded
+              string).
+            ja_JP: Database hostname or IP address (Original string, not URL-encoded
+              string).
+            pt_BR: Database hostname or IP address (Original string, not URL-encoded
+              string).
             zh_Hans: 数据库的主机名或IP地址（原始字符串，非URL编码字符串）。
           label:
             en_US: Database Host
@@ -2268,9 +2276,10 @@ workflow:
             value: root
           query_sql:
             type: mixed
-            value: SELECT memo_id, memo_text, reminder_time, reminded_at FROM memos WHERE trip_id = {{#1782285385726.tour_id#}} ORDER BY created_at ASC;
+            value: SELECT memo_id, memo_text, reminder_time, reminded_at FROM memos
+              WHERE trip_id = {{#1782285385726.tour_id#}} ORDER BY created_at ASC;
         type: tool
-      height: 88
+      height: 86
       id: '17836716058920'
       position:
         x: 1060.3501400560242
@@ -2278,22 +2287,33 @@ workflow:
       positionAbsolute:
         x: 1060.3501400560242
         y: 69.97198879551821
-      selected: true
+      selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 242
+      width: 241
     - data:
-        code: "import json\nimport re\n\n\ndef _clean(text):\n    text = str(text or \"\").strip()\n    text = re.sub(r\"<think>.*?</think>\\s*\", \"\", text, flags=re.S)\n    text = re.sub(r\"^```(?:json)?\\s*|\\s*```$\", \"\", text, flags=re.I)\n    return text.strip()\n\n\ndef main(raw_text: str):\n    text = _clean(raw_text)\n    try:\n        payload = json.loads(text)\n    except Exception:\n        return {\"reply\": text or \"暂时无法生成可靠的调整方案。\", \"itinerary_items\": []}\n\n    if not isinstance(payload, dict):\n        return {\"reply\": \"暂时无法生成可靠的调整方案。\", \"itinerary_items\": []}\n    reply = str(payload.get(\"reply\") or \"已生成候选调整方案。\")\n    items = payload.get(\"itinerary_items\")\n    if not isinstance(items, list):\n        items = []\n    items = [item for item in items if isinstance(item, dict)]\n    return {\"reply\": reply, \"itinerary_items\": items}"
+        code: "import json\nimport re\n\n\ndef _clean(text):\n    text = str(text\
+          \ or \"\").strip()\n    text = re.sub(r\"<think>.*?</think>\\s*\", \"\"\
+          , text, flags=re.S)\n    text = re.sub(r\"^```(?:json)?\\s*|\\s*```$\",\
+          \ \"\", text, flags=re.I)\n    return text.strip()\n\n\ndef main(raw_text:\
+          \ str):\n    text = _clean(raw_text)\n    try:\n        payload = json.loads(text)\n\
+          \    except Exception:\n        return {\"reply\": text or \"暂时无法生成可靠的调整方案。\"\
+          , \"itinerary_items\": []}\n\n    if not isinstance(payload, dict):\n  \
+          \      return {\"reply\": \"暂时无法生成可靠的调整方案。\", \"itinerary_items\": []}\n\
+          \    reply = str(payload.get(\"reply\") or \"已生成候选调整方案。\")\n    items =\
+          \ payload.get(\"itinerary_items\")\n    if not isinstance(items, list):\n\
+          \        items = []\n    items = [item for item in items if isinstance(item,\
+          \ dict)]\n    return {\"reply\": reply, \"itinerary_items\": items}"
         code_language: python3
         desc: 规范化模型输出，保证后端获得稳定字段类型
         outputs:
-          reply:
-            children: null
-            type: string
           itinerary_items:
             children: null
             type: array[object]
+          reply:
+            children: null
+            type: string
         selected: false
         title: 规范化重规划输出
         type: code
@@ -2303,7 +2323,7 @@ workflow:
           - text
           value_type: string
           variable: raw_text
-      height: 80
+      height: 94
       id: hikari_replan_parser_v2
       position:
         x: 1560
@@ -2315,14 +2335,14 @@ workflow:
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 242
+      width: 241
     - data:
         agent_parameters:
           context:
             type: variable
             value:
-            - '1782441291535'
-            - json
+            - hikari_itinerary_context_formatter_v1
+            - documents
           instruction:
             type: constant
             value: '你是 Hikari 的系统自动检查 Agent。目标不是定时刷存在感，而是判断未来待执行行程是否出现了需要用户采取行动的明确变化。
@@ -2401,49 +2421,10 @@ workflow:
                 timezone:
                   value:
                     type: constant
-                    value: UTC
+                    value: Asia/Shanghai
               tool_description: 一个用于获取当前时间的工具。
               tool_label: 获取当前时间
               tool_name: current_time
-              type: builtin
-            - enabled: true
-              extra:
-                description: 数据库SQL查询工具。
-              parameters:
-                db_host:
-                  auto: 1
-                  value: null
-                db_name:
-                  auto: 1
-                  value: null
-                db_password:
-                  auto: 1
-                  value: null
-                db_port:
-                  auto: 1
-                  value: null
-                db_properties:
-                  auto: 1
-                  value: null
-                db_type:
-                  auto: 1
-                  value: null
-                db_username:
-                  auto: 1
-                  value: null
-                query_sql:
-                  auto: 1
-                  value: null
-              provider_name: junjiem/db_query/db_query
-              provider_show_name: junjiem/db_query/db_query
-              settings:
-                output_format:
-                  value:
-                    type: constant
-                    value: markdown
-              tool_description: 数据库SQL查询工具。
-              tool_label: SQL查询
-              tool_name: sql_query
               type: builtin
             - enabled: true
               extra:
@@ -2659,30 +2640,43 @@ workflow:
         title: 系统自动检查Agent
         tool_node_version: '2'
         type: agent
-      height: 215
+      height: 230
       id: hikari_auto_check_agent_v2
       position:
-        x: 1270
-        y: 820
+        x: 1270.8760092496725
+        y: 519.9060775758438
       positionAbsolute:
-        x: 1270
-        y: 820
+        x: 1270.8760092496725
+        y: 519.9060775758438
       selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 242
+      width: 241
     - data:
-        code: "import json\nimport re\n\n\ndef _bool(value, default=True):\n    if isinstance(value, bool):\n        return value\n    if isinstance(value, str):\n        normalized = value.strip().lower()\n        if normalized == \"true\":\n            return True\n        if normalized == \"false\":\n            return False\n    return default\n\n\ndef main(raw_text: str):\n    text = str(raw_text or \"\").strip()\n    text = re.sub(r\"<think>.*?</think>\\s*\", \"\", text, flags=re.S)\n    text = re.sub(r\"^```(?:json)?\\s*|\\s*```$\", \"\", text, flags=re.I).strip()\n    try:\n        payload = json.loads(text)\n    except Exception:\n        return {\"reply\": text or \"自动检查输出无法解析。\", \"need_notify\": True}\n    if not isinstance(payload, dict):\n        return {\"reply\": \"自动检查输出无法解析。\", \"need_notify\": True}\n    return {\n        \"reply\": str(payload.get(\"reply\") or \"自动检查已完成。\"),\n        \"need_notify\": _bool(payload.get(\"need_notify\"), True),\n    }"
+        code: "import json\nimport re\n\n\ndef _bool(value, default=True):\n    if\
+          \ isinstance(value, bool):\n        return value\n    if isinstance(value,\
+          \ str):\n        normalized = value.strip().lower()\n        if normalized\
+          \ == \"true\":\n            return True\n        if normalized == \"false\"\
+          :\n            return False\n    return default\n\n\ndef main(raw_text:\
+          \ str):\n    text = str(raw_text or \"\").strip()\n    text = re.sub(r\"\
+          <think>.*?</think>\\s*\", \"\", text, flags=re.S)\n    text = re.sub(r\"\
+          ^```(?:json)?\\s*|\\s*```$\", \"\", text, flags=re.I).strip()\n    try:\n\
+          \        payload = json.loads(text)\n    except Exception:\n        return\
+          \ {\"reply\": text or \"自动检查输出无法解析。\", \"need_notify\": True}\n    if not\
+          \ isinstance(payload, dict):\n        return {\"reply\": \"自动检查输出无法解析。\"\
+          , \"need_notify\": True}\n    return {\n        \"reply\": str(payload.get(\"\
+          reply\") or \"自动检查已完成。\"),\n        \"need_notify\": _bool(payload.get(\"\
+          need_notify\"), True),\n    }"
         code_language: python3
         desc: 规范化模型输出，保证后端获得稳定字段类型
         outputs:
-          reply:
-            children: null
-            type: string
           need_notify:
             children: null
             type: boolean
+          reply:
+            children: null
+            type: string
         selected: false
         title: 规范化自动检查输出
         type: code
@@ -2692,19 +2686,19 @@ workflow:
           - text
           value_type: string
           variable: raw_text
-      height: 80
+      height: 94
       id: hikari_auto_check_parser_v2
       position:
-        x: 1560
-        y: 820
+        x: 1628.7365967563712
+        y: 519.9060775758438
       positionAbsolute:
-        x: 1560
-        y: 820
+        x: 1628.7365967563712
+        y: 519.9060775758438
       selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 242
+      width: 241
     - data:
         outputs:
         - value_selector:
@@ -2723,18 +2717,18 @@ workflow:
       height: 113
       id: hikari_auto_check_end_v2
       position:
-        x: 1860
-        y: 820
+        x: 2005.8557053123
+        y: 519.9060775758438
       positionAbsolute:
-        x: 1860
-        y: 820
+        x: 2005.8557053123
+        y: 519.9060775758438
       selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 242
+      width: 241
     viewport:
-      x: -115.14745648554253
-      y: 122.71529040112753
-      zoom: 0.6765946450304495
+      x: 251.55611936318792
+      y: 26.96509517122354
+      zoom: 0.5258514837027467
   rag_pipeline_variables: []

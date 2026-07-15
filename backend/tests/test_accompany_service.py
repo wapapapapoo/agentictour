@@ -143,17 +143,12 @@ def test_user_flows_send_only_agent_owned_context(monkeypatch, db: Session) -> N
     assert LocationResponse.model_validate(stored).city_adcode == "310115"
 
 
-def test_chat_uses_local_conversation_id_and_database_history(
-    monkeypatch, db: Session
-) -> None:
+def test_chat_uses_session_id_and_database_history(monkeypatch, db: Session) -> None:
     calls = []
 
     def fake_hikari(**kwargs):
         calls.append(kwargs)
-        return _audited_output(
-            content=f"reply-{len(calls)}",
-            main_response={"conversation_id": "remote-dify-conversation"},
-        )
+        return _audited_output(content=f"reply-{len(calls)}")
 
     monkeypatch.setattr(accompany_service, "run_hikari_once_audited", fake_hikari)
 
@@ -164,18 +159,20 @@ def test_chat_uses_local_conversation_id_and_database_history(
         db, ChatRequest(trip_id=1, user_id=1, message="second question")
     )
 
-    assert first["conversation_id"] == second["conversation_id"]
-    assert first["conversation_id"] != "remote-dify-conversation"
+    assert first["session_id"] == second["session_id"]
+    assert "conversation_id" not in first
+    assert "conversation_id" not in second
     assert calls[0]["inputs"]["conversation_history"] == "[]"
     assert json.loads(calls[1]["inputs"]["conversation_history"]) == [
         {"role": "user", "content": "first question"},
         {"role": "assistant", "content": "reply-1"},
     ]
-    assert calls[1]["inputs"]["conversation_id"] == first["conversation_id"]
+    assert calls[0]["inputs"]["conversation_id"] == str(first["session_id"])
+    assert calls[1]["inputs"]["conversation_id"] == str(second["session_id"])
 
     session = db.query(ChatSession).one()
-    assert session.conversation_id == first["conversation_id"]
-    assert not hasattr(session, "dify_conversation_id")
+    assert session.session_id == first["session_id"]
+    assert not hasattr(session, "conversation_id")
     assert [row.message_order for row in db.query(ChatMessage).all()] == [1, 2, 3, 4]
 
 
@@ -191,19 +188,17 @@ def test_list_chat_messages_reads_local_database_in_message_order(
         db, ChatRequest(trip_id=1, user_id=1, message="local question")
     )
 
-    messages = accompany_service.list_chat_messages(
-        db, result["conversation_id"]
-    )
+    messages = accompany_service.list_chat_messages(db, result["session_id"])
 
     assert [message.sender_type for message in messages] == ["user", "ai"]
     assert [message.content for message in messages] == [
         "local question",
         "local reply",
     ]
-    history = accompany_service.chat_history(db, result["conversation_id"], 1)
+    history = accompany_service.chat_history(db, result["session_id"], 1)
     assert history["messages"] == messages
-    with pytest.raises(LookupError, match="conversation not found"):
-        accompany_service.chat_history(db, result["conversation_id"], 2)
+    with pytest.raises(LookupError, match="chat session not found"):
+        accompany_service.chat_history(db, result["session_id"], 2)
 
 
 def test_first_item_each_day_is_initial_and_reminds_at_start(db: Session) -> None:

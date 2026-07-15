@@ -142,7 +142,6 @@ class ChatResponse(BaseModel):
     reply: str
     audit_status: str
     audit_reason: str | None
-    conversation_id: str
 
 
 class ChatMessageResponse(BaseModel):
@@ -158,7 +157,6 @@ class ChatMessageResponse(BaseModel):
 
 
 class ChatHistoryResponse(BaseModel):
-    conversation_id: str
     session_id: int
     trip_id: int
     user_id: int
