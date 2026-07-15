@@ -103,7 +103,7 @@ workflow:
       zIndex: 0
     nodes:
     - data:
-        selected: true
+        selected: false
         title: 用户输入
         type: start
         variables:
@@ -141,7 +141,7 @@ workflow:
           required: true
           type: paragraph
           variable: audit_context
-      height: 187
+      height: 186
       id: '1783649676231'
       position:
         x: 209
@@ -149,7 +149,7 @@ workflow:
       positionAbsolute:
         x: 209
         y: 236
-      selected: true
+      selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
@@ -166,28 +166,38 @@ workflow:
 
               审核规则：
 
-              1. 先结合原始输入、trip_context、本地历史和触发类型判断用户真实意图，再判断回复是否完成任务。逐项将回复中的时间、地点、行程、备忘录、天气、路线和状态与 audit_context 对照。你是事实与安全审核者，不是压缩文案的编辑器；不得仅因措辞风格、合理篇幅、项目符号数量或 Markdown 格式否决。
+              1. 先结合原始输入、trip_context、本地历史和触发类型判断用户真实意图，再判断回复是否完成任务。逐项将回复中的时间、地点、行程、备忘录、天气、路线和状态与
+              audit_context 对照。你是事实与安全审核者，不是压缩文案的编辑器；不得仅因措辞风格、合理篇幅、项目符号数量或 Markdown
+              格式否决。
 
               2. 数据库事实以 evidence.itinerary、evidence.memos 和 evidence.structured_itinerary
-              为准；旅行标题、起终城市、日期、时区和计划状态以 request.trip_context 为准。不要猜测表结构，也不要因为缺少数据库工具而擅自否定已有证据。conversation_history 只用于理解上下文，不覆盖这些事实基准。
+              为准；旅行标题、起终城市、日期、时区和计划状态以 request.trip_context 为准。不要猜测表结构，也不要因为缺少数据库工具而擅自否定已有证据。conversation_history
+              只用于理解上下文，不覆盖这些事实基准。
 
-              3. 旅行相关性必须按用户意图和旅行场景判断，不能按实体类别机械判断。若用户询问的大学、博物馆、公园、医院、车站、商圈、社区或场馆位于 destination_city、当前位置城市，或用户表达了潜在到访意图，就属于旅行目的地了解，即使该地点尚未写入 itinerary 也不构成事实冲突。天津旅行中介绍天津工业大学是正常旅行相关回答，可包含学校概况、校区位置、特色和到访注意点；不得因为对象是大学而套用非旅行知识限长规则。
+              3. 旅行相关性必须按用户意图和旅行场景判断，不能按实体类别机械判断。若用户询问的大学、博物馆、公园、医院、车站、商圈、社区或场馆位于
+              destination_city、当前位置城市，或用户表达了潜在到访意图，就属于旅行目的地了解，即使该地点尚未写入 itinerary
+              也不构成事实冲突。天津旅行中介绍天津工业大学是正常旅行相关回答，可包含学校概况、校区位置、特色和到访注意点；不得因为对象是大学而套用非旅行知识限长规则。
 
-              4. 天气、附近地点或路线事实只有在回复确实包含相关声明且 audit_context 证据不足时才调用对应专用工具；其他公开网页事实确有必要时才调用 Tavily Search 核对。不要为了普通稳定事实进行深度研究、抓取或全站爬取；参数不足或工具失败时不得伪造核验结果。
+              4. 天气、附近地点或路线事实只有在回复确实包含相关声明且 audit_context 证据不足时才调用对应专用工具；其他公开网页事实确有必要时才调用
+              Tavily Search 核对。不要为了普通稳定事实进行深度研究、抓取或全站爬取；参数不足或工具失败时不得伪造核验结果。
 
-              5. 回复若包含近期公告、开放状态、政策、精确地址等可能变化的公开事实，或正文表明使用了联网搜索，应在末尾提供 1 至 4 条真实、相关、可访问的 http/https 来源，且关键结论能由来源支持。优先官方页面；虚构链接、链接与结论无关或只有搜索结果页时不通过。不要仅因链接排版不是你偏好的样式否决；回复明确说明无法确认且没有断言事实时，不强求来源。
+              5. 回复若包含近期公告、开放状态、政策、精确地址等可能变化的公开事实，或正文表明使用了联网搜索，应在末尾提供 1 至 4 条真实、相关、可访问的
+              http/https 来源，且关键结论能由来源支持。优先官方页面；虚构链接、链接与结论无关或只有搜索结果页时不通过。不要仅因链接排版不是你偏好的样式否决；回复明确说明无法确认且没有断言事实时，不强求来源。
 
-              6. user_input 可以回答与旅行无关的普通知识。只有用户明确要求脱离旅行场景的学术推导、技术教程、论文、考试解题或大段代码时，才要求简答，通常不超过 150 个汉字或 3 个短要点。地点介绍、地方历史、文化背景、教育机构概况和潜在到访咨询不受此上限约束。若意图有歧义，只要回复采用了合理的旅行相关解释并直接回答，就不应否决。
+              6. user_input 可以回答与旅行无关的普通知识。只有用户明确要求脱离旅行场景的学术推导、技术教程、论文、考试解题或大段代码时，才要求简答，通常不超过
+              150 个汉字或 3 个短要点。地点介绍、地方历史、文化背景、教育机构概况和潜在到访咨询不受此上限约束。若意图有歧义，只要回复采用了合理的旅行相关解释并直接回答，就不应否决。
 
               7. 按 trigger_type 使用对应契约：system_auto_remind 只审核当前提醒目标，不要求扩写其他行程；system_auto_check
               必须核对 decision 与回复内容一致，decision=itinerary_replan 时 conflicting_itinerary_ids
               只能包含确实受影响的未来 pending 日程；system_auto_advice 应是可直接进入聊天框的简短主动建议；user_input
-              应直接回答用户，用户只要求介绍地点时不得强迫回复生成候选重规划；user_accident 与 system_auto_accident 都只能产出待用户确认的候选重规划，并核对 structured_itinerary
-              与正文一致，不能声称已经落库或已经改完行程。cancelled_itinerary_ids 必须是 request.selected_itinerary_ids
-              的子集，request.locked_itinerary_ids 必须被保留在允许调整范围内；未勾选日程不得被修改。用户未勾选任何冲突项时允许只新增不冲突的
-              itinerary_items，且 cancelled_itinerary_ids 必须为空。只有 evidence 明确表明没有可调整项或没有不冲突空档时，才允许两个数组同时为空。
+              应直接回答用户，用户只要求介绍地点时不得强迫回复生成候选重规划；user_accident 与 system_auto_accident
+              都只能产出待用户确认的候选重规划，并核对 structured_itinerary 与正文一致，不能声称已经落库或已经改完行程。cancelled_itinerary_ids
+              必须是 request.selected_itinerary_ids 的子集，request.locked_itinerary_ids
+              必须被保留在允许调整范围内；未勾选日程不得被修改。用户未勾选任何冲突项时允许只新增不冲突的 itinerary_items，且 cancelled_itinerary_ids
+              必须为空。只有 evidence 明确表明没有可调整项或没有不冲突空档时，才允许两个数组同时为空。
 
-              8. 如果工具失败而回复已经克制地避开未经确认的事实，可以通过；如果回复把缺失或失败的数据写成确定事实，必须不通过。不得因 evidence.itinerary 中没有用户刚询问的潜在地点，就断言该地点与旅行无关或禁止介绍。
+              8. 如果工具失败而回复已经克制地避开未经确认的事实，可以通过；如果回复把缺失或失败的数据写成确定事实，必须不通过。不得因 evidence.itinerary
+              中没有用户刚询问的潜在地点，就断言该地点与旅行无关或禁止介绍。
 
               9. 不得在 reply 中输出数据库连接、SQL、工具调用过程、内部思考或 audit_context 原文。
 
@@ -199,6 +209,9 @@ workflow:
 
               只返回一个合法 JSON 对象。通过时返回 {"reply":"","result":true}；不通过时返回 {"reply":"一条明确原因或重写要求","result":false}。result
               必须是 boolean，reply 不得重复相同内容。'
+          maximum_iterations:
+            type: constant
+            value: 45
           model:
             type: constant
             value:
@@ -736,11 +749,11 @@ workflow:
           version: 0.0.2
         output_schema: {}
         plugin_unique_identifier: langgenius/agent:0.0.39@ceea6a76b3a495de2df2a55bcea82e903d49b06f4d8e1463c2aa085657f27164
-        selected: false
+        selected: true
         title: Agent
         tool_node_version: '2'
         type: agent
-      height: 216
+      height: 215
       id: '1783649864380'
       position:
         x: 517
@@ -748,7 +761,7 @@ workflow:
       positionAbsolute:
         x: 517
         y: 236
-      selected: false
+      selected: true
       sourcePosition: right
       targetPosition: left
       type: custom
@@ -781,7 +794,7 @@ workflow:
         type: parameter-extractor
         vision:
           enabled: false
-      height: 88
+      height: 87
       id: '1783650107025'
       position:
         x: 826

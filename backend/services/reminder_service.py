@@ -20,6 +20,7 @@ from models.trip import Trip
 from services.accompany_service import sync_itinerary_statuses
 from services.ai_gateway import AuditRejectedError, run_hikari_once_audited
 from services.trip_service import sync_trip_statuses
+from utils.trip_time import trip_local_iso, trip_time_context
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ def _trip_context(trip: Trip | None) -> str:
             "destination_city": trip.destination_city,
             "start_date": trip.start_date.isoformat(),
             "end_date": trip.end_date.isoformat(),
-            "timezone": trip.timezone,
+            **trip_time_context(trip.timezone),
             "status": trip.status,
         },
         ensure_ascii=False,
@@ -357,7 +358,8 @@ def scan_due_reminders(db: Session, now: datetime | None = None) -> int:
                 category = "initial_start" if item.is_initial else "next_itinerary"
                 detail = (
                     f"{item.title}，地点：{item.place_name}，"
-                    f"开始：{item.start_time.isoformat()}"
+                    f"开始：{trip_local_iso(item.start_time, trip.timezone)} "
+                    f"（{trip.timezone or 'Asia/Shanghai'}）"
                 )
                 if item.is_initial:
                     unscheduled = (
