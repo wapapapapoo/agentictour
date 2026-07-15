@@ -142,7 +142,6 @@ class DifyClient:
         query: str,
         user: str,
         inputs: Mapping[str, Any] | None = None,
-        conversation_id: str | None = None,
         files: Sequence[Mapping[str, Any]] | None = None,
         auto_generate_name: bool | None = None,
         response_mode: Literal["blocking"] = "blocking",
@@ -161,8 +160,6 @@ class DifyClient:
             "response_mode": response_mode,
             "user": user,
         }
-        if conversation_id:
-            payload["conversation_id"] = conversation_id
         if files is not None:
             payload["files"] = [dict(file) for file in files]
         if auto_generate_name is not None:

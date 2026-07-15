@@ -113,12 +113,12 @@ def test_trip_domain_user_ids_are_bigint() -> None:
     assert "user_id" not in TripPlanGenerateRequest.model_fields
 
 
-def test_chat_session_uses_local_conversation_id() -> None:
+def test_chat_session_uses_only_session_id() -> None:
     columns = ChatSession.__table__.c
 
-    assert "conversation_id" in columns
+    assert "session_id" in columns
+    assert "conversation_id" not in columns
     assert "dify_conversation_id" not in columns
-    assert columns.conversation_id.nullable is False
 
 
 def test_trip_create_rejects_inverted_dates() -> None:
@@ -204,10 +204,9 @@ def test_deleting_trip_cascades_to_companion_rows(db: Session) -> None:
 def test_fresh_companion_schema_references_trips_only() -> None:
     sql_dir = Path(__file__).resolve().parents[1] / "sql"
     trips_sql = (sql_dir / "02a_trips_table.sql").read_text(encoding="utf-8")
-    trip_plan_sql = (sql_dir / "03_trip_plan_tables.sql").read_text(
-        encoding="utf-8"
-    )
-    companion_sql = (sql_dir / "04_accompany_tables.sql").read_text(
+    trip_plan_sql = (sql_dir / "03_trip_plan_tables.sql").read_text(encoding="utf-8")
+    companion_sql = (sql_dir / "04_accompany_tables.sql").read_text(encoding="utf-8")
+    migration_sql = (sql_dir / "04b_drop_chat_conversation_id_migration.sql").read_text(
         encoding="utf-8"
     )
 
@@ -223,5 +222,6 @@ def test_fresh_companion_schema_references_trips_only() -> None:
     assert companion_sql.count("REFERENCES trips(id)") == 5
     assert "REFERENCES trip_plan_requests(id)" not in companion_sql
     assert "tour_id" not in companion_sql
-    assert "conversation_id VARCHAR(100) NOT NULL" in companion_sql
+    assert "conversation_id" not in companion_sql
     assert "dify_conversation_id" not in companion_sql
+    assert "DROP COLUMN conversation_id" in migration_sql

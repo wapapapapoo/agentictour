@@ -111,7 +111,6 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
     title VARCHAR(100) DEFAULT NULL COMMENT '会话标题',
 
     status VARCHAR(20) NOT NULL DEFAULT 'active' COMMENT '会话状态：active/closed/deleted',
-    conversation_id VARCHAR(100) NOT NULL DEFAULT (UUID()) COMMENT '本地会话ID',
 
     last_message_at DATETIME DEFAULT NULL COMMENT '最后一条消息时间',
 
@@ -119,7 +118,6 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
 
     UNIQUE KEY uk_chat_session_trip (trip_id),
-    UNIQUE KEY uk_chat_session_conversation_id (conversation_id),
     KEY idx_chat_sessions_user_id (user_id),
 
     CONSTRAINT fk_chat_session_trip

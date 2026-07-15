@@ -47,7 +47,6 @@ def test_send_chat_message_posts_expected_payload() -> None:
     response_body = {
         "event": "message",
         "answer": "hello",
-        "conversation_id": "conv-1",
     }
     session = FakeSession(FakeResponse(body=response_body))
     client = DifyClient(
@@ -61,7 +60,6 @@ def test_send_chat_message_posts_expected_payload() -> None:
         query="hello",
         user="user-1",
         inputs={"city": "Shanghai"},
-        conversation_id="conv-0",
         files=[
             {
                 "type": "image",
@@ -84,7 +82,6 @@ def test_send_chat_message_posts_expected_payload() -> None:
             "query": "hello",
             "response_mode": "blocking",
             "user": "user-1",
-            "conversation_id": "conv-0",
             "files": [
                 {
                     "type": "image",
@@ -158,4 +155,3 @@ def test_send_chat_message_raises_http_error_with_response_detail() -> None:
     assert exc_info.value.status_code == 400
     assert exc_info.value.error_code == "invalid_param"
     assert "query is required" in str(exc_info.value)
-

@@ -183,16 +183,14 @@ def chat(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
-@router.get(
-    "/chat/conversations/{conversation_id}", response_model=ChatHistoryResponse
-)
+@router.get("/chat/sessions/{session_id}", response_model=ChatHistoryResponse)
 def chat_history(
-    conversation_id: str,
+    session_id: int,
     current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
     try:
-        return service.chat_history(db, conversation_id, current_user_id)
+        return service.chat_history(db, session_id, current_user_id)
     except LookupError as exc:
         _not_found(exc)
 
