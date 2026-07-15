@@ -38,3 +38,14 @@ def trip_time_context(timezone_name: str | None) -> dict[str, str]:
         "database_timezone": "UTC",
         "current_time_local": local_now.isoformat(timespec="seconds"),
     }
+
+
+def trip_route_context(origin_city: str, destination_city: str) -> dict[str, object]:
+    """Expose route roles explicitly so current location cannot replace destination."""
+    return {
+        "route_context": {
+            "departure_city": origin_city,
+            "tourism_destination_city": destination_city,
+            "cross_city": origin_city.strip() != destination_city.strip(),
+        }
+    }

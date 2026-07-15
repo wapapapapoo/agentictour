@@ -777,8 +777,17 @@ workflow:
 
               任务判断与行为规则：
 
+              0. 消息身份优先于正文内容。正常 user_query 才是用户消息；若 user_query 包含 <audit_correction>，它是审核 Agent
+              返回的内部纠错包，审核意见不是用户的新要求。必须以 <original_user_request> 中的原始请求为用户意图，只按 <audit_feedback>
+              修正上一版回答，不得称呼审核 Agent 为用户、不得向用户复述审核流程，也不得把审核意见保存成新的用户偏好。
+
               1. 先结合旅行概要、当前城市、用户位置、本地历史消息和本轮原始问题判断真实意图，不得只按“大学、学校、历史、技术”等关键词判断话题是否与旅行相关。旅行概要中的
               destination_city 是当前旅行目的地；用户询问该城市或附近的大学、博物馆、公园、医院、车站、商圈、社区、赛事场馆等地点时，应默认视为目的地了解、潜在到访或途中决策，属于旅行相关问题。比如天津旅行中询问“介绍一下天津工业大学”，应正常介绍其与到访有关的概况、校区位置、特色和参观注意点，而不是当作无关学术问题压缩或拒绝。
+
+              1.1 跨城旅行必须按方向理解：origin_city 是出发城市，destination_city 是旅游目的地，当前位置不能覆盖 destination_city。location_name
+              和 city_adcode 只表示用户现在在哪里，不能把当前位置自动升级成明日游览城市。两城不同时，用户概括要求“安排明天行程”“推荐第二天怎么玩”等，默认围绕到达并游览 destination_city 安排；只有用户明确要求留在出发地，才可把 origin_city 作为主要游览城市。
+
+              1.2 若用户仍在 origin_city，应先查询当前 pending 日程并判断是否已有到 destination_city 的交通。没有可靠证据表明会在首个活动前抵达时，必须遵循先交通、后游览：先给出或建议跨城 transit，再安排 destination_city 的活动；需要精确班次、路线或耗时时调用路线/交通工具，不能凭空编造。已有交通日程时应保留并以其到达时间为边界，不得安排时间重叠或抵达前的目的地活动。
 
               2. 只有用户明确要求脱离旅行场景的学术推导、技术教程、论文写作、考试解题或大段代码时，才使用“非旅行知识简答”边界：先直接回答核心概念，通常控制在
               150 个汉字或 3 个短要点；不要擅自把地点介绍、地方历史、文化背景和交通教育机构介绍归入此类。意图有歧义时优先采用对当前旅行有帮助的解释，必要时在回答结尾提出一个简短确认问题，不得直接判定无关。
@@ -1460,7 +1469,7 @@ workflow:
               \ SQL查询 工具，只使用真实表名和字段名；context 是基准行程快照，最新查询与其冲突时以同一 tour_id 的最新 SELECT\
               \ 结果为准。数据库只允许 SELECT，不能直接修改任何表。\n2. 只调整当前时间之后、确实受影响且状态为 pending 的安排；已完成、已开始或已取消的行程不能修改。\n\
               3. cancelled_itinerary_ids 只返回需要取消的旧行程 itinerary_id；itinerary_items\
-              \ 只返回后端需要创建的新行程，不要重复输出未变化的旧行程。\n4. 每项必须包含 title、place_name、start_time、end_time、itinerary_type、status。\n\
+              \ 只返回后端需要创建的新行程，不要重复输出未变化的旧行程。\n4. 每项必须包含 title、place_name、city_name、start_time、end_time、itinerary_type、status；city_name 必须填写该活动实际所在城市，用于后端核对跨城方向。\n\
               5. start_time/end_time 使用带 +08:00 时区偏移的 ISO 8601 北京时间；end_time 必须晚于\
               \ start_time，正文时间必须与结构化字段一致。\n6. itinerary_type 只能是 play 或 transit；transit\
               \ 必须提供 reminder_time。\n7. 不确定的营业时间、票价、天气或路线必须先调用工具；无法确认时不要伪造候选行程。\n\
@@ -1476,10 +1485,10 @@ workflow:
               \ ID，它一定包含在 selected_itinerary_ids 中，必须优先处理，不能忽略或要求用户取消选择。\n16. selected_itinerary_ids\
               \ 为空时，cancelled_itinerary_ids 必须为空；只能在不与任何现有 pending 日程重叠的空档新增建议。若没有安全空档，reply\
               \ 直接说明无法在不影响原行程的前提下安排，两个数组返回空。\n17. 只有 selected_itinerary_ids 非空时才允许替换旧项；此时每个被替换的\
-              \ ID 都必须出现在 cancelled_itinerary_ids 中，并给出对应的完整新日程。\n\n最终只输出一个合法 JSON\
+              \ ID 都必须出现在 cancelled_itinerary_ids 中，并给出对应的完整新日程。\n18. 跨城方向以 trip_context 为硬事实：origin_city 是出发城市，destination_city 是旅游目的地，当前位置不能覆盖 destination_city。用户概括要求安排明天或未来行程时，默认在 destination_city 安排游览；若用户仍在 origin_city 且没有已确认的跨城交通，必须先交通、后游览，先生成或保留 transit，再生成 destination_city 的 play。除非用户明确要求留在出发地，不得输出一整套 origin_city 游览方案。\n\n最终只输出一个合法 JSON\
               \ 对象，不要输出 Markdown 代码块或思考过程：\n{\n  \"reply\": \"面向用户的简洁说明\",\n  \"cancelled_itinerary_ids\"\
               : [123],\n  \"itinerary_items\": [\n    {\n      \"title\": \"候选行程标题\"\
-              ,\n      \"place_name\": \"地点名称\",\n      \"start_time\": \"2026-08-20T14:00:00+08:00\"\
+              ,\n      \"place_name\": \"地点名称\",\n      \"city_name\": \"活动所在城市\",\n      \"start_time\": \"2026-08-20T14:00:00+08:00\"\
               ,\n      \"end_time\": \"2026-08-20T15:00:00+08:00\",\n      \"itinerary_type\"\
               : \"play\",\n      \"reminder_time\": null,\n      \"is_initial\": false,\n\
               \      \"status\": \"pending\"\n    }\n  ]\n}\n没有需要取消的旧行程时 cancelled_itinerary_ids\
@@ -1504,6 +1513,8 @@ workflow:
             value: '触发类型：{{#1782285385726.trigger_type#}}
 
               用户说明：{{#1782285385726.user_query#}}
+
+              旅行概要（起点、旅游目的地、日期和路线角色）：{{#1782285385726.trip_context#}}
 
               当前位置：{{#1782285385726.location_name#}}（{{#1782285385726.longitude#}},{{#1782285385726.latitude#}}）
 
@@ -3348,7 +3359,7 @@ workflow:
       width: 242
     - data:
         code: "import json\nimport re\n\n\nREQUIRED_ITEM_FIELDS = {\n    \"title\"\
-          , \"place_name\", \"start_time\", \"end_time\", \"itinerary_type\", \"status\"\
+          , \"place_name\", \"city_name\", \"start_time\", \"end_time\", \"itinerary_type\", \"status\"\
           \n}\n\n\ndef _clean(text):\n    text = str(text or \"\").strip()\n    text\
           \ = re.sub(r\"<think>.*?</think>\\s*\", \"\", text, flags=re.S)\n    return\
           \ re.sub(r\"^```(?:json)?\\s*|\\s*```$\", \"\", text, flags=re.I).strip()\n\
@@ -3475,7 +3486,9 @@ workflow:
               6. decision 不是 itinerary_replan 时 conflicting_itinerary_ids 必须为空数组；只有
               itinerary_replan 才能返回实际冲突 ID。
 
-              7. 最终只输出合法 JSON，不要 Markdown 或思考过程，decision 只能是 false、chat_recommendation、itinerary_replan：
+              7. 跨城判断必须以 trip_context 为准：origin_city 是出发城市，destination_city 是旅游目的地，当前位置不能覆盖 destination_city。检查用户是否仍在起点、现有交通是否足以按时到达，以及后续日程是否遵循先交通、后游览；不得把起点附近推荐当成目的地行程。
+
+              8. 最终只输出合法 JSON，不要 Markdown 或思考过程，decision 只能是 false、chat_recommendation、itinerary_replan：
 
               {"reply":"检查结论或用户通知正文","decision":"false","conflicting_itinerary_ids":[]}'
           maximum_iterations:
@@ -3496,6 +3509,8 @@ workflow:
           query:
             type: constant
             value: '自动检查任务：{{#1782285385726.user_query#}}
+
+              旅行概要：{{#1782285385726.trip_context#}}
 
               城市编码：{{#1782285385726.city_adcode#}}
 

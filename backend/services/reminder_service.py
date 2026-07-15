@@ -20,7 +20,7 @@ from models.trip import Trip
 from services.accompany_service import sync_itinerary_statuses
 from services.ai_gateway import AuditRejectedError, run_hikari_once_audited
 from services.trip_service import sync_trip_statuses
-from utils.trip_time import trip_local_iso, trip_time_context
+from utils.trip_time import trip_local_iso, trip_route_context, trip_time_context
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +34,7 @@ def _trip_context(trip: Trip | None) -> str:
             "title": trip.title,
             "origin_city": trip.origin_city,
             "destination_city": trip.destination_city,
+            **trip_route_context(trip.origin_city, trip.destination_city),
             "start_date": trip.start_date.isoformat(),
             "end_date": trip.end_date.isoformat(),
             **trip_time_context(trip.timezone),
