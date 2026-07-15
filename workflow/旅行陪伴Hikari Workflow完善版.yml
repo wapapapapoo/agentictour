@@ -60,7 +60,7 @@ workflow:
     selector:
     - env
     - password1
-    value: ''
+    value: '!q1w2e3r4'
     value_type: secret
   - description: 用户表名
     id: 48f3d78e-f20d-4fb5-960d-17a5f2278e01
@@ -212,28 +212,68 @@ workflow:
     selector:
     - env
     - DB_SCHEMA_CONTEXT
-    value: |-
-      只允许单条 SELECT，禁止 INSERT、UPDATE、DELETE、DROP、ALTER、SHOW 和 information_schema。只能查询当前用户、当前旅行所需数据，不得读取 users.password_hash。
-      时间规则：数据库中的 DATETIME（包括 start_time、end_time、reminder_time、reminded_at、created_at、updated_at）统一存储为 UTC；面向用户和 Agent 的时间统一使用 Asia/Shanghai（UTC+8）。查询后必须先加 8 小时再解释或展示，禁止把数据库原始 UTC 当作北京时间。
+    value: '只允许单条 SELECT，禁止 INSERT、UPDATE、DELETE、DROP、ALTER、SHOW 和 information_schema。只能查询当前用户、当前旅行所需数据，不得读取
+      users.password_hash。
+
+      时间规则：数据库中的 DATETIME（包括 start_time、end_time、reminder_time、reminded_at、created_at、updated_at）统一存储为
+      UTC；面向用户和 Agent 的时间统一使用 Asia/Shanghai（UTC+8）。查询后必须先加 8 小时再解释或展示，禁止把数据库原始 UTC
+      当作北京时间。
+
       Workflow 输入 tour_id 对应 trips.id，也对应带 trip_id 字段的业务表中的 trip_id；不要使用 tour_schedule，该表不存在。
-      users(user_id, username, password_hash[禁止查询], nickname, phone, email, status, created_at, updated_at)
-      trips(id, user_id, title, origin_city, destination_city, start_date, end_date, timezone, status, created_at, updated_at)
-      itinerary_items(itinerary_id, trip_id, title, place_name, start_time, end_time, itinerary_type, reminder_time, is_initial, reminded_at, status, created_at, updated_at)
+
+      users(user_id, username, password_hash[禁止查询], nickname, phone, email, status,
+      created_at, updated_at)
+
+      trips(id, user_id, title, origin_city, destination_city, start_date, end_date,
+      timezone, status, created_at, updated_at)
+
+      itinerary_items(itinerary_id, trip_id, title, place_name, start_time, end_time,
+      itinerary_type, reminder_time, is_initial, reminded_at, status, created_at,
+      updated_at)
+
       memos(memo_id, trip_id, memo_text, reminder_time, reminded_at, created_at, updated_at)
-      ai_advice(advice_id, trip_id, advice_type, parent_advice_id, input_text, reason_text, advice_text, proposed_itinerary_json, result, audit_status, audit_reason, generation_stopped, created_at, updated_at)
-      notifications(notification_id, trip_id, user_id, advice_id, category, content, read_at, created_at)
+
+      ai_advice(advice_id, trip_id, advice_type, parent_advice_id, input_text, reason_text,
+      advice_text, proposed_itinerary_json, result, audit_status, audit_reason, generation_stopped,
+      created_at, updated_at)
+
+      notifications(notification_id, trip_id, user_id, advice_id, category, content,
+      read_at, created_at)
+
       agent_job_states(job_name, last_run_at)
-      user_locations(user_id, latitude, longitude, city, place_name, location_context, updated_at)
-      chat_sessions(session_id, trip_id, user_id, title, status, last_message_at, created_at, updated_at)
-      chat_messages(message_id, session_id, sender_type, content, message_order, audit_status, audit_reason, created_at, updated_at)
-      trip_plan_requests(id, trip_id, user_id, action, origin_city, destination_city, start_date, end_date, people_count, budget_total, interests, hotel_level, transport_preference, pace, special_requirements, created_at, updated_at)
-      trip_plan_versions(id, request_id, user_id, version_no, revision_request, workflow_run_id, task_id, plan_json, raw_response_json, created_at)
+
+      user_locations(user_id, latitude, longitude, city, place_name, location_context,
+      updated_at)
+
+      chat_sessions(session_id, trip_id, user_id, title, status, last_message_at,
+      created_at, updated_at)
+
+      chat_messages(message_id, session_id, sender_type, content, message_order, audit_status,
+      audit_reason, created_at, updated_at)
+
+      trip_plan_requests(id, trip_id, user_id, action, origin_city, destination_city,
+      start_date, end_date, people_count, budget_total, interests, hotel_level, transport_preference,
+      pace, special_requirements, created_at, updated_at)
+
+      trip_plan_versions(id, request_id, user_id, version_no, revision_request, workflow_run_id,
+      task_id, plan_json, raw_response_json, created_at)
+
       plan_likes(id, user_id, plan_id, chunk_ids, created_at)
-      plan_knowledge_mappings(id, plan_id, version_id, user_id, dataset_id, document_id, document_name, batch, humanized_text, indexing_status, created_at)
+
+      plan_knowledge_mappings(id, plan_id, version_id, user_id, dataset_id, document_id,
+      document_name, batch, humanized_text, indexing_status, created_at)
+
       user_preference_prototypes(id, user_id, vector, chunk_count, created_at)
-      blog_materials(id, user_id, title, destination, start_date, end_date, people_count, itinerary_text, food_text, photo_text, expense_text, feeling_text, created_at, updated_at)
-      blog_photos(id, material_id, user_id, original_filename, stored_filename, content_type, file_size, created_at)
-      blog_generations(id, material_id, user_id, content_type, writing_style, generated_title, generated_content, tags, risk_note, created_at)
+
+      blog_materials(id, user_id, title, destination, start_date, end_date, people_count,
+      itinerary_text, food_text, photo_text, expense_text, feeling_text, created_at,
+      updated_at)
+
+      blog_photos(id, material_id, user_id, original_filename, stored_filename, content_type,
+      file_size, created_at)
+
+      blog_generations(id, material_id, user_id, content_type, writing_style, generated_title,
+      generated_content, tags, risk_note, created_at)'
     value_type: string
   - description: Agent数据库查询统一规范
     id: 95fdcf34-85f4-41db-ac6b-d64121486a20
@@ -241,16 +281,33 @@ workflow:
     selector:
     - env
     - DB_QUERY_RULES
-    value: |-
-      1. 只允许执行一条 SELECT；禁止 INSERT、UPDATE、DELETE、REPLACE、DROP、ALTER、TRUNCATE、CREATE、SHOW、DESCRIBE、EXPLAIN、存储过程和多语句。
+    value: '1. 只允许执行一条 SELECT；禁止 INSERT、UPDATE、DELETE、REPLACE、DROP、ALTER、TRUNCATE、CREATE、SHOW、DESCRIBE、EXPLAIN、存储过程和多语句。
+
       2. 只能使用 DB_SCHEMA_CONTEXT 中明确列出的表名和字段名；禁止猜测 tour_schedule 等不存在的表，禁止访问 information_schema。
+
       3. 禁止 SELECT *，只选择完成当前任务所需字段；禁止查询 users.password_hash 等认证或敏感数据。
-      4. Workflow 的 tour_id 对应 trips.id 和其他业务表的 trip_id。涉及旅行的数据必须使用 WHERE trip_id = 当前 tour_id；查询 trips 时使用 WHERE id = 当前 tour_id。不得查询其他旅行。
-      5. 查询行程时必须把 UTC 转为北京时间，优先使用：SELECT itinerary_id, trip_id, title, place_name, DATE_FORMAT(DATE_ADD(start_time, INTERVAL 8 HOUR), '%Y-%m-%d %H:%i:%s') AS start_time, DATE_FORMAT(DATE_ADD(end_time, INTERVAL 8 HOUR), '%Y-%m-%d %H:%i:%s') AS end_time, itinerary_type, DATE_FORMAT(DATE_ADD(reminder_time, INTERVAL 8 HOUR), '%Y-%m-%d %H:%i:%s') AS reminder_time, is_initial, status FROM itinerary_items WHERE trip_id = 当前 tour_id ORDER BY start_time ASC
-      6. 查询备忘录时必须把 UTC 转为北京时间，优先使用：SELECT memo_id, trip_id, memo_text, DATE_FORMAT(DATE_ADD(reminder_time, INTERVAL 8 HOUR), '%Y-%m-%d %H:%i:%s') AS reminder_time, DATE_FORMAT(DATE_ADD(reminded_at, INTERVAL 8 HOUR), '%Y-%m-%d %H:%i:%s') AS reminded_at FROM memos WHERE trip_id = 当前 tour_id ORDER BY created_at ASC
-      7. 自动检查未来行程同样必须先将 start_time、end_time、reminder_time 从 UTC 加 8 小时转换为北京时间，再与 Asia/Shanghai 当前时间比较和输出。
+
+      4. Workflow 的 tour_id 对应 trips.id 和其他业务表的 trip_id。涉及旅行的数据必须使用 WHERE trip_id
+      = 当前 tour_id；查询 trips 时使用 WHERE id = 当前 tour_id。不得查询其他旅行。
+
+      5. 查询行程时必须把 UTC 转为北京时间，优先使用：SELECT itinerary_id, trip_id, title, place_name,
+      DATE_FORMAT(DATE_ADD(start_time, INTERVAL 8 HOUR), ''%Y-%m-%d %H:%i:%s'') AS
+      start_time, DATE_FORMAT(DATE_ADD(end_time, INTERVAL 8 HOUR), ''%Y-%m-%d %H:%i:%s'')
+      AS end_time, itinerary_type, DATE_FORMAT(DATE_ADD(reminder_time, INTERVAL 8
+      HOUR), ''%Y-%m-%d %H:%i:%s'') AS reminder_time, is_initial, status FROM itinerary_items
+      WHERE trip_id = 当前 tour_id ORDER BY start_time ASC
+
+      6. 查询备忘录时必须把 UTC 转为北京时间，优先使用：SELECT memo_id, trip_id, memo_text, DATE_FORMAT(DATE_ADD(reminder_time,
+      INTERVAL 8 HOUR), ''%Y-%m-%d %H:%i:%s'') AS reminder_time, DATE_FORMAT(DATE_ADD(reminded_at,
+      INTERVAL 8 HOUR), ''%Y-%m-%d %H:%i:%s'') AS reminded_at FROM memos WHERE trip_id
+      = 当前 tour_id ORDER BY created_at ASC
+
+      7. 自动检查未来行程同样必须先将 start_time、end_time、reminder_time 从 UTC 加 8 小时转换为北京时间，再与 Asia/Shanghai
+      当前时间比较和输出。
+
       8. SQL 因表名或字段名失败时，只能依据 DB_SCHEMA_CONTEXT 修正一次；再次失败就停止查询并明确说明数据库暂时不可用，不得继续猜表、探库或泄露工具错误详情。
-      9. 每个任务最多调用数据库工具两次。最终回复只呈现查询结论，不输出 SQL、数据库连接信息、工具调用过程或内部思考。
+
+      9. 每个任务最多调用数据库工具两次。最终回复只呈现查询结论，不输出 SQL、数据库连接信息、工具调用过程或内部思考。'
     value_type: string
   features:
     file_upload:
@@ -603,7 +660,7 @@ workflow:
           required: false
           type: paragraph
           variable: conversation_history
-      height: 388
+      height: 343
       id: '1782285385726'
       position:
         x: -304.90419462659685
@@ -661,7 +718,7 @@ workflow:
         selected: false
         title: 条件分支
         type: if-else
-      height: 341
+      height: 342
       id: '1782286303865'
       position:
         x: 800.3551651938042
@@ -673,7 +730,7 @@ workflow:
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
     - data:
         agent_parameters:
           context:
@@ -711,17 +768,27 @@ workflow:
 
               1. 回答必须结合后端传入的本地历史消息，但不得声称 Dify 保存了会话。
 
-              2. 涉及行程、备忘录、旅行状态或其他数据库事实时，严格按照“数据库完整结构”和“数据库查询规范”调用 SQL查询 工具；只能使用列出的真实表名和字段名。context 是基准快照，再次查询与快照冲突时以同一 tour_id 的最新 SELECT 结果为准。
+              2. 涉及行程、备忘录、旅行状态或其他数据库事实时，严格按照“数据库完整结构”和“数据库查询规范”调用 SQL查询 工具；只能使用列出的真实表名和字段名。context
+              是基准快照，再次查询与快照冲突时以同一 tour_id 的最新 SELECT 结果为准。
 
-              3. 天气、附近地点、路线耗时等实时信息必须调用对应工具，工具失败时明确说明无法确认。
+              3. 天气、附近地点、路线耗时等实时信息必须调用对应专用工具；这些工具能回答时不要改用网页搜索。工具失败时明确说明无法确认。
 
               4. 查询行程或数据库时只允许 SELECT；严禁 INSERT、UPDATE、DELETE、DROP、ALTER，并始终限制当前 tour_id。
 
-              5. 不得编造营业时间、票价、距离、天气、交通状态和用户行程。
+              5. 联网搜索只用于公开信息：景点与目的地知识、当地文化习俗、开放公告、交通或入境政策、近期旅游资讯，以及用户询问但模型不能可靠确认的其他知识。不得用 Tavily 查询用户个人行程、备忘录或其他数据库私有事实。
 
-              6. trigger_type=user_input 时直接回答用户；trigger_type=system_auto_advice 仅作为兼容入口，输出一条可直接进入聊天框的简短主动建议，后端会写入 ai_advice 和 chat_messages，不会作为通知发送。
+              6. 对具有时效性、较冷门或你没有把握的公开事实，先调用 Tavily Search。普通聊天默认不要调用 Tavily Research、Tavily Crawl 或 Tavily Map；只有已经获得明确网页 URL 且确需核对原文时才调用 Tavily Extract。搜索结果不足时如实说明，不得补造结论或 URL。
 
-              7. 需要行动时优先给出一个明确可执行的下一步。只输出最终回复正文，不输出 JSON、思考过程、工具调用过程或 Markdown 代码块。'
+              7. 使用 Tavily 后，每个影响答案的关键事实都必须能由搜索结果支持，并在回复末尾单独输出“参考来源”小节，列出 1 至 4 条最相关来源，严格使用 Markdown 链接格式“- [来源标题](完整 http/https URL)”。优先政府、景区、交通运营方、院校或其他官方页面，其次才用可靠媒体。不得把搜索结果摘要当作网址，不得虚构链接。未使用 Tavily 时不要为了好看而伪造“参考来源”。
+
+              8. 旅游相关问题可以正常解释并给出可执行建议。学术、技术或其他与旅游明显无关的问题，只做简短知识介绍：最多 150 个汉字或 3 个短要点，不写长篇推导、课程、论文、完整教程或大段代码；若与当前旅行有实际关系，可补充一句旅行场景下的注意点。涉及医疗、法律、金融等高风险问题，只提供一般性提示并建议咨询专业人士。
+
+              9. 不得编造营业时间、票价、距离、天气、交通状态、网页来源和用户行程；要区分“已由工具确认”“来源称”与“尚无法确认”。
+
+              10. trigger_type=user_input 时直接回答用户；trigger_type=system_auto_advice 仅作为兼容入口，输出一条可直接进入聊天框的简短主动建议，后端会写入
+              ai_advice 和 chat_messages，不会作为通知发送。
+
+              11. 需要行动时优先给出一个明确可执行的下一步。正文可以使用简洁 Markdown 和来源链接，但不要输出 JSON、思考过程、工具调用过程或 Markdown 代码块。'
           model:
             type: constant
             value:
@@ -955,7 +1022,8 @@ workflow:
               type: mcp
             - enabled: true
               extra:
-                description: 只读数据库查询工具。真实表结构和查询规范已通过 DB_SCHEMA_CONTEXT、DB_QUERY_RULES 提供给 Agent；只能执行限定当前旅行的单条 SELECT，禁止猜表和探库。
+                description: 只读数据库查询工具。真实表结构和查询规范已通过 DB_SCHEMA_CONTEXT、DB_QUERY_RULES
+                  提供给 Agent；只能执行限定当前旅行的单条 SELECT，禁止猜表和探库。
               parameters:
                 db_host:
                   auto: 0
@@ -1006,6 +1074,292 @@ workflow:
               tool_label: SQL查询
               tool_name: sql_query
               type: builtin
+            - enabled: true
+              extra:
+                description: 使用 Tavily Extract 从一个或多个指定的 URL 提取网页内容。
+              parameters:
+                extract_depth:
+                  auto: 1
+                  value: null
+                query:
+                  auto: 1
+                  value: null
+                urls:
+                  auto: 1
+                  value: null
+              provider_name: langgenius/tavily/tavily
+              provider_show_name: langgenius/tavily/tavily
+              settings:
+                chunks_per_source:
+                  value:
+                    type: constant
+                    value: 3
+                format:
+                  value:
+                    type: constant
+                    value: markdown
+                include_favicon:
+                  value:
+                    type: constant
+                    value: false
+                include_images:
+                  value:
+                    type: constant
+                    value: false
+                include_usage:
+                  value:
+                    type: constant
+                    value: false
+                project_id:
+                  value:
+                    type: mixed
+                    value: null
+                timeout:
+                  value:
+                    type: constant
+                    value: null
+              tool_description: 使用 Tavily Extract 从一个或多个指定的 URL 提取网页内容。
+              tool_label: Tavily Extract
+              tool_name: tavily_extract
+              type: builtin
+            - enabled: true
+              extra:
+                description: 专为人工智能代理 (LLM) 构建的搜索引擎工具，可快速提供实时、准确和真实的结果。
+              parameters:
+                country:
+                  auto: 1
+                  value: null
+                end_date:
+                  auto: 1
+                  value: null
+                exclude_domains:
+                  auto: 1
+                  value: null
+                include_domains:
+                  auto: 1
+                  value: null
+                query:
+                  auto: 1
+                  value: null
+                search_depth:
+                  auto: 1
+                  value: null
+                start_date:
+                  auto: 1
+                  value: null
+                time_range:
+                  auto: 1
+                  value: null
+                topic:
+                  auto: 1
+                  value: null
+              provider_name: langgenius/tavily/tavily
+              provider_show_name: langgenius/tavily/tavily
+              settings:
+                auto_parameters:
+                  value:
+                    type: constant
+                    value: false
+                chunks_per_source:
+                  value:
+                    type: constant
+                    value: 3
+                include_answer:
+                  value:
+                    type: constant
+                    value: 'false'
+                include_favicon:
+                  value:
+                    type: constant
+                    value: false
+                include_image_descriptions:
+                  value:
+                    type: constant
+                    value: false
+                include_images:
+                  value:
+                    type: constant
+                    value: false
+                include_raw_content:
+                  value:
+                    type: constant
+                    value: 'false'
+                include_usage:
+                  value:
+                    type: constant
+                    value: false
+                max_results:
+                  value:
+                    type: constant
+                    value: 5
+                project_id:
+                  value:
+                    type: mixed
+                    value: null
+              tool_description: 专为人工智能代理 (LLM) 构建的搜索引擎工具，可快速提供实时、准确和真实的结果。
+              tool_label: Tavily Search
+              tool_name: tavily_search
+              type: builtin
+            - enabled: true
+              extra:
+                description: 使用 Tavily Crawl 从基础 URL 开始爬取网站，发现并提取多个页面的内容。
+              parameters:
+                exclude_domains:
+                  auto: 1
+                  value: null
+                exclude_paths:
+                  auto: 1
+                  value: null
+                instructions:
+                  auto: 1
+                  value: null
+                select_domains:
+                  auto: 1
+                  value: null
+                select_paths:
+                  auto: 1
+                  value: null
+                url:
+                  auto: 1
+                  value: null
+              provider_name: langgenius/tavily/tavily
+              provider_show_name: langgenius/tavily/tavily
+              settings:
+                allow_external:
+                  value:
+                    type: constant
+                    value: true
+                chunks_per_source:
+                  value:
+                    type: constant
+                    value: 3
+                extract_depth:
+                  value:
+                    type: constant
+                    value: basic
+                format:
+                  value:
+                    type: constant
+                    value: markdown
+                include_favicon:
+                  value:
+                    type: constant
+                    value: false
+                include_images:
+                  value:
+                    type: constant
+                    value: false
+                include_usage:
+                  value:
+                    type: constant
+                    value: false
+                limit:
+                  value:
+                    type: constant
+                    value: null
+                max_breadth:
+                  value:
+                    type: constant
+                    value: null
+                max_depth:
+                  value:
+                    type: constant
+                    value: null
+                project_id:
+                  value:
+                    type: mixed
+                    value: null
+                timeout:
+                  value:
+                    type: constant
+                    value: 150
+              tool_description: 使用 Tavily Crawl 从基础 URL 开始爬取网站，发现并提取多个页面的内容。
+              tool_label: Tavily Crawl
+              tool_name: tavily_crawl
+              type: builtin
+            - enabled: true
+              extra:
+                description: 使用 Tavily Map 从根 URL 开始发现所有 URL，映射网站结构。
+              parameters:
+                exclude_domains:
+                  auto: 1
+                  value: null
+                exclude_paths:
+                  auto: 1
+                  value: null
+                instructions:
+                  auto: 1
+                  value: null
+                select_domains:
+                  auto: 1
+                  value: null
+                select_paths:
+                  auto: 1
+                  value: null
+                url:
+                  auto: 1
+                  value: null
+              provider_name: langgenius/tavily/tavily
+              provider_show_name: langgenius/tavily/tavily
+              settings:
+                allow_external:
+                  value:
+                    type: constant
+                    value: true
+                include_usage:
+                  value:
+                    type: constant
+                    value: false
+                limit:
+                  value:
+                    type: constant
+                    value: 50
+                max_breadth:
+                  value:
+                    type: constant
+                    value: 20
+                max_depth:
+                  value:
+                    type: constant
+                    value: 1
+                project_id:
+                  value:
+                    type: mixed
+                    value: null
+                timeout:
+                  value:
+                    type: constant
+                    value: 150
+              tool_description: 使用 Tavily Map 从根 URL 开始发现所有 URL，映射网站结构。
+              tool_label: Tavily Map
+              tool_name: tavily_map
+              type: builtin
+            - enabled: true
+              extra:
+                description: 使用 Tavily Research API 对任何主题进行深度研究，返回带有引用的综合报告。
+              parameters:
+                input:
+                  auto: 1
+                  value: null
+              provider_name: langgenius/tavily/tavily
+              provider_show_name: langgenius/tavily/tavily
+              settings:
+                citation_format:
+                  value:
+                    type: constant
+                    value: numbered
+                model:
+                  value:
+                    type: constant
+                    value: auto
+                project_id:
+                  value:
+                    type: mixed
+                    value: null
+              tool_description: 使用 Tavily Research API 对任何主题进行深度研究，返回带有引用的综合报告。
+              tool_label: Tavily 研究
+              tool_name: tavily_research
+              type: builtin
         agent_strategy_label: FunctionCalling
         agent_strategy_name: function_calling
         agent_strategy_provider_name: langgenius/agent/agent
@@ -1022,11 +1376,11 @@ workflow:
           version: 0.0.2
         output_schema: {}
         plugin_unique_identifier: langgenius/agent:0.0.39@ceea6a76b3a495de2df2a55bcea82e903d49b06f4d8e1463c2aa085657f27164
-        selected: false
+        selected: true
         title: 聊天主Agent
         tool_node_version: '2'
         type: agent
-      height: 215
+      height: 216
       id: '1782351047886'
       position:
         x: 1270.8760092496725
@@ -1034,11 +1388,11 @@ workflow:
       positionAbsolute:
         x: 1270.8760092496725
         y: 843.0740866487456
-      selected: false
+      selected: true
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
     - data:
         outputs:
         - value_selector:
@@ -1053,7 +1407,7 @@ workflow:
         selected: false
         title: 结束-聊天回复
         type: end
-      height: 87
+      height: 114
       id: '1782351997056'
       position:
         x: 2015.207061143653
@@ -1065,7 +1419,7 @@ workflow:
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
     - data:
         agent_parameters:
           context:
@@ -1075,16 +1429,32 @@ workflow:
             - documents
           instruction:
             type: constant
-            value: "你是 Hikari 的行程调整 Agent。trigger_type=user_accident 表示用户主动要求修改；trigger_type=system_auto_accident 表示系统发现突发状况后，用户已经同意生成候选调整。两种情况都只生成待用户最终确认的方案。\n\n数据库完整结构：{{#env.DB_SCHEMA_CONTEXT#}}\n\n数据库查询规范：{{#env.DB_QUERY_RULES#}}\n\
-              \n重要约束：\n1. 涉及数据库事实时必须严格按照上述结构和规范调用 SQL查询 工具，只使用真实表名和字段名；context 是基准行程快照，最新查询与其冲突时以同一 tour_id 的最新 SELECT 结果为准。数据库只允许 SELECT，不能直接修改任何表。\n2. 只调整当前时间之后、确实受影响且状态为 pending 的安排；已完成、已开始或已取消的行程不能修改。\n\
+            value: "你是 Hikari 的行程调整 Agent。trigger_type=user_accident 表示用户主动要求修改；trigger_type=system_auto_accident\
+              \ 表示系统发现突发状况后，用户已经同意生成候选调整。两种情况都只生成待用户最终确认的方案。\n\n数据库完整结构：{{#env.DB_SCHEMA_CONTEXT#}}\n\
+              \n数据库查询规范：{{#env.DB_QUERY_RULES#}}\n\n重要约束：\n1. 涉及数据库事实时必须严格按照上述结构和规范调用\
+              \ SQL查询 工具，只使用真实表名和字段名；context 是基准行程快照，最新查询与其冲突时以同一 tour_id 的最新 SELECT\
+              \ 结果为准。数据库只允许 SELECT，不能直接修改任何表。\n2. 只调整当前时间之后、确实受影响且状态为 pending 的安排；已完成、已开始或已取消的行程不能修改。\n\
               3. cancelled_itinerary_ids 只返回需要取消的旧行程 itinerary_id；itinerary_items\
               \ 只返回后端需要创建的新行程，不要重复输出未变化的旧行程。\n4. 每项必须包含 title、place_name、start_time、end_time、itinerary_type、status。\n\
-              5. start_time/end_time 使用带 +08:00 时区偏移的 ISO 8601 北京时间；end_time 必须晚于 start_time，正文时间必须与结构化字段一致。\n6. itinerary_type\
-              \ 只能是 play 或 transit；transit 必须提供 reminder_time。\n7. 不确定的营业时间、票价、天气或路线必须先调用工具；无法确认时不要伪造候选行程。\n\
-              8. 用户同意“生成重推荐”不等于同意“采纳方案”。reply 只能说明候选调整及理由，不能声称已经修改成功；后端会先把本次结果保存为 pending，等待用户采纳、进一步修改或放弃。\n9. cancelled_itinerary_ids 与 itinerary_items 必须共同表达最小增量变化，未变化的旧行程不要返回。\n10. 当 user_query 包含“推荐版本历史”时，这些内容由后端根据 ai_advice.parent_advice_id 按旧到新整理，是本次进一步修改的可信上下文。保留仍有效的约束，以“当前用户新要求”为最高优先级，不要恢复已被后续版本否定的内容，也不要自行猜测、改写或查询其他行程的建议链。\n11. user_accident 或 system_auto_accident 的核心任务是产出可执行候选方案；不得因为用户把“夜游”写成“游行”等近音字、错别字、简称或口语表达就反复追问 tour_id。tour_id 由后端提供，是唯一可信旅行 ID。\n12. 用户要求较概括时，优先依据用户勾选的日程和语义相似度理解意图，选择范围最小、风险最低的具体调整；不得只回复“请补充信息”“我查看一下”或复述用户要求。无法确认新 POI 时，可以基于已知地点安排休息、机动时间、缩短或顺延，但不能编造地点、营业时间和路线。\n13. reply 必须直接概括这一个候选方案及其取舍，并与结构化字段完全一致；不要输出多个互斥选项让用户二次选择。\n14. selected_itinerary_ids 是用户明确允许替换的 pending 日程 ID。cancelled_itinerary_ids 必须是它的子集；未勾选日程必须原样保留，不得取消、改时间或用新项目覆盖。\n15. locked_itinerary_ids 是系统自动确认冲突并锁定的 ID，它一定包含在 selected_itinerary_ids 中，必须优先处理，不能忽略或要求用户取消选择。\n16. selected_itinerary_ids 为空时，cancelled_itinerary_ids 必须为空；只能在不与任何现有 pending 日程重叠的空档新增建议。若没有安全空档，reply 直接说明无法在不影响原行程的前提下安排，两个数组返回空。\n17. 只有 selected_itinerary_ids 非空时才允许替换旧项；此时每个被替换的 ID 都必须出现在 cancelled_itinerary_ids 中，并给出对应的完整新日程。\n\n最终只输出一个合法 JSON 对象，不要输出 Markdown 代码块或思考过程：\n\
-              {\n  \"reply\": \"面向用户的简洁说明\",\n  \"cancelled_itinerary_ids\": [123],\n\
-              \  \"itinerary_items\": [\n    {\n      \"title\": \"候选行程标题\",\n   \
-              \   \"place_name\": \"地点名称\",\n      \"start_time\": \"2026-08-20T14:00:00+08:00\"\
+              5. start_time/end_time 使用带 +08:00 时区偏移的 ISO 8601 北京时间；end_time 必须晚于\
+              \ start_time，正文时间必须与结构化字段一致。\n6. itinerary_type 只能是 play 或 transit；transit\
+              \ 必须提供 reminder_time。\n7. 不确定的营业时间、票价、天气或路线必须先调用工具；无法确认时不要伪造候选行程。\n\
+              8. 用户同意“生成重推荐”不等于同意“采纳方案”。reply 只能说明候选调整及理由，不能声称已经修改成功；后端会先把本次结果保存为\
+              \ pending，等待用户采纳、进一步修改或放弃。\n9. cancelled_itinerary_ids 与 itinerary_items\
+              \ 必须共同表达最小增量变化，未变化的旧行程不要返回。\n10. 当 user_query 包含“推荐版本历史”时，这些内容由后端根据\
+              \ ai_advice.parent_advice_id 按旧到新整理，是本次进一步修改的可信上下文。保留仍有效的约束，以“当前用户新要求”为最高优先级，不要恢复已被后续版本否定的内容，也不要自行猜测、改写或查询其他行程的建议链。\n\
+              11. user_accident 或 system_auto_accident 的核心任务是产出可执行候选方案；不得因为用户把“夜游”写成“游行”等近音字、错别字、简称或口语表达就反复追问\
+              \ tour_id。tour_id 由后端提供，是唯一可信旅行 ID。\n12. 用户要求较概括时，优先依据用户勾选的日程和语义相似度理解意图，选择范围最小、风险最低的具体调整；不得只回复“请补充信息”“我查看一下”或复述用户要求。无法确认新\
+              \ POI 时，可以基于已知地点安排休息、机动时间、缩短或顺延，但不能编造地点、营业时间和路线。\n13. reply 必须直接概括这一个候选方案及其取舍，并与结构化字段完全一致；不要输出多个互斥选项让用户二次选择。\n\
+              14. selected_itinerary_ids 是用户明确允许替换的 pending 日程 ID。cancelled_itinerary_ids\
+              \ 必须是它的子集；未勾选日程必须原样保留，不得取消、改时间或用新项目覆盖。\n15. locked_itinerary_ids 是系统自动确认冲突并锁定的\
+              \ ID，它一定包含在 selected_itinerary_ids 中，必须优先处理，不能忽略或要求用户取消选择。\n16. selected_itinerary_ids\
+              \ 为空时，cancelled_itinerary_ids 必须为空；只能在不与任何现有 pending 日程重叠的空档新增建议。若没有安全空档，reply\
+              \ 直接说明无法在不影响原行程的前提下安排，两个数组返回空。\n17. 只有 selected_itinerary_ids 非空时才允许替换旧项；此时每个被替换的\
+              \ ID 都必须出现在 cancelled_itinerary_ids 中，并给出对应的完整新日程。\n\n最终只输出一个合法 JSON\
+              \ 对象，不要输出 Markdown 代码块或思考过程：\n{\n  \"reply\": \"面向用户的简洁说明\",\n  \"cancelled_itinerary_ids\"\
+              : [123],\n  \"itinerary_items\": [\n    {\n      \"title\": \"候选行程标题\"\
+              ,\n      \"place_name\": \"地点名称\",\n      \"start_time\": \"2026-08-20T14:00:00+08:00\"\
               ,\n      \"end_time\": \"2026-08-20T15:00:00+08:00\",\n      \"itinerary_type\"\
               : \"play\",\n      \"reminder_time\": null,\n      \"is_initial\": false,\n\
               \      \"status\": \"pending\"\n    }\n  ]\n}\n没有需要取消的旧行程时 cancelled_itinerary_ids\
@@ -1332,7 +1702,8 @@ workflow:
               type: builtin
             - enabled: true
               extra:
-                description: 只读数据库查询工具。真实表结构和查询规范已通过 DB_SCHEMA_CONTEXT、DB_QUERY_RULES 提供给 Agent；只能执行限定当前旅行的单条 SELECT，禁止猜表和探库。
+                description: 只读数据库查询工具。真实表结构和查询规范已通过 DB_SCHEMA_CONTEXT、DB_QUERY_RULES
+                  提供给 Agent；只能执行限定当前旅行的单条 SELECT，禁止猜表和探库。
               parameters:
                 db_host:
                   auto: 0
@@ -1383,6 +1754,292 @@ workflow:
               tool_label: SQL查询
               tool_name: sql_query
               type: builtin
+            - enabled: true
+              extra:
+                description: 使用 Tavily Extract 从一个或多个指定的 URL 提取网页内容。
+              parameters:
+                extract_depth:
+                  auto: 1
+                  value: null
+                query:
+                  auto: 1
+                  value: null
+                urls:
+                  auto: 1
+                  value: null
+              provider_name: langgenius/tavily/tavily
+              provider_show_name: langgenius/tavily/tavily
+              settings:
+                chunks_per_source:
+                  value:
+                    type: constant
+                    value: 3
+                format:
+                  value:
+                    type: constant
+                    value: markdown
+                include_favicon:
+                  value:
+                    type: constant
+                    value: false
+                include_images:
+                  value:
+                    type: constant
+                    value: false
+                include_usage:
+                  value:
+                    type: constant
+                    value: false
+                project_id:
+                  value:
+                    type: mixed
+                    value: null
+                timeout:
+                  value:
+                    type: constant
+                    value: null
+              tool_description: 使用 Tavily Extract 从一个或多个指定的 URL 提取网页内容。
+              tool_label: Tavily Extract
+              tool_name: tavily_extract
+              type: builtin
+            - enabled: true
+              extra:
+                description: 专为人工智能代理 (LLM) 构建的搜索引擎工具，可快速提供实时、准确和真实的结果。
+              parameters:
+                country:
+                  auto: 1
+                  value: null
+                end_date:
+                  auto: 1
+                  value: null
+                exclude_domains:
+                  auto: 1
+                  value: null
+                include_domains:
+                  auto: 1
+                  value: null
+                query:
+                  auto: 1
+                  value: null
+                search_depth:
+                  auto: 1
+                  value: null
+                start_date:
+                  auto: 1
+                  value: null
+                time_range:
+                  auto: 1
+                  value: null
+                topic:
+                  auto: 1
+                  value: null
+              provider_name: langgenius/tavily/tavily
+              provider_show_name: langgenius/tavily/tavily
+              settings:
+                auto_parameters:
+                  value:
+                    type: constant
+                    value: false
+                chunks_per_source:
+                  value:
+                    type: constant
+                    value: 3
+                include_answer:
+                  value:
+                    type: constant
+                    value: 'false'
+                include_favicon:
+                  value:
+                    type: constant
+                    value: false
+                include_image_descriptions:
+                  value:
+                    type: constant
+                    value: false
+                include_images:
+                  value:
+                    type: constant
+                    value: false
+                include_raw_content:
+                  value:
+                    type: constant
+                    value: 'false'
+                include_usage:
+                  value:
+                    type: constant
+                    value: false
+                max_results:
+                  value:
+                    type: constant
+                    value: 5
+                project_id:
+                  value:
+                    type: mixed
+                    value: null
+              tool_description: 专为人工智能代理 (LLM) 构建的搜索引擎工具，可快速提供实时、准确和真实的结果。
+              tool_label: Tavily Search
+              tool_name: tavily_search
+              type: builtin
+            - enabled: true
+              extra:
+                description: 使用 Tavily Crawl 从基础 URL 开始爬取网站，发现并提取多个页面的内容。
+              parameters:
+                exclude_domains:
+                  auto: 1
+                  value: null
+                exclude_paths:
+                  auto: 1
+                  value: null
+                instructions:
+                  auto: 1
+                  value: null
+                select_domains:
+                  auto: 1
+                  value: null
+                select_paths:
+                  auto: 1
+                  value: null
+                url:
+                  auto: 1
+                  value: null
+              provider_name: langgenius/tavily/tavily
+              provider_show_name: langgenius/tavily/tavily
+              settings:
+                allow_external:
+                  value:
+                    type: constant
+                    value: true
+                chunks_per_source:
+                  value:
+                    type: constant
+                    value: 3
+                extract_depth:
+                  value:
+                    type: constant
+                    value: basic
+                format:
+                  value:
+                    type: constant
+                    value: markdown
+                include_favicon:
+                  value:
+                    type: constant
+                    value: false
+                include_images:
+                  value:
+                    type: constant
+                    value: false
+                include_usage:
+                  value:
+                    type: constant
+                    value: false
+                limit:
+                  value:
+                    type: constant
+                    value: null
+                max_breadth:
+                  value:
+                    type: constant
+                    value: null
+                max_depth:
+                  value:
+                    type: constant
+                    value: null
+                project_id:
+                  value:
+                    type: mixed
+                    value: null
+                timeout:
+                  value:
+                    type: constant
+                    value: 150
+              tool_description: 使用 Tavily Crawl 从基础 URL 开始爬取网站，发现并提取多个页面的内容。
+              tool_label: Tavily Crawl
+              tool_name: tavily_crawl
+              type: builtin
+            - enabled: true
+              extra:
+                description: 使用 Tavily Map 从根 URL 开始发现所有 URL，映射网站结构。
+              parameters:
+                exclude_domains:
+                  auto: 1
+                  value: null
+                exclude_paths:
+                  auto: 1
+                  value: null
+                instructions:
+                  auto: 1
+                  value: null
+                select_domains:
+                  auto: 1
+                  value: null
+                select_paths:
+                  auto: 1
+                  value: null
+                url:
+                  auto: 1
+                  value: null
+              provider_name: langgenius/tavily/tavily
+              provider_show_name: langgenius/tavily/tavily
+              settings:
+                allow_external:
+                  value:
+                    type: constant
+                    value: true
+                include_usage:
+                  value:
+                    type: constant
+                    value: false
+                limit:
+                  value:
+                    type: constant
+                    value: 50
+                max_breadth:
+                  value:
+                    type: constant
+                    value: 20
+                max_depth:
+                  value:
+                    type: constant
+                    value: 1
+                project_id:
+                  value:
+                    type: mixed
+                    value: null
+                timeout:
+                  value:
+                    type: constant
+                    value: 150
+              tool_description: 使用 Tavily Map 从根 URL 开始发现所有 URL，映射网站结构。
+              tool_label: Tavily Map
+              tool_name: tavily_map
+              type: builtin
+            - enabled: true
+              extra:
+                description: 使用 Tavily Research API 对任何主题进行深度研究，返回带有引用的综合报告。
+              parameters:
+                input:
+                  auto: 1
+                  value: null
+              provider_name: langgenius/tavily/tavily
+              provider_show_name: langgenius/tavily/tavily
+              settings:
+                citation_format:
+                  value:
+                    type: constant
+                    value: numbered
+                model:
+                  value:
+                    type: constant
+                    value: auto
+                project_id:
+                  value:
+                    type: mixed
+                    value: null
+              tool_description: 使用 Tavily Research API 对任何主题进行深度研究，返回带有引用的综合报告。
+              tool_label: Tavily 研究
+              tool_name: tavily_research
+              type: builtin
         agent_strategy_label: FunctionCalling
         agent_strategy_name: function_calling
         agent_strategy_provider_name: langgenius/agent/agent
@@ -1406,7 +2063,7 @@ workflow:
         title: 日程重推荐Agent
         tool_node_version: '2'
         type: agent
-      height: 187
+      height: 188
       id: '17824362484760'
       position:
         x: 1270.8760092496725
@@ -1418,7 +2075,7 @@ workflow:
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
     - data:
         outputs:
         - value_selector:
@@ -1444,7 +2101,7 @@ workflow:
         selected: false
         title: 结束-日程重推荐
         type: end
-      height: 139
+      height: 166
       id: '1782437042677'
       position:
         x: 1860
@@ -1456,7 +2113,7 @@ workflow:
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
     - data:
         is_team_authorization: true
         paramSchemas:
@@ -1552,7 +2209,7 @@ workflow:
             type: mixed
             value: all
         type: tool
-      height: 83
+      height: 84
       id: '1783673975969'
       position:
         x: 1385
@@ -1564,7 +2221,7 @@ workflow:
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
     - data:
         author: wapapapapoo
         desc: ''
@@ -1798,7 +2455,7 @@ workflow:
         tool_node_version: '2'
         tool_parameters: {}
         type: tool
-      height: 113
+      height: 114
       id: '1782441089142'
       position:
         x: 1716
@@ -1810,7 +2467,7 @@ workflow:
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
     - data:
         is_team_authorization: true
         paramSchemas:
@@ -2142,10 +2799,9 @@ workflow:
               INTERVAL 8 HOUR), '%Y-%m-%d %H:%i:%s') AS end_time, itinerary_type,
               DATE_FORMAT(DATE_ADD(reminder_time, INTERVAL 8 HOUR), '%Y-%m-%d %H:%i:%s')
               AS reminder_time, is_initial, status FROM {{#env.TABLE_ITINERARY_ITEMS#}}
-              WHERE trip_id = {{#1782285385726.tour_id#}} ORDER BY start_time
-              ASC;
+              WHERE trip_id = {{#1782285385726.tour_id#}} ORDER BY start_time ASC;
         type: tool
-      height: 87
+      height: 88
       id: '1782441291535'
       position:
         x: 106.66390513730948
@@ -2157,18 +2813,19 @@ workflow:
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
     - data:
         code: "import json\n\n\ndef main(db_result):\n    if isinstance(db_result,\
           \ dict):\n        records = db_result.get(\"records\", [])\n    elif isinstance(db_result,\
           \ list):\n        records = db_result\n    else:\n        records = []\n\
           \n    if not isinstance(records, list):\n        records = []\n\n    content\
           \ = json.dumps(\n        records,\n        ensure_ascii=False,\n       \
-          \ default=str,\n    )\n    return {\n        \"content\": content,\n        \"documents\": [\n        \
-          \    {\n                \"content\": content,\n                \"title\"\
-          : \"当前行程数据\",\n                \"metadata\": {\n                    \"source\"\
-          : \"agentictour_mysql\",\n                    \"record_count\": len(records),\n\
-          \                },\n            }\n        ]\n    }"
+          \ default=str,\n    )\n    return {\n        \"content\": content,\n   \
+          \     \"documents\": [\n            {\n                \"content\": content,\n\
+          \                \"title\": \"当前行程数据\",\n                \"metadata\": {\n\
+          \                    \"source\": \"agentictour_mysql\",\n              \
+          \      \"record_count\": len(records),\n                },\n           \
+          \ }\n        ]\n    }"
         code_language: python3
         desc: 将数据库 records 转换为 Agent context 要求的 content/title/metadata 文档结构
         outputs:
@@ -2187,7 +2844,7 @@ workflow:
           - json
           value_type: object
           variable: db_result
-      height: 111
+      height: 112
       id: hikari_itinerary_context_formatter_v1
       position:
         x: 421.08636076522225
@@ -2199,7 +2856,7 @@ workflow:
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
     - data:
         context:
           enabled: false
@@ -2218,7 +2875,8 @@ workflow:
         prompt_template:
         - id: hikari-reminder-system-v2
           role: system
-          text: 你是旅行陪伴助手 Hikari，负责处理后端已经判定到期的备忘录或日程提醒。Workflow 提供的行程、备忘录、天气和时间是本次提醒的基准数据。只输出一条及时、温柔、克制的用户提醒正文，不重新判断是否到期，不输出分析、JSON 或工具过程。不得编造天气、地点、时间和行程；信息缺失时只使用已确认内容。
+          text: 你是旅行陪伴助手 Hikari，负责处理后端已经判定到期的备忘录或日程提醒。Workflow 提供的行程、备忘录、天气和时间是本次提醒的基准数据。只输出一条及时、温柔、克制的用户提醒正文，不重新判断是否到期，不输出分析、JSON
+            或工具过程。不得编造天气、地点、时间和行程；信息缺失时只使用已确认内容。
         - id: hikari-reminder-user-v2
           role: user
           text: '后端触发说明：{{#1782285385726.user_query#}}
@@ -2251,7 +2909,7 @@ workflow:
         type: llm
         vision:
           enabled: false
-      height: 87
+      height: 88
       id: '17836645655680'
       position:
         x: 2056.5390906831108
@@ -2259,11 +2917,11 @@ workflow:
       positionAbsolute:
         x: 2056.5390906831108
         y: 60.66666666666663
-      selected: true
+      selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
       zIndex: 1002
     - data:
         desc: 系统提示
@@ -2296,7 +2954,7 @@ workflow:
         selected: false
         title: 输出 3
         type: end
-      height: 115
+      height: 220
       id: '1783664577609'
       position:
         x: 2426.620846966372
@@ -2308,7 +2966,7 @@ workflow:
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
     - data:
         desc: ''
         isInIteration: false
@@ -2643,7 +3301,7 @@ workflow:
               INTERVAL 8 HOUR), '%Y-%m-%d %H:%i:%s') AS reminded_at FROM {{#env.TABLE_MEMOS#}}
               WHERE trip_id = {{#1782285385726.tour_id#}} ORDER BY created_at ASC;
         type: tool
-      height: 87
+      height: 88
       id: '17836716058920'
       position:
         x: 1060.3501400560242
@@ -2655,77 +3313,36 @@ workflow:
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
     - data:
-        code: |-
-          import json
-          import re
-
-
-          REQUIRED_ITEM_FIELDS = {
-              "title", "place_name", "start_time", "end_time", "itinerary_type", "status"
-          }
-
-
-          def _clean(text):
-              text = str(text or "").strip()
-              text = re.sub(r"<think>.*?</think>\s*", "", text, flags=re.S)
-              return re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.I).strip()
-
-
-          def _object(text):
-              try:
-                  value = json.loads(text)
-                  return value if isinstance(value, dict) else None
-              except Exception:
-                  pass
-              decoder = json.JSONDecoder()
-              for index, char in enumerate(text):
-                  if char != "{":
-                      continue
-                  try:
-                      value, _ = decoder.raw_decode(text[index:])
-                  except Exception:
-                      continue
-                  if isinstance(value, dict):
-                      return value
-              return None
-
-
-          def main(raw_text: str):
-              payload = _object(_clean(raw_text))
-              if payload is None:
-                  return {
-                      "reply": "候选方案没有输出可解析的 JSON 对象。",
-                      "cancelled_itinerary_ids": [],
-                      "itinerary_items": [],
-                  }
-              reply = str(payload.get("reply") or "候选方案缺少用户说明。").strip()
-              raw_items = payload.get("itinerary_items", [])
-              if not isinstance(raw_items, list):
-                  raw_items = []
-              items = [
-                  item for item in raw_items
-                  if isinstance(item, dict) and REQUIRED_ITEM_FIELDS.issubset(item)
-              ]
-              raw_cancelled = payload.get("cancelled_itinerary_ids", [])
-              if not isinstance(raw_cancelled, list):
-                  raw_cancelled = []
-              cancelled = sorted({
-                  item for item in raw_cancelled
-                  if isinstance(item, int) and not isinstance(item, bool)
-              })
-              if raw_items and len(items) != len(raw_items):
-                  return {
-                      "reply": "候选方案中的日程字段不完整，必须重新生成完整结构。",
-                      "cancelled_itinerary_ids": [],
-                      "itinerary_items": [],
-                  }
-              return {
-                  "reply": reply,
-                  "cancelled_itinerary_ids": cancelled,
-                  "itinerary_items": items,
-              }
+        code: "import json\nimport re\n\n\nREQUIRED_ITEM_FIELDS = {\n    \"title\"\
+          , \"place_name\", \"start_time\", \"end_time\", \"itinerary_type\", \"status\"\
+          \n}\n\n\ndef _clean(text):\n    text = str(text or \"\").strip()\n    text\
+          \ = re.sub(r\"<think>.*?</think>\\s*\", \"\", text, flags=re.S)\n    return\
+          \ re.sub(r\"^```(?:json)?\\s*|\\s*```$\", \"\", text, flags=re.I).strip()\n\
+          \n\ndef _object(text):\n    try:\n        value = json.loads(text)\n   \
+          \     return value if isinstance(value, dict) else None\n    except Exception:\n\
+          \        pass\n    decoder = json.JSONDecoder()\n    for index, char in\
+          \ enumerate(text):\n        if char != \"{\":\n            continue\n  \
+          \      try:\n            value, _ = decoder.raw_decode(text[index:])\n \
+          \       except Exception:\n            continue\n        if isinstance(value,\
+          \ dict):\n            return value\n    return None\n\n\ndef main(raw_text:\
+          \ str):\n    payload = _object(_clean(raw_text))\n    if payload is None:\n\
+          \        return {\n            \"reply\": \"候选方案没有输出可解析的 JSON 对象。\",\n \
+          \           \"cancelled_itinerary_ids\": [],\n            \"itinerary_items\"\
+          : [],\n        }\n    reply = str(payload.get(\"reply\") or \"候选方案缺少用户说明。\"\
+          ).strip()\n    raw_items = payload.get(\"itinerary_items\", [])\n    if\
+          \ not isinstance(raw_items, list):\n        raw_items = []\n    items =\
+          \ [\n        item for item in raw_items\n        if isinstance(item, dict)\
+          \ and REQUIRED_ITEM_FIELDS.issubset(item)\n    ]\n    raw_cancelled = payload.get(\"\
+          cancelled_itinerary_ids\", [])\n    if not isinstance(raw_cancelled, list):\n\
+          \        raw_cancelled = []\n    cancelled = sorted({\n        item for\
+          \ item in raw_cancelled\n        if isinstance(item, int) and not isinstance(item,\
+          \ bool)\n    })\n    if raw_items and len(items) != len(raw_items):\n  \
+          \      return {\n            \"reply\": \"候选方案中的日程字段不完整，必须重新生成完整结构。\",\n\
+          \            \"cancelled_itinerary_ids\": [],\n            \"itinerary_items\"\
+          : [],\n        }\n    return {\n        \"reply\": reply,\n        \"cancelled_itinerary_ids\"\
+          : cancelled,\n        \"itinerary_items\": items,\n    }"
         code_language: python3
         desc: 规范化模型输出，保证后端获得稳定字段类型
         outputs:
@@ -2747,7 +3364,7 @@ workflow:
           - text
           value_type: string
           variable: raw_text
-      height: 95
+      height: 96
       id: hikari_replan_parser_v2
       position:
         x: 1560
@@ -2759,7 +3376,7 @@ workflow:
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
     - data:
         agent_parameters:
           context:
@@ -2776,7 +3393,8 @@ workflow:
               数据库查询规范：{{#env.DB_QUERY_RULES#}}
 
 
-              检查依据：当前时间、未来行程、城市天气、当前位置和必要的路线信息。涉及数据库事实时必须严格按照上述结构和规范调用 SQL查询 工具，只使用真实表名和字段名；context 是基准行程快照，最新查询与其冲突时以同一 tour_id 的最新 SELECT 结果为准。
+              检查依据：当前时间、未来行程、城市天气、当前位置和必要的路线信息。涉及数据库事实时必须严格按照上述结构和规范调用 SQL查询 工具，只使用真实表名和字段名；context
+              是基准行程快照，最新查询与其冲突时以同一 tour_id 的最新 SELECT 结果为准。
 
 
               decision=chat_recommendation 的条件：
@@ -2814,13 +3432,16 @@ workflow:
 
               2. 没有可靠证据且没有真正有价值的陪伴建议时必须返回 false。
 
-              3. chat_recommendation 时 reply 直接给出简短、可执行的聊天式主动建议。后端会把它写入 ai_advice 和该旅行的 chat_messages，不会创建通知，也不会修改行程。
+              3. chat_recommendation 时 reply 直接给出简短、可执行的聊天式主动建议。后端会把它写入 ai_advice
+              和该旅行的 chat_messages，不会创建通知，也不会修改行程。
 
-              4. itinerary_replan 时 reply 只能客观告知“发生了什么、影响哪个行程以及影响程度”。不得提供替代景点、调整时间、路线或任何解决方案；不得生成候选行程，也不能声称已经修改行程。是否同意重新推荐由客户端按钮处理。conflicting_itinerary_ids 必须列出被该变化直接影响的未来 pending 日程 itinerary_id，不能包含 done 或 cancelled 日程。
+              4. itinerary_replan 时 reply 只能客观告知“发生了什么、影响哪个行程以及影响程度”。不得提供替代景点、调整时间、路线或任何解决方案；不得生成候选行程，也不能声称已经修改行程。是否同意重新推荐由客户端按钮处理。conflicting_itinerary_ids
+              必须列出被该变化直接影响的未来 pending 日程 itinerary_id，不能包含 done 或 cancelled 日程。
 
               5. false 时 reply 简短记录检查结论，后端只保存检查记录，不会通知用户或写入聊天消息。
 
-              6. decision 不是 itinerary_replan 时 conflicting_itinerary_ids 必须为空数组；只有 itinerary_replan 才能返回实际冲突 ID。
+              6. decision 不是 itinerary_replan 时 conflicting_itinerary_ids 必须为空数组；只有
+              itinerary_replan 才能返回实际冲突 ID。
 
               7. 最终只输出合法 JSON，不要 Markdown 或思考过程，decision 只能是 false、chat_recommendation、itinerary_replan：
 
@@ -3062,7 +3683,8 @@ workflow:
               type: mcp
             - enabled: true
               extra:
-                description: 只读数据库查询工具。真实表结构和查询规范已通过 DB_SCHEMA_CONTEXT、DB_QUERY_RULES 提供给 Agent；只能执行限定当前旅行的单条 SELECT，禁止猜表和探库。
+                description: 只读数据库查询工具。真实表结构和查询规范已通过 DB_SCHEMA_CONTEXT、DB_QUERY_RULES
+                  提供给 Agent；只能执行限定当前旅行的单条 SELECT，禁止猜表和探库。
               parameters:
                 db_host:
                   auto: 0
@@ -3113,6 +3735,292 @@ workflow:
               tool_label: SQL查询
               tool_name: sql_query
               type: builtin
+            - enabled: true
+              extra:
+                description: 使用 Tavily Extract 从一个或多个指定的 URL 提取网页内容。
+              parameters:
+                extract_depth:
+                  auto: 1
+                  value: null
+                query:
+                  auto: 1
+                  value: null
+                urls:
+                  auto: 1
+                  value: null
+              provider_name: langgenius/tavily/tavily
+              provider_show_name: langgenius/tavily/tavily
+              settings:
+                chunks_per_source:
+                  value:
+                    type: constant
+                    value: 3
+                format:
+                  value:
+                    type: constant
+                    value: markdown
+                include_favicon:
+                  value:
+                    type: constant
+                    value: false
+                include_images:
+                  value:
+                    type: constant
+                    value: false
+                include_usage:
+                  value:
+                    type: constant
+                    value: false
+                project_id:
+                  value:
+                    type: mixed
+                    value: null
+                timeout:
+                  value:
+                    type: constant
+                    value: null
+              tool_description: 使用 Tavily Extract 从一个或多个指定的 URL 提取网页内容。
+              tool_label: Tavily Extract
+              tool_name: tavily_extract
+              type: builtin
+            - enabled: true
+              extra:
+                description: 专为人工智能代理 (LLM) 构建的搜索引擎工具，可快速提供实时、准确和真实的结果。
+              parameters:
+                country:
+                  auto: 1
+                  value: null
+                end_date:
+                  auto: 1
+                  value: null
+                exclude_domains:
+                  auto: 1
+                  value: null
+                include_domains:
+                  auto: 1
+                  value: null
+                query:
+                  auto: 1
+                  value: null
+                search_depth:
+                  auto: 1
+                  value: null
+                start_date:
+                  auto: 1
+                  value: null
+                time_range:
+                  auto: 1
+                  value: null
+                topic:
+                  auto: 1
+                  value: null
+              provider_name: langgenius/tavily/tavily
+              provider_show_name: langgenius/tavily/tavily
+              settings:
+                auto_parameters:
+                  value:
+                    type: constant
+                    value: false
+                chunks_per_source:
+                  value:
+                    type: constant
+                    value: 3
+                include_answer:
+                  value:
+                    type: constant
+                    value: 'false'
+                include_favicon:
+                  value:
+                    type: constant
+                    value: false
+                include_image_descriptions:
+                  value:
+                    type: constant
+                    value: false
+                include_images:
+                  value:
+                    type: constant
+                    value: false
+                include_raw_content:
+                  value:
+                    type: constant
+                    value: 'false'
+                include_usage:
+                  value:
+                    type: constant
+                    value: false
+                max_results:
+                  value:
+                    type: constant
+                    value: 5
+                project_id:
+                  value:
+                    type: mixed
+                    value: null
+              tool_description: 专为人工智能代理 (LLM) 构建的搜索引擎工具，可快速提供实时、准确和真实的结果。
+              tool_label: Tavily Search
+              tool_name: tavily_search
+              type: builtin
+            - enabled: true
+              extra:
+                description: 使用 Tavily Crawl 从基础 URL 开始爬取网站，发现并提取多个页面的内容。
+              parameters:
+                exclude_domains:
+                  auto: 1
+                  value: null
+                exclude_paths:
+                  auto: 1
+                  value: null
+                instructions:
+                  auto: 1
+                  value: null
+                select_domains:
+                  auto: 1
+                  value: null
+                select_paths:
+                  auto: 1
+                  value: null
+                url:
+                  auto: 1
+                  value: null
+              provider_name: langgenius/tavily/tavily
+              provider_show_name: langgenius/tavily/tavily
+              settings:
+                allow_external:
+                  value:
+                    type: constant
+                    value: true
+                chunks_per_source:
+                  value:
+                    type: constant
+                    value: 3
+                extract_depth:
+                  value:
+                    type: constant
+                    value: basic
+                format:
+                  value:
+                    type: constant
+                    value: markdown
+                include_favicon:
+                  value:
+                    type: constant
+                    value: false
+                include_images:
+                  value:
+                    type: constant
+                    value: false
+                include_usage:
+                  value:
+                    type: constant
+                    value: false
+                limit:
+                  value:
+                    type: constant
+                    value: null
+                max_breadth:
+                  value:
+                    type: constant
+                    value: null
+                max_depth:
+                  value:
+                    type: constant
+                    value: null
+                project_id:
+                  value:
+                    type: mixed
+                    value: null
+                timeout:
+                  value:
+                    type: constant
+                    value: 150
+              tool_description: 使用 Tavily Crawl 从基础 URL 开始爬取网站，发现并提取多个页面的内容。
+              tool_label: Tavily Crawl
+              tool_name: tavily_crawl
+              type: builtin
+            - enabled: true
+              extra:
+                description: 使用 Tavily Map 从根 URL 开始发现所有 URL，映射网站结构。
+              parameters:
+                exclude_domains:
+                  auto: 1
+                  value: null
+                exclude_paths:
+                  auto: 1
+                  value: null
+                instructions:
+                  auto: 1
+                  value: null
+                select_domains:
+                  auto: 1
+                  value: null
+                select_paths:
+                  auto: 1
+                  value: null
+                url:
+                  auto: 1
+                  value: null
+              provider_name: langgenius/tavily/tavily
+              provider_show_name: langgenius/tavily/tavily
+              settings:
+                allow_external:
+                  value:
+                    type: constant
+                    value: true
+                include_usage:
+                  value:
+                    type: constant
+                    value: false
+                limit:
+                  value:
+                    type: constant
+                    value: 50
+                max_breadth:
+                  value:
+                    type: constant
+                    value: 20
+                max_depth:
+                  value:
+                    type: constant
+                    value: 1
+                project_id:
+                  value:
+                    type: mixed
+                    value: null
+                timeout:
+                  value:
+                    type: constant
+                    value: 150
+              tool_description: 使用 Tavily Map 从根 URL 开始发现所有 URL，映射网站结构。
+              tool_label: Tavily Map
+              tool_name: tavily_map
+              type: builtin
+            - enabled: true
+              extra:
+                description: 使用 Tavily Research API 对任何主题进行深度研究，返回带有引用的综合报告。
+              parameters:
+                input:
+                  auto: 1
+                  value: null
+              provider_name: langgenius/tavily/tavily
+              provider_show_name: langgenius/tavily/tavily
+              settings:
+                citation_format:
+                  value:
+                    type: constant
+                    value: numbered
+                model:
+                  value:
+                    type: constant
+                    value: auto
+                project_id:
+                  value:
+                    type: mixed
+                    value: null
+              tool_description: 使用 Tavily Research API 对任何主题进行深度研究，返回带有引用的综合报告。
+              tool_label: Tavily 研究
+              tool_name: tavily_research
+              type: builtin
         agent_strategy_label: FunctionCalling
         agent_strategy_name: function_calling
         agent_strategy_provider_name: langgenius/agent/agent
@@ -3133,7 +4041,7 @@ workflow:
         title: 系统统一主动检查Agent
         tool_node_version: '2'
         type: agent
-      height: 231
+      height: 232
       id: hikari_auto_check_agent_v2
       position:
         x: 1270.8760092496725
@@ -3145,60 +4053,30 @@ workflow:
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
     - data:
-        code: |-
-          import json
-          import re
-
-
-          DECISIONS = {"false", "chat_recommendation", "itinerary_replan"}
-
-
-          def _object(text):
-              text = re.sub(r"<think>.*?</think>\s*", "", str(text or ""), flags=re.S)
-              text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.I).strip()
-              try:
-                  value = json.loads(text)
-                  return value if isinstance(value, dict) else None
-              except Exception:
-                  pass
-              decoder = json.JSONDecoder()
-              for index, char in enumerate(text):
-                  if char != "{":
-                      continue
-                  try:
-                      value, _ = decoder.raw_decode(text[index:])
-                  except Exception:
-                      continue
-                  if isinstance(value, dict):
-                      return value
-              return None
-
-
-          def main(raw_text: str):
-              payload = _object(raw_text)
-              if payload is None:
-                  return {
-                      "reply": "自动检查输出无法解析。",
-                      "decision": "false",
-                      "conflicting_itinerary_ids": [],
-                  }
-              decision = str(payload.get("decision") or "false").strip().lower()
-              if decision not in DECISIONS:
-                  decision = "false"
-              raw_ids = payload.get("conflicting_itinerary_ids", [])
-              if not isinstance(raw_ids, list) or decision != "itinerary_replan":
-                  raw_ids = []
-              conflict_ids = sorted({
-                  item for item in raw_ids
-                  if isinstance(item, int) and not isinstance(item, bool)
-              })
-              return {
-                  "reply": str(payload.get("reply") or "自动检查已完成。"),
-                  "decision": decision,
-                  "conflicting_itinerary_ids": conflict_ids,
-              }
+        code: "import json\nimport re\n\n\nDECISIONS = {\"false\", \"chat_recommendation\"\
+          , \"itinerary_replan\"}\n\n\ndef _object(text):\n    text = re.sub(r\"<think>.*?</think>\\\
+          s*\", \"\", str(text or \"\"), flags=re.S)\n    text = re.sub(r\"^```(?:json)?\\\
+          s*|\\s*```$\", \"\", text, flags=re.I).strip()\n    try:\n        value\
+          \ = json.loads(text)\n        return value if isinstance(value, dict) else\
+          \ None\n    except Exception:\n        pass\n    decoder = json.JSONDecoder()\n\
+          \    for index, char in enumerate(text):\n        if char != \"{\":\n  \
+          \          continue\n        try:\n            value, _ = decoder.raw_decode(text[index:])\n\
+          \        except Exception:\n            continue\n        if isinstance(value,\
+          \ dict):\n            return value\n    return None\n\n\ndef main(raw_text:\
+          \ str):\n    payload = _object(raw_text)\n    if payload is None:\n    \
+          \    return {\n            \"reply\": \"自动检查输出无法解析。\",\n            \"decision\"\
+          : \"false\",\n            \"conflicting_itinerary_ids\": [],\n        }\n\
+          \    decision = str(payload.get(\"decision\") or \"false\").strip().lower()\n\
+          \    if decision not in DECISIONS:\n        decision = \"false\"\n    raw_ids\
+          \ = payload.get(\"conflicting_itinerary_ids\", [])\n    if not isinstance(raw_ids,\
+          \ list) or decision != \"itinerary_replan\":\n        raw_ids = []\n   \
+          \ conflict_ids = sorted({\n        item for item in raw_ids\n        if\
+          \ isinstance(item, int) and not isinstance(item, bool)\n    })\n    return\
+          \ {\n        \"reply\": str(payload.get(\"reply\") or \"自动检查已完成。\"),\n \
+          \       \"decision\": decision,\n        \"conflicting_itinerary_ids\":\
+          \ conflict_ids,\n    }"
         code_language: python3
         desc: 规范化模型输出，保证后端获得稳定字段类型
         outputs:
@@ -3220,7 +4098,7 @@ workflow:
           - text
           value_type: string
           variable: raw_text
-      height: 95
+      height: 96
       id: hikari_auto_check_parser_v2
       position:
         x: 1628.7365967563712
@@ -3232,7 +4110,7 @@ workflow:
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
     - data:
         outputs:
         - value_selector:
@@ -3258,7 +4136,7 @@ workflow:
         selected: false
         title: 结束-自动检查
         type: end
-      height: 113
+      height: 166
       id: hikari_auto_check_end_v2
       position:
         x: 2005.8557053123
@@ -3270,9 +4148,9 @@ workflow:
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 241
+      width: 242
     viewport:
       x: -441.00970040193056
-      y: 82.76078085010192
+      y: 32.76078085010192
       zoom: 0.6765946357896693
   rag_pipeline_variables: []

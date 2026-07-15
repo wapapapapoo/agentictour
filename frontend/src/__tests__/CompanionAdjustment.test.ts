@@ -53,6 +53,7 @@ async function mountCompanion(
   memoRows: Record<string, unknown>[] = [],
   itineraryRows: Record<string, unknown>[] = [],
   notificationRows: Record<string, unknown>[] = [],
+  chatRows: Record<string, unknown>[] = [],
 ) {
   apiMock.listTrips.mockResolvedValue([trip])
   apiMock.listMemos.mockResolvedValue(memoRows)
@@ -64,7 +65,7 @@ async function mountCompanion(
     trip_id: 1,
     user_id: 1,
     status: 'active',
-    messages: [],
+    messages: chatRows,
   })
   const wrapper = mount(Companion, { attachTo: document.body })
   await flushPromises()
@@ -77,6 +78,23 @@ describe('Companion adjustment dialog', () => {
 
   afterEach(() => {
     document.body.innerHTML = ''
+  })
+
+  it('shows web citations from an agent reply as a dedicated source list', async () => {
+    const wrapper = await mountCompanion([], [], [], [], [{
+      message_id: 9,
+      sender_type: 'ai',
+      content: '开放信息见[景区官网](https://example.com/visit)。',
+      audit_status: 'pass',
+      audit_reason: null,
+    }])
+
+    const source = wrapper.find('.message-sources a')
+    expect(source.text()).toBe('景区官网')
+    expect(source.attributes('href')).toBe('https://example.com/visit')
+    expect(source.attributes('target')).toBe('_blank')
+    expect(source.attributes('rel')).toBe('noopener noreferrer')
+    wrapper.unmount()
   })
 
   it('opens an automatic confirmation and then shows system notice plus supplement', async () => {
