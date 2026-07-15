@@ -2,6 +2,7 @@ import json
 import logging
 from datetime import UTC, datetime, timedelta
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from crud.accompany import create
@@ -186,7 +187,13 @@ def _agent_check(
 def _append_chat_recommendation(
     db: Session, trip: Trip, content: str, advice: AIAdvice
 ) -> ChatMessage:
-    session = db.query(ChatSession).filter(ChatSession.trip_id == trip.id).first()
+    db.query(Trip.id).filter(Trip.id == trip.id).with_for_update().one()
+    session = (
+        db.query(ChatSession)
+        .filter(ChatSession.trip_id == trip.id)
+        .with_for_update()
+        .first()
+    )
     if session is None:
         session = create(
             db,
@@ -198,11 +205,11 @@ def _append_chat_recommendation(
             },
         )
     message_order = (
-        db.query(ChatMessage)
+        db.query(func.max(ChatMessage.message_order))
         .filter(ChatMessage.session_id == session.session_id)
-        .count()
-        + 1
-    )
+        .scalar()
+        or 0
+    ) + 1
     message = create(
         db,
         ChatMessage,
@@ -232,9 +239,9 @@ def _decision_from(value: object) -> str | None:
     if isinstance(value, dict):
         for key in ("decision", "recommendation_type", "result", "need_notify"):
             if key in value:
-                normalized = _decision_from(value[key])
-                if normalized is not None:
-                    return normalized
+                nested_decision = _decision_from(value[key])
+                if nested_decision is not None:
+                    return nested_decision
     return None
 
 
@@ -314,7 +321,7 @@ def scan_due_reminders(db: Session, now: datetime | None = None) -> int:
                     db.query(Trip)
                     .filter(
                         Trip.id == memo.trip_id,
-                        Trip.status.in_(("planned", "ongoing")),
+                        Trip.status == "ongoing",
                     )
                     .first()
                 )
@@ -341,7 +348,7 @@ def scan_due_reminders(db: Session, now: datetime | None = None) -> int:
                     db.query(Trip)
                     .filter(
                         Trip.id == item.trip_id,
-                        Trip.status.in_(("planned", "ongoing")),
+                        Trip.status == "ongoing",
                     )
                     .first()
                 )
@@ -405,7 +412,7 @@ def run_periodic_agent_jobs(db: Session, now: datetime | None = None) -> int:
             db.query(Trip)
             .join(ItineraryItem, ItineraryItem.trip_id == Trip.id)
             .filter(
-                Trip.status.in_(("planned", "ongoing")),
+                Trip.status == "ongoing",
                 ItineraryItem.status == "pending",
                 ItineraryItem.end_time >= now,
             )

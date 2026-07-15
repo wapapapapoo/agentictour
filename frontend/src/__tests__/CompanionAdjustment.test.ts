@@ -112,6 +112,9 @@ describe('Companion adjustment dialog', () => {
 
     expect(apiMock.sendChatMessage).toHaveBeenCalledTimes(1)
     expect(wrapper.findAll('.message.user')).toHaveLength(1)
+    expect(wrapper.find('.composer button').text()).toBe('等待回复…')
+    expect(wrapper.find('.messages').attributes('aria-busy')).toBe('true')
+    expect(wrapper.text()).toContain('Hikari 正在思考并核对旅途信息')
     wrapper.unmount()
   })
 
@@ -281,6 +284,31 @@ describe('Companion adjustment dialog', () => {
     expect(card.text()).toContain(trip.title)
     expect(card.text()).toContain(trip.origin_city)
     expect(card.text()).toContain(trip.destination_city)
+    const activeIndex = wrapper.find('.companion-page').element.children[0]?.className
+    expect(activeIndex).toContain('active-trip-section')
+    expect(wrapper.find('.trip-overview').text()).toContain('计划日期')
+    expect(wrapper.find('.trip-overview').text()).toContain('杭州 → 上海')
+    wrapper.unmount()
+  })
+
+  it('shows the current itinerary itself instead of a redundant ongoing count', async () => {
+    const now = Date.now()
+    const wrapper = await mountCompanion([], [], [{
+      itinerary_id: 88,
+      trip_id: 1,
+      title: '参观天津工业大学',
+      place_name: '天津工业大学校内',
+      start_time: new Date(now - 30 * 60_000).toISOString(),
+      end_time: new Date(now + 30 * 60_000).toISOString(),
+      itinerary_type: 'play',
+      status: 'pending',
+    }])
+
+    const card = wrapper.find('.active-trip-card')
+    expect(card.text()).toContain('参观天津工业大学')
+    expect(card.text()).toContain('天津工业大学校内')
+    expect(card.text()).not.toContain('项正在进行')
+    expect(wrapper.find('.trip-overview').text()).toContain('参观天津工业大学')
     wrapper.unmount()
   })
 

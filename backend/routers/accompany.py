@@ -43,7 +43,10 @@ def create_memo(
     current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
-    return service.create_memo(db, data)
+    try:
+        return service.create_memo(db, data)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/trips/{trip_id}/memos", response_model=list[MemoResponse])
@@ -66,6 +69,8 @@ def update_memo(
         return service.update_memo(db, memo_id, data)
     except LookupError as exc:
         _not_found(exc)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.delete("/memos/{memo_id}", status_code=204)
@@ -189,6 +194,8 @@ def chat(
         result = service.chat(db, data)
         write_log(current_user_id, "对话", data.message)
         return result
+    except LookupError as exc:
+        _not_found(exc)
     except AuditRejectedError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except DifyError as exc:

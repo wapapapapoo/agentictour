@@ -261,6 +261,32 @@ def test_failed_audit_auto_check_is_not_persisted(
     assert db.query(ChatMessage).count() == 0
 
 
+def test_planned_trip_does_not_emit_due_reminders(db: Session, monkeypatch) -> None:
+    trip = _trip(status="planned")
+    db.add(trip)
+    db.flush()
+    db.add(
+        Memo(
+            trip_id=trip.id,
+            memo_text="计划尚未开始，不应提醒",
+            reminder_time=datetime(2026, 7, 19, 23, 0),
+        )
+    )
+    db.commit()
+
+    monkeypatch.setattr(
+        reminder_service,
+        "run_hikari_once_audited",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            AssertionError("planned trip must not call Hikari")
+        ),
+    )
+
+    assert reminder_service.scan_due_reminders(
+        db, now=datetime(2026, 7, 19, 23, 1)
+    ) == 0
+
+
 @pytest.mark.parametrize(
     ("decision", "category", "result", "notification_count", "message_count"),
     [

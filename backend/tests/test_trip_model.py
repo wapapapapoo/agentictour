@@ -151,7 +151,7 @@ def test_trip_statuses_follow_local_dates_and_preserve_cancellation(
 ) -> None:
     future = trip_service.create_trip(
         db,
-        _trip_data(start_date=date(2026, 7, 16), end_date=date(2026, 7, 18)),
+        _trip_data(start_date=date(2026, 7, 17), end_date=date(2026, 7, 18)),
     )
     current = trip_service.create_trip(
         db,
@@ -191,6 +191,43 @@ def test_trip_service_rejects_partial_update_with_inverted_dates(db: Session) ->
             created.id,
             TripUpdate(start_date=date(2026, 7, 23)),
         )
+
+
+def test_trip_service_rejects_overlapping_non_cancelled_plans(db: Session) -> None:
+    trip_service.create_trip(db, _trip_data())
+
+    with pytest.raises(ValueError, match="overlap"):
+        trip_service.create_trip(
+            db,
+            _trip_data(
+                title="重叠计划",
+                start_date=date(2026, 7, 22),
+                end_date=date(2026, 7, 24),
+            ),
+        )
+
+    later = trip_service.create_trip(
+        db,
+        _trip_data(
+            title="不重叠计划",
+            start_date=date(2026, 7, 25),
+            end_date=date(2026, 7, 27),
+        ),
+    )
+    with pytest.raises(ValueError, match="overlap"):
+        trip_service.update_trip(
+            db,
+            later.id,
+            TripUpdate(start_date=date(2026, 7, 22)),
+        )
+
+
+def test_cancelled_plan_does_not_block_same_dates(db: Session) -> None:
+    cancelled = trip_service.create_trip(db, _trip_data(status="cancelled"))
+    created = trip_service.create_trip(db, _trip_data(title="替代计划"))
+
+    assert cancelled.status == "cancelled"
+    assert created.id != cancelled.id
 
 
 def test_deleting_trip_cascades_to_companion_rows(db: Session) -> None:

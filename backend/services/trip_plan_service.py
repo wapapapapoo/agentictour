@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import re
+from datetime import date
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -15,6 +16,7 @@ from schemas.trip_plan import (
     TripPlanGenerateRequest,
     TripPlanReviseRequest,
 )
+from services.trip_service import ensure_trip_dates_available
 from utils import dify_knowledge_client
 from utils.dify_client import DifyClient, DifyError, DifyResponseError
 
@@ -38,13 +40,24 @@ def _get_or_create_trip(
 ) -> int:
     if data.trip_id > 0 and db.get(Trip, data.trip_id) is not None:
         return data.trip_id
+    try:
+        start_date = date.fromisoformat(data.start_date)
+        end_date = date.fromisoformat(data.end_date)
+    except ValueError as exc:
+        raise ValueError("trip plan dates must use YYYY-MM-DD format") from exc
+    ensure_trip_dates_available(
+        db,
+        user_id=user_id,
+        start_date=start_date,
+        end_date=end_date,
+    )
     trip = Trip(
         user_id=user_id,
         title=f"{data.destination_city} {data.start_date} ~ {data.end_date}",
         origin_city=data.origin_city,
         destination_city=data.destination_city,
-        start_date=data.start_date,
-        end_date=data.end_date,
+        start_date=start_date,
+        end_date=end_date,
     )
     db.add(trip)
     db.flush()
@@ -274,7 +287,9 @@ def delete_plan(db: Session, plan_id: int) -> bool:
                     document_id=m.document_id,
                 )
             except Exception as e:
-                logger.warning("failed to delete dify document %s: %s", m.document_id, e)
+                logger.warning(
+                    "failed to delete dify document %s: %s", m.document_id, e
+                )
 
     db.delete(request)
     db.commit()
