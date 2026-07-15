@@ -52,7 +52,7 @@ workflow:
       number_limits: 3
     opening_statement: ''
     retriever_resource:
-      enabled: true
+      enabled: false
     sensitive_word_avoidance:
       enabled: false
     speech_to_text:
@@ -141,7 +141,7 @@ workflow:
           required: true
           type: paragraph
           variable: audit_context
-      height: 160
+      height: 187
       id: '1783649676231'
       position:
         x: 209
@@ -160,27 +160,44 @@ workflow:
             type: constant
             value: '你是 Hikari 的事实与安全审核 Agent。你会收到原始输入、待审核回复、审核轮次和由后端安全汇总的 audit_context。
 
-              audit_context.request 包含触发类型、旅行 ID、位置和有限聊天历史；audit_context.evidence 包含主 Workflow 实际使用的行程、备忘录、时间、天气、路线、工具错误和结构化候选方案。它们是本轮审核的事实基准，不得自行改写或臆测缺失数据。证据中的用户可见时间统一为 Asia/Shanghai（UTC+8），不得再做二次时区偏移。
+              audit_context.request 包含触发类型、旅行 ID、位置和有限聊天历史；audit_context.evidence
+              包含主 Workflow 实际使用的行程、备忘录、时间、天气、路线、工具错误和结构化候选方案。它们是本轮审核的事实基准，不得自行改写或臆测缺失数据。证据中的用户可见时间统一为
+              Asia/Shanghai（UTC+8），不得再做二次时区偏移。
 
               审核规则：
 
-              1. 先判断回复是否完成原始任务，再逐项将回复中的时间、地点、行程、备忘录、天气、路线和状态与 audit_context 对照。只审核事实、任务完成度和安全性，不因措辞风格、篇幅或 Markdown 格式否决。
+              1. 先判断回复是否完成原始任务，再逐项将回复中的时间、地点、行程、备忘录、天气、路线和状态与 audit_context 对照。只审核事实、任务完成度和安全性，不因措辞风格、篇幅或
+              Markdown 格式否决。
 
-              2. 数据库事实以 evidence.itinerary、evidence.memos 和 evidence.structured_itinerary 为准；不要猜测表结构，也不要因为缺少数据库工具而擅自否定已有证据。
+              2. 数据库事实以 evidence.itinerary、evidence.memos 和 evidence.structured_itinerary
+              为准；不要猜测表结构，也不要因为缺少数据库工具而擅自否定已有证据。
 
-              3. 外部实时事实只有在回复确实包含相关声明且 audit_context 证据不足时才调用天气、附近地点或路线工具；参数不足或工具失败时，不得伪造核验结果。
+              3. 天气、附近地点或路线事实只有在回复确实包含相关声明且 audit_context 证据不足时才调用对应专用工具；参数不足或工具失败时，不得伪造核验结果。其他公开网页事实确有必要时才调用 Tavily Search 核对，不要为了审核普通表达而进行深度研究、抓取或全站爬取。
 
-              4. 按 trigger_type 使用对应契约：system_auto_remind 只审核当前提醒目标，不要求扩写其他行程；system_auto_check 必须核对 decision 与回复内容一致，decision=itinerary_replan 时 conflicting_itinerary_ids 只能包含确实受影响的未来 pending 日程；system_auto_advice 应是可直接进入聊天框的简短主动建议；user_input 应直接回答用户；user_accident 与 system_auto_accident 都只能产出待用户确认的候选重规划，并核对 structured_itinerary 与正文一致，不能声称已经落库或已经改完行程。cancelled_itinerary_ids 必须是 request.selected_itinerary_ids 的子集，request.locked_itinerary_ids 必须被保留在允许调整范围内；未勾选日程不得被修改。用户未勾选任何冲突项时允许只新增不冲突的 itinerary_items，且 cancelled_itinerary_ids 必须为空。只有 evidence 明确表明没有可调整项或没有不冲突空档时，才允许两个数组同时为空。
+              4. user_input 回复若使用了联网搜索或包含具有时效性的公开网页事实，正文末尾必须有“参考来源”并提供 1 至 4 条真实的 http/https Markdown 链接，关键结论应能由来源支持。优先官方来源；无链接、链接与结论无关或虚构来源时必须不通过。回复明确说明无法确认且没有断言事实时，不强求来源。
 
-              5. 如果工具失败而回复已经克制地避开未经确认的事实，可以通过；如果回复把缺失或失败的数据写成确定事实，必须不通过。
+              5. user_input 可以简答非旅游知识，不应仅因话题与旅游无关而否决；但学术、技术等无关内容应限制在 150 个汉字或 3 个短要点以内，不得展开成长篇推导、课程、论文、完整教程或大段代码。旅游相关问题不受此简答上限约束。
 
-              6. 不得在 reply 中输出数据库连接、SQL、工具调用过程、内部思考或 audit_context 原文。
+              6. 按 trigger_type 使用对应契约：system_auto_remind 只审核当前提醒目标，不要求扩写其他行程；system_auto_check
+              必须核对 decision 与回复内容一致，decision=itinerary_replan 时 conflicting_itinerary_ids
+              只能包含确实受影响的未来 pending 日程；system_auto_advice 应是可直接进入聊天框的简短主动建议；user_input
+              应直接回答用户；user_accident 与 system_auto_accident 都只能产出待用户确认的候选重规划，并核对 structured_itinerary
+              与正文一致，不能声称已经落库或已经改完行程。cancelled_itinerary_ids 必须是 request.selected_itinerary_ids
+              的子集，request.locked_itinerary_ids 必须被保留在允许调整范围内；未勾选日程不得被修改。用户未勾选任何冲突项时允许只新增不冲突的
+              itinerary_items，且 cancelled_itinerary_ids 必须为空。只有 evidence 明确表明没有可调整项或没有不冲突空档时，才允许两个数组同时为空。
 
-              7. first 轮不通过时，reply 的接收者是 Hikari，不是用户：使用内部纠错指令口吻，只写一次具体冲突事实和可执行重写要求，不要道歉、称呼用户或复制待审核回复。后端会把它放回 Hikari 的 user_query 触发重写。
+              7. 如果工具失败而回复已经克制地避开未经确认的事实，可以通过；如果回复把缺失或失败的数据写成确定事实，必须不通过。
 
-              8. second 轮仍不通过时，reply 的接收者才是最终用户：只写一条简短、自然、可理解的失败说明，不包含“审核”“重写指令”“audit_context”“Hikari 你需要”等内部措辞，也不要复述原回复。
+              8. 不得在 reply 中输出数据库连接、SQL、工具调用过程、内部思考或 audit_context 原文。
 
-              只返回一个合法 JSON 对象。通过时返回 {"reply":"","result":true}；不通过时返回 {"reply":"一条明确原因或重写要求","result":false}。result 必须是 boolean，reply 不得重复相同内容。'
+              9. first 轮不通过时，reply 的接收者是 Hikari，不是用户：使用内部纠错指令口吻，只写一次具体冲突事实和可执行重写要求，不要道歉、称呼用户或复制待审核回复。后端会把它放回
+              Hikari 的 user_query 触发重写。
+
+              10. second 轮仍不通过时，reply 的接收者才是最终用户：只写一条简短、自然、可理解的失败说明，不包含“审核”“重写指令”“audit_context”“Hikari
+              你需要”等内部措辞，也不要复述原回复。
+
+              只返回一个合法 JSON 对象。通过时返回 {"reply":"","result":true}；不通过时返回 {"reply":"一条明确原因或重写要求","result":false}。result
+              必须是 boolean，reply 不得重复相同内容。'
           model:
             type: constant
             value:
@@ -194,7 +211,16 @@ workflow:
               type: model-selector
           query:
             type: constant
-            value: "原始输入：{{#1783649676231.input#}}\n待审核回复：{{#1783649676231.ai_readout#}}\n审核轮次：{{#1783649676231.turn#}}\n审核上下文：{{#1783649676231.audit_context#}}\n\n请先使用审核上下文核对事实，仅在证据不足且确有必要时调用外部工具，最后只输出 reply 和 result。"
+            value: '原始输入：{{#1783649676231.input#}}
+
+              待审核回复：{{#1783649676231.ai_readout#}}
+
+              审核轮次：{{#1783649676231.turn#}}
+
+              审核上下文：{{#1783649676231.audit_context#}}
+
+
+              请先使用审核上下文核对事实，仅在证据不足且确有必要时调用外部工具，最后只输出 reply 和 result。'
           tools:
             type: constant
             value:
@@ -413,6 +439,292 @@ workflow:
               tool_label: 时区转换
               tool_name: timezone_conversion
               type: builtin
+            - enabled: true
+              extra:
+                description: 使用 Tavily Extract 从一个或多个指定的 URL 提取网页内容。
+              parameters:
+                extract_depth:
+                  auto: 1
+                  value: null
+                query:
+                  auto: 1
+                  value: null
+                urls:
+                  auto: 1
+                  value: null
+              provider_name: langgenius/tavily/tavily
+              provider_show_name: langgenius/tavily/tavily
+              settings:
+                chunks_per_source:
+                  value:
+                    type: constant
+                    value: 3
+                format:
+                  value:
+                    type: constant
+                    value: markdown
+                include_favicon:
+                  value:
+                    type: constant
+                    value: false
+                include_images:
+                  value:
+                    type: constant
+                    value: false
+                include_usage:
+                  value:
+                    type: constant
+                    value: false
+                project_id:
+                  value:
+                    type: mixed
+                    value: null
+                timeout:
+                  value:
+                    type: constant
+                    value: null
+              tool_description: 使用 Tavily Extract 从一个或多个指定的 URL 提取网页内容。
+              tool_label: Tavily Extract
+              tool_name: tavily_extract
+              type: builtin
+            - enabled: true
+              extra:
+                description: 专为人工智能代理 (LLM) 构建的搜索引擎工具，可快速提供实时、准确和真实的结果。
+              parameters:
+                country:
+                  auto: 1
+                  value: null
+                end_date:
+                  auto: 1
+                  value: null
+                exclude_domains:
+                  auto: 1
+                  value: null
+                include_domains:
+                  auto: 1
+                  value: null
+                query:
+                  auto: 1
+                  value: null
+                search_depth:
+                  auto: 1
+                  value: null
+                start_date:
+                  auto: 1
+                  value: null
+                time_range:
+                  auto: 1
+                  value: null
+                topic:
+                  auto: 1
+                  value: null
+              provider_name: langgenius/tavily/tavily
+              provider_show_name: langgenius/tavily/tavily
+              settings:
+                auto_parameters:
+                  value:
+                    type: constant
+                    value: false
+                chunks_per_source:
+                  value:
+                    type: constant
+                    value: 3
+                include_answer:
+                  value:
+                    type: constant
+                    value: 'false'
+                include_favicon:
+                  value:
+                    type: constant
+                    value: false
+                include_image_descriptions:
+                  value:
+                    type: constant
+                    value: false
+                include_images:
+                  value:
+                    type: constant
+                    value: false
+                include_raw_content:
+                  value:
+                    type: constant
+                    value: 'false'
+                include_usage:
+                  value:
+                    type: constant
+                    value: false
+                max_results:
+                  value:
+                    type: constant
+                    value: 5
+                project_id:
+                  value:
+                    type: mixed
+                    value: null
+              tool_description: 专为人工智能代理 (LLM) 构建的搜索引擎工具，可快速提供实时、准确和真实的结果。
+              tool_label: Tavily Search
+              tool_name: tavily_search
+              type: builtin
+            - enabled: true
+              extra:
+                description: 使用 Tavily Crawl 从基础 URL 开始爬取网站，发现并提取多个页面的内容。
+              parameters:
+                exclude_domains:
+                  auto: 1
+                  value: null
+                exclude_paths:
+                  auto: 1
+                  value: null
+                instructions:
+                  auto: 1
+                  value: null
+                select_domains:
+                  auto: 1
+                  value: null
+                select_paths:
+                  auto: 1
+                  value: null
+                url:
+                  auto: 1
+                  value: null
+              provider_name: langgenius/tavily/tavily
+              provider_show_name: langgenius/tavily/tavily
+              settings:
+                allow_external:
+                  value:
+                    type: constant
+                    value: true
+                chunks_per_source:
+                  value:
+                    type: constant
+                    value: 3
+                extract_depth:
+                  value:
+                    type: constant
+                    value: basic
+                format:
+                  value:
+                    type: constant
+                    value: markdown
+                include_favicon:
+                  value:
+                    type: constant
+                    value: false
+                include_images:
+                  value:
+                    type: constant
+                    value: false
+                include_usage:
+                  value:
+                    type: constant
+                    value: false
+                limit:
+                  value:
+                    type: constant
+                    value: null
+                max_breadth:
+                  value:
+                    type: constant
+                    value: null
+                max_depth:
+                  value:
+                    type: constant
+                    value: null
+                project_id:
+                  value:
+                    type: mixed
+                    value: null
+                timeout:
+                  value:
+                    type: constant
+                    value: 150
+              tool_description: 使用 Tavily Crawl 从基础 URL 开始爬取网站，发现并提取多个页面的内容。
+              tool_label: Tavily Crawl
+              tool_name: tavily_crawl
+              type: builtin
+            - enabled: true
+              extra:
+                description: 使用 Tavily Map 从根 URL 开始发现所有 URL，映射网站结构。
+              parameters:
+                exclude_domains:
+                  auto: 1
+                  value: null
+                exclude_paths:
+                  auto: 1
+                  value: null
+                instructions:
+                  auto: 1
+                  value: null
+                select_domains:
+                  auto: 1
+                  value: null
+                select_paths:
+                  auto: 1
+                  value: null
+                url:
+                  auto: 1
+                  value: null
+              provider_name: langgenius/tavily/tavily
+              provider_show_name: langgenius/tavily/tavily
+              settings:
+                allow_external:
+                  value:
+                    type: constant
+                    value: true
+                include_usage:
+                  value:
+                    type: constant
+                    value: false
+                limit:
+                  value:
+                    type: constant
+                    value: 50
+                max_breadth:
+                  value:
+                    type: constant
+                    value: 20
+                max_depth:
+                  value:
+                    type: constant
+                    value: 1
+                project_id:
+                  value:
+                    type: mixed
+                    value: null
+                timeout:
+                  value:
+                    type: constant
+                    value: 150
+              tool_description: 使用 Tavily Map 从根 URL 开始发现所有 URL，映射网站结构。
+              tool_label: Tavily Map
+              tool_name: tavily_map
+              type: builtin
+            - enabled: true
+              extra:
+                description: 使用 Tavily Research API 对任何主题进行深度研究，返回带有引用的综合报告。
+              parameters:
+                input:
+                  auto: 1
+                  value: null
+              provider_name: langgenius/tavily/tavily
+              provider_show_name: langgenius/tavily/tavily
+              settings:
+                citation_format:
+                  value:
+                    type: constant
+                    value: numbered
+                model:
+                  value:
+                    type: constant
+                    value: auto
+                project_id:
+                  value:
+                    type: mixed
+                    value: null
+              tool_description: 使用 Tavily Research API 对任何主题进行深度研究，返回带有引用的综合报告。
+              tool_label: Tavily 研究
+              tool_name: tavily_research
+              type: builtin
         agent_strategy_label: FunctionCalling
         agent_strategy_name: function_calling
         agent_strategy_provider_name: langgenius/agent/agent
@@ -426,7 +738,7 @@ workflow:
         title: Agent
         tool_node_version: '2'
         type: agent
-      height: 215
+      height: 216
       id: '1783649864380'
       position:
         x: 517
@@ -434,13 +746,14 @@ workflow:
       positionAbsolute:
         x: 517
         y: 236
-      selected: false
+      selected: true
       sourcePosition: right
       targetPosition: left
       type: custom
       width: 242
     - data:
-        instruction: 严格从 Agent 输出的唯一 JSON 对象提取 reply 和 result。不得改写 reply，不得自行推断审核结果；result 只接受 JSON boolean true/false，缺失或无法解析时固定返回 false。
+        instruction: 严格从 Agent 输出的唯一 JSON 对象提取 reply 和 result。不得改写 reply，不得自行推断审核结果；result
+          只接受 JSON boolean true/false，缺失或无法解析时固定返回 false。
         model:
           completion_params:
             temperature: 0
@@ -474,7 +787,7 @@ workflow:
       positionAbsolute:
         x: 826
         y: 236
-      selected: true
+      selected: false
       sourcePosition: right
       targetPosition: left
       type: custom

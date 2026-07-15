@@ -1,23 +1,30 @@
-// @vitest-environment jsdom
-
 import { describe, expect, it } from 'vitest'
 
-import { renderMarkdown } from '@/utils/markdown'
+import { extractReferenceSources } from '@/utils/markdown'
 
-describe('renderMarkdown', () => {
-  it('renders headings, emphasis, lists, and GFM tables', () => {
-    const html = renderMarkdown(`## 建议\n\n**先休息**\n\n1. 入住酒店\n\n| 时间 | 安排 |\n| --- | --- |\n| 19:00 | 到站 |`)
+describe('extractReferenceSources', () => {
+  it('extracts and deduplicates safe markdown and bare web sources', () => {
+    const sources = extractReferenceSources([
+      '开放时间以[故宫博物院官网](https://www.dpm.org.cn/visit.html)为准。',
+      '补充报道：https://example.com/travel/news。',
+      '重复链接：[官网](https://www.dpm.org.cn/visit.html)',
+    ].join('\n'))
 
-    expect(html).toContain('<h2>建议</h2>')
-    expect(html).toContain('<strong>先休息</strong>')
-    expect(html).toContain('<ol>')
-    expect(html).toContain('<table>')
+    expect(sources).toEqual([
+      { title: '故宫博物院官网', url: 'https://www.dpm.org.cn/visit.html' },
+      { title: 'example.com', url: 'https://example.com/travel/news' },
+    ])
   })
 
-  it('removes unsafe generated markup', () => {
-    const html = renderMarkdown('正常内容<script>alert(1)</script>')
+  it('ignores non-http links and limits the number of displayed sources', () => {
+    const text = [
+      '[危险链接](javascript:alert(1))',
+      ...Array.from({ length: 10 }, (_, index) => `https://source${index}.example.com/page`),
+    ].join('\n')
 
-    expect(html).toContain('正常内容')
-    expect(html).not.toContain('<script>')
+    const sources = extractReferenceSources(text)
+
+    expect(sources).toHaveLength(6)
+    expect(sources.every((source) => source.url.startsWith('https://'))).toBe(true)
   })
 })
