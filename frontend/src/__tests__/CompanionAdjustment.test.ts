@@ -217,6 +217,17 @@ describe('Companion adjustment dialog', () => {
     wrapper.unmount()
   })
 
+  it('clears an older failure indicator after a newer successful adjustment', async () => {
+    const wrapper = await mountCompanion([
+      advice({ advice_id: 17, audit_status: 'failed', audit_reason: '旧失败', advice_text: '旧失败' }),
+      advice({ advice_id: 18, advice_type: 'replan', result: 'accepted', audit_status: 'pass' }),
+    ])
+
+    expect(wrapper.find('.audit-failure-summary').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('最近一次调整未生成成功')
+    wrapper.unmount()
+  })
+
   it('opens memo and itinerary creation in dedicated dialogs', async () => {
     const wrapper = await mountCompanion()
 
@@ -225,6 +236,8 @@ describe('Companion adjustment dialog', () => {
     await addMemo!.trigger('click')
     expect(document.body.textContent).toContain('新增旅途备忘')
     expect(document.body.querySelector('.memo-dialog')).toBeTruthy()
+    expect(document.body.querySelector('.memo-dialog input[type="datetime-local"]')).toBeNull()
+    expect(document.body.querySelector('.memo-dialog input[type="date"]')).toBeTruthy()
     document.body.querySelector<HTMLButtonElement>('.memo-dialog .dialog-close')!.click()
     await flushPromises()
 
@@ -233,6 +246,44 @@ describe('Companion adjustment dialog', () => {
     await addItinerary!.trigger('click')
     expect(document.body.textContent).toContain('新增实时日程')
     expect(document.body.querySelector('.itinerary-dialog')).toBeTruthy()
+    expect(document.body.querySelector('.itinerary-dialog input[type="datetime-local"]')).toBeNull()
+    expect(document.body.querySelectorAll('.itinerary-dialog input[type="date"]')).toHaveLength(3)
+    wrapper.unmount()
+  })
+
+  it('shows fixed chat avatars and omits the redundant history note', async () => {
+    const wrapper = await mountCompanion([], [], [], [], [
+      { message_id: 1, sender_type: 'user', content: '你好' },
+      { message_id: 2, sender_type: 'ai', content: '你好呀', audit_status: 'pass' },
+    ])
+
+    expect(wrapper.findAll('.chat-avatar').map((item) => item.text())).toEqual(['我', 'H'])
+    expect(wrapper.text()).not.toContain('历史消息会随行程恢复')
+    wrapper.unmount()
+  })
+
+  it('filters memos and itinerary rows from their card headers', async () => {
+    const now = Date.now()
+    const wrapper = await mountCompanion(
+      [],
+      [
+        { memo_id: 1, trip_id: 1, memo_text: '无定时备忘', reminder_time: null, reminded_at: null },
+        { memo_id: 2, trip_id: 1, memo_text: '已发送备忘', reminder_time: new Date(now).toISOString(), reminded_at: new Date(now).toISOString() },
+      ],
+      [
+        { itinerary_id: 1, trip_id: 1, title: '待开始日程', place_name: 'A', start_time: new Date(now + 3_600_000).toISOString(), end_time: new Date(now + 7_200_000).toISOString(), itinerary_type: 'play', status: 'pending' },
+        { itinerary_id: 2, trip_id: 1, title: '已取消日程', place_name: 'B', start_time: new Date(now + 3_600_000).toISOString(), end_time: new Date(now + 7_200_000).toISOString(), itinerary_type: 'play', status: 'cancelled' },
+      ],
+    )
+
+    const filters = wrapper.findAll('.header-tools select')
+    await filters[0]!.setValue('unscheduled')
+    expect(wrapper.text()).toContain('无定时备忘')
+    expect(wrapper.text()).not.toContain('已发送备忘')
+    await filters[1]!.setValue('cancelled')
+    const itineraryTool = wrapper.find('.itinerary-tool')
+    expect(itineraryTool.text()).toContain('已取消日程')
+    expect(itineraryTool.text()).not.toContain('待开始日程')
     wrapper.unmount()
   })
 

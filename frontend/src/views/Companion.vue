@@ -62,18 +62,23 @@ const unreadOnly = ref(false)
 const reminderDialogOpen = ref(false)
 const notificationBusy = ref(false)
 const reminderError = ref('')
+const memoFilter = ref<'all' | 'pending' | 'sent' | 'unscheduled'>('all')
+const itineraryFilter = ref<'all' | 'upcoming' | 'ongoing' | 'completed' | 'cancelled'>('all')
 
 const memoEditingId = ref<number | null>(null)
-const memoDraft = ref({ memo_text: '', reminder_time: '' })
+const memoDraft = ref({ memo_text: '', reminder_date: '', reminder_clock: '' })
 const memoDialogOpen = ref(false)
 const itineraryEditingId = ref<number | null>(null)
 const itineraryDraft = ref({
   title: '',
   place_name: '',
-  start_time: '',
-  end_time: '',
+  start_date: '',
+  start_clock: '',
+  end_date: '',
+  end_clock: '',
   itinerary_type: 'play' as 'play' | 'transit',
-  reminder_time: '',
+  reminder_date: '',
+  reminder_clock: '',
   status: 'pending' as Itinerary['status'],
 })
 const itineraryDialogOpen = ref(false)
@@ -120,7 +125,11 @@ const pendingManualAdvice = computed(() => replanAdvice.value.find((item) => (
   && ['pending', 'revising'].includes(item.result)
   && item.audit_status === 'pass'
 )))
-const legacyFailedAdvice = computed(() => replanAdvice.value.find((item) => item.audit_status === 'failed'))
+const latestReplanAdvice = computed(() => [...replanAdvice.value]
+  .sort((left, right) => right.advice_id - left.advice_id)[0])
+const legacyFailedAdvice = computed(() => (
+  latestReplanAdvice.value?.audit_status === 'failed' ? latestReplanAdvice.value : undefined
+))
 const activeCandidate = computed(() => advice.value.find(
   (item) => item.advice_id === adjustment.value.candidateAdviceId,
 ))
@@ -140,6 +149,16 @@ const nextItinerary = computed(() => itineraries.value
 const adjustableItineraries = computed(() => itineraries.value.filter(
   (item) => item.status === 'pending' && itineraryLifecycle(item, lifecycleClock.value) === 'upcoming',
 ))
+const filteredMemos = computed(() => memos.value.filter((item) => ({
+  all: true,
+  pending: Boolean(item.reminder_time && !item.reminded_at),
+  sent: Boolean(item.reminded_at),
+  unscheduled: !item.reminder_time,
+}[memoFilter.value])))
+const filteredItineraries = computed(() => itineraries.value.filter((item) => (
+  itineraryFilter.value === 'all'
+  || itineraryLifecycle(item, lifecycleClock.value) === itineraryFilter.value
+)))
 
 function errorMessage(cause: unknown, fallback: string) {
   return cause instanceof Error ? cause.message : fallback
@@ -195,6 +214,38 @@ function localInput(value?: string | null) {
 
 function isoOrNull(value: string) {
   return tripInputToUtc(value)
+}
+
+function splitDateTime(value?: string | null) {
+  const local = localInput(value)
+  return { date: local.slice(0, 10), clock: local.slice(11, 16) }
+}
+
+function normalizeClock(value: string) {
+  const compact = value.trim()
+  const digits = /^\d{3,4}$/.test(compact) ? compact.padStart(4, '0') : ''
+  const normalized = digits
+    ? `${digits.slice(0, 2)}:${digits.slice(2)}`
+    : compact.replace(/^(\d):(\d{2})$/, '0$1:$2')
+  const matched = /^(\d{2}):(\d{2})$/.exec(normalized)
+  return matched && Number(matched[1]) < 24 && Number(matched[2]) < 60
+    ? normalized
+    : ''
+}
+
+function joinDateTime(date: string, clock: string) {
+  const normalizedClock = normalizeClock(clock)
+  return date && normalizedClock ? `${date}T${normalizedClock}` : ''
+}
+
+function reminderSameAsStart() {
+  itineraryDraft.value.reminder_date = itineraryDraft.value.start_date
+  itineraryDraft.value.reminder_clock = itineraryDraft.value.start_clock
+}
+
+function clearItineraryReminder() {
+  itineraryDraft.value.reminder_date = ''
+  itineraryDraft.value.reminder_clock = ''
 }
 
 function dateWithinCurrentTrip(value: string) {
@@ -306,7 +357,12 @@ async function send() {
 function editMemo(item: Memo) {
   error.value = ''
   memoEditingId.value = item.memo_id
-  memoDraft.value = { memo_text: item.memo_text, reminder_time: localInput(item.reminder_time) }
+  const reminder = splitDateTime(item.reminder_time)
+  memoDraft.value = {
+    memo_text: item.memo_text,
+    reminder_date: reminder.date,
+    reminder_clock: reminder.clock,
+  }
   memoDialogOpen.value = true
 }
 
@@ -323,12 +379,18 @@ function closeMemoDialog() {
 
 function resetMemo() {
   memoEditingId.value = null
-  memoDraft.value = { memo_text: '', reminder_time: '' }
+  memoDraft.value = { memo_text: '', reminder_date: '', reminder_clock: '' }
 }
 
 async function saveMemo() {
   if (!tripId.value || !memoDraft.value.memo_text.trim()) return
-  if (memoDraft.value.reminder_time && !dateWithinCurrentTrip(memoDraft.value.reminder_time)) {
+  const hasReminderPart = Boolean(memoDraft.value.reminder_date || memoDraft.value.reminder_clock)
+  const reminderTime = joinDateTime(memoDraft.value.reminder_date, memoDraft.value.reminder_clock)
+  if (hasReminderPart && !reminderTime) {
+    error.value = '提醒日期和时间需同时填写，时间请使用 HH:mm 格式。'
+    return
+  }
+  if (reminderTime && !dateWithinCurrentTrip(reminderTime)) {
     error.value = '备忘提醒时间必须位于当前计划的开始与结束日期内。'
     return
   }
@@ -336,7 +398,7 @@ async function saveMemo() {
   try {
     const payload = {
       memo_text: memoDraft.value.memo_text.trim(),
-      reminder_time: isoOrNull(memoDraft.value.reminder_time),
+      reminder_time: isoOrNull(reminderTime),
     }
     if (memoEditingId.value) await api.updateMemo(memoEditingId.value, payload)
     else await api.createMemo({ trip_id: tripId.value, ...payload })
@@ -351,13 +413,19 @@ async function saveMemo() {
 function editItinerary(item: Itinerary) {
   error.value = ''
   itineraryEditingId.value = item.itinerary_id
+  const start = splitDateTime(item.start_time)
+  const end = splitDateTime(item.end_time)
+  const reminder = splitDateTime(item.reminder_time)
   itineraryDraft.value = {
     title: item.title,
     place_name: item.place_name,
-    start_time: localInput(item.start_time),
-    end_time: localInput(item.end_time),
+    start_date: start.date,
+    start_clock: start.clock,
+    end_date: end.date,
+    end_clock: end.clock,
     itinerary_type: item.itinerary_type,
-    reminder_time: localInput(item.reminder_time),
+    reminder_date: reminder.date,
+    reminder_clock: reminder.clock,
     status: item.status,
   }
   itineraryDialogOpen.value = true
@@ -377,37 +445,45 @@ function closeItineraryDialog() {
 function resetItinerary() {
   itineraryEditingId.value = null
   itineraryDraft.value = {
-    title: '', place_name: '', start_time: '', end_time: '', itinerary_type: 'play', reminder_time: '', status: 'pending',
+    title: '', place_name: '', start_date: '', start_clock: '', end_date: '', end_clock: '', itinerary_type: 'play', reminder_date: '', reminder_clock: '', status: 'pending',
   }
 }
 
 async function saveItinerary() {
   if (!tripId.value) return
   const draft = itineraryDraft.value
-  if (!draft.title.trim() || !draft.place_name.trim() || !draft.start_time || !draft.end_time) {
+  const startTime = joinDateTime(draft.start_date, draft.start_clock)
+  const endTime = joinDateTime(draft.end_date, draft.end_clock)
+  const hasReminderPart = Boolean(draft.reminder_date || draft.reminder_clock)
+  const reminderTime = joinDateTime(draft.reminder_date, draft.reminder_clock)
+  if (!draft.title.trim() || !draft.place_name.trim() || !startTime || !endTime) {
     error.value = '请填写完整的日程名称、地点和起止时间。'
     return
   }
-  if (draft.itinerary_type === 'transit' && !draft.reminder_time) {
+  if (hasReminderPart && !reminderTime) {
+    error.value = '提醒日期和时间需同时填写，时间请使用 HH:mm 格式。'
+    return
+  }
+  if (draft.itinerary_type === 'transit' && !reminderTime) {
     error.value = '交通日程必须设置提醒时间。'
     return
   }
-  const start = new Date(isoOrNull(draft.start_time)!)
-  const end = new Date(isoOrNull(draft.end_time)!)
+  const start = new Date(isoOrNull(startTime)!)
+  const end = new Date(isoOrNull(endTime)!)
   if (end <= start) {
     error.value = '结束时间必须晚于开始时间；跨夜行程请把结束日期设为下一天。'
     return
   }
-  const reminder = draft.reminder_time ? new Date(isoOrNull(draft.reminder_time)!) : null
+  const reminder = reminderTime ? new Date(isoOrNull(reminderTime)!) : null
   if (reminder && reminder > start) {
     error.value = '提醒时间不能晚于当前行程的开始时间。'
     return
   }
-  if (!dateWithinCurrentTrip(draft.start_time) || !dateWithinCurrentTrip(draft.end_time)) {
+  if (!dateWithinCurrentTrip(startTime) || !dateWithinCurrentTrip(endTime)) {
     error.value = '日程起止时间必须位于当前计划的开始与结束日期内。'
     return
   }
-  if (draft.reminder_time && !dateWithinCurrentTrip(draft.reminder_time)) {
+  if (reminderTime && !dateWithinCurrentTrip(reminderTime)) {
     error.value = '提醒时间必须位于当前计划的开始与结束日期内。'
     return
   }
@@ -416,10 +492,10 @@ async function saveItinerary() {
     const payload = {
       title: draft.title.trim(),
       place_name: draft.place_name.trim(),
-      start_time: isoOrNull(draft.start_time)!,
-      end_time: isoOrNull(draft.end_time)!,
+      start_time: isoOrNull(startTime)!,
+      end_time: isoOrNull(endTime)!,
       itinerary_type: draft.itinerary_type,
-      reminder_time: isoOrNull(draft.reminder_time),
+      reminder_time: isoOrNull(reminderTime),
       status: draft.status,
       is_initial: false,
     }
@@ -840,17 +916,23 @@ onUnmounted(() => {
 
     <div class="main-grid">
       <section class="card chat">
-        <header><div><p class="eyebrow">CONVERSATION</p><h2>和 Hikari 对话</h2></div><small>历史消息会随行程恢复</small></header>
+        <header><div><p class="eyebrow">CONVERSATION</p><h2>和 Hikari 对话</h2></div></header>
         <div class="messages" :aria-busy="chatLoading">
-          <div v-for="(item, index) in messages" :key="index" class="message" :class="item.role">
-            <div v-if="item.role === 'agent'" class="markdown-body" v-html="renderMarkdown(stripReferenceSection(item.text))"></div><span v-else>{{ item.text }}</span>
-            <nav v-if="item.role === 'agent' && extractReferenceSources(item.text).length" class="message-sources" aria-label="参考来源">
-              <span>参考来源</span>
-              <a v-for="source in extractReferenceSources(item.text)" :key="source.url" :href="source.url" target="_blank" rel="noopener noreferrer">{{ source.title }}</a>
-            </nav>
-            <small v-if="item.role === 'agent' && item.auditStatus" :class="['audit-mark', item.auditStatus]">审核 {{ item.auditStatus === 'pass' ? '通过' : '未通过' }}<i v-if="item.auditReason"> · {{ item.auditReason }}</i></small>
+          <div v-for="(item, index) in messages" :key="index" class="message-row" :class="item.role">
+            <span class="chat-avatar" :aria-label="item.role === 'agent' ? 'Hikari' : '我'">{{ item.role === 'agent' ? 'H' : '我' }}</span>
+            <div class="message" :class="item.role">
+              <div v-if="item.role === 'agent'" class="markdown-body" v-html="renderMarkdown(stripReferenceSection(item.text))"></div><span v-else>{{ item.text }}</span>
+              <nav v-if="item.role === 'agent' && extractReferenceSources(item.text).length" class="message-sources" aria-label="参考来源">
+                <span>参考来源</span>
+                <a v-for="source in extractReferenceSources(item.text)" :key="source.url" :href="source.url" target="_blank" rel="noopener noreferrer">{{ source.title }}</a>
+              </nav>
+              <small v-if="item.role === 'agent' && item.auditStatus" :class="['audit-mark', item.auditStatus]">审核 {{ item.auditStatus === 'pass' ? '通过' : '未通过' }}<i v-if="item.auditReason"> · {{ item.auditReason }}</i></small>
+            </div>
           </div>
-          <div v-if="chatLoading" class="message agent typing"><i></i><span>Hikari 正在思考并核对旅途信息…</span></div>
+          <div v-if="chatLoading" class="message-row agent">
+            <span class="chat-avatar" aria-label="Hikari">H</span>
+            <div class="message agent typing"><i></i><span>Hikari 正在思考并核对旅途信息…</span></div>
+          </div>
         </div>
         <form class="composer" @submit.prevent="send"><input v-model="message" :disabled="chatLoading || !tripId" placeholder="问问 Hikari 当前安排、提醒或附近建议…"><button :disabled="chatLoading || !tripId">{{ chatLoading ? '等待回复…' : '发送' }}</button></form>
       </section>
@@ -871,15 +953,15 @@ onUnmounted(() => {
 
     <div class="tool-grid">
       <section class="card tool">
-        <header><div><p class="eyebrow">MEMOS</p><h2>旅途备忘</h2></div><button class="header-action" :disabled="!tripId" @click="openMemoDialog">添加备忘</button></header>
-        <div v-for="item in memos" :key="item.memo_id" class="data-row"><div><b>{{ item.memo_text }}</b><small>提醒：{{ formatDate(item.reminder_time) }}<i v-if="item.reminded_at"> · 已发送</i></small></div><div class="row-actions"><button class="quiet" @click="editMemo(item)">编辑</button><button class="delete-button" @click="requestDelete('memo', item.memo_id, item.memo_text)">删除</button></div></div>
-        <p v-if="!memos.length" class="muted">暂无备忘。</p>
+        <header><div><p class="eyebrow">MEMOS</p><h2>旅途备忘</h2></div><div class="header-tools"><label>筛选<select v-model="memoFilter"><option value="all">全部</option><option value="pending">待提醒</option><option value="sent">已发送</option><option value="unscheduled">无定时</option></select></label><button class="header-action" :disabled="!tripId" @click="openMemoDialog">添加备忘</button></div></header>
+        <div v-for="item in filteredMemos" :key="item.memo_id" class="data-row"><div><b>{{ item.memo_text }}</b><small>提醒：{{ formatDate(item.reminder_time) }}<i v-if="item.reminded_at"> · 已发送</i></small></div><div class="row-actions"><button class="quiet" @click="editMemo(item)">编辑</button><button class="delete-button" @click="requestDelete('memo', item.memo_id, item.memo_text)">删除</button></div></div>
+        <p v-if="!filteredMemos.length" class="muted">{{ memos.length ? '当前筛选下没有备忘。' : '暂无备忘。' }}</p>
       </section>
 
       <section class="card tool itinerary-tool">
-        <header><div><p class="eyebrow">ITINERARY</p><h2>实时日程</h2></div><button class="header-action" :disabled="!tripId" @click="openItineraryDialog">添加日程</button></header>
-        <div v-for="item in itineraries" :key="item.itinerary_id" class="data-row itinerary-row" :class="`state-${itineraryState(item)}`"><div><div class="tag-line"><span>{{ item.itinerary_type === 'transit' ? '交通' : '游玩' }}</span><i class="itinerary-status" :class="itineraryState(item)">{{ itineraryLifecycleLabel[itineraryState(item)] }}</i><em v-if="item.is_initial">当日首项</em></div><b>{{ item.title }} · {{ item.place_name }}</b><small>{{ formatDate(item.start_time) }} — {{ formatDate(item.end_time) }}<br>提醒：{{ formatDate(item.reminder_time) }}<i v-if="item.reminded_at"> · 已发送</i></small></div><div class="row-actions"><button class="quiet" @click="editItinerary(item)">编辑</button><button class="delete-button" @click="requestDelete('itinerary', item.itinerary_id, item.title)">删除</button></div></div>
-        <p v-if="!itineraries.length" class="muted">暂无实时日程。</p>
+        <header><div><p class="eyebrow">ITINERARY</p><h2>实时日程</h2></div><div class="header-tools"><label>筛选<select v-model="itineraryFilter"><option value="all">全部</option><option value="upcoming">待开始</option><option value="ongoing">进行中</option><option value="completed">已完成</option><option value="cancelled">已取消</option></select></label><button class="header-action" :disabled="!tripId" @click="openItineraryDialog">添加日程</button></div></header>
+        <div v-for="item in filteredItineraries" :key="item.itinerary_id" class="data-row itinerary-row" :class="`state-${itineraryState(item)}`"><div><div class="tag-line"><span>{{ item.itinerary_type === 'transit' ? '交通' : '游玩' }}</span><i class="itinerary-status" :class="itineraryState(item)">{{ itineraryLifecycleLabel[itineraryState(item)] }}</i><em v-if="item.is_initial">当日首项</em></div><b>{{ item.title }} · {{ item.place_name }}</b><small>{{ formatDate(item.start_time) }} — {{ formatDate(item.end_time) }}<br>提醒：{{ formatDate(item.reminder_time) }}<i v-if="item.reminded_at"> · 已发送</i></small></div><div class="row-actions"><button class="quiet" @click="editItinerary(item)">编辑</button><button class="delete-button" @click="requestDelete('itinerary', item.itinerary_id, item.title)">删除</button></div></div>
+        <p v-if="!filteredItineraries.length" class="muted">{{ itineraries.length ? '当前筛选下没有日程。' : '暂无实时日程。' }}</p>
       </section>
     </div>
 
@@ -1003,7 +1085,7 @@ onUnmounted(() => {
           <form class="dialog-body modal-form" @submit.prevent="saveMemo">
             <p v-if="error" class="audit-failure-only">{{ error }}</p>
             <label>备忘内容<textarea v-model="memoDraft.memo_text" autofocus placeholder="例如：出发前带好证件和充电宝"></textarea></label>
-            <label>提醒时间（可选）<input v-model="memoDraft.reminder_time" type="datetime-local"></label>
+            <fieldset class="date-time-field"><legend>提醒时间（可选）</legend><label>日期<input v-model="memoDraft.reminder_date" type="date" :min="currentTrip?.start_date" :max="currentTrip?.end_date"></label><label>时间<input v-model.trim="memoDraft.reminder_clock" type="text" inputmode="numeric" maxlength="5" placeholder="09:30 或 930"></label></fieldset>
             <div class="dialog-actions"><button class="quiet" type="button" @click="closeMemoDialog">取消</button><button class="primary" :disabled="!memoDraft.memo_text.trim()">{{ memoEditingId ? '保存修改' : '添加备忘' }}</button></div>
           </form>
         </section>
@@ -1020,11 +1102,11 @@ onUnmounted(() => {
             <div class="itinerary-form-grid">
               <label>事项名称<input v-model="itineraryDraft.title" autofocus placeholder="例如：参观博物馆"></label>
               <label>地点<input v-model="itineraryDraft.place_name" placeholder="填写具体地点"></label>
-              <label>开始时间<input v-model="itineraryDraft.start_time" type="datetime-local"></label>
-              <label>结束时间<input v-model="itineraryDraft.end_time" type="datetime-local"></label>
+              <fieldset class="date-time-field"><legend>开始时间</legend><label>日期<input v-model="itineraryDraft.start_date" type="date" :min="currentTrip?.start_date" :max="currentTrip?.end_date"></label><label>时间<input v-model.trim="itineraryDraft.start_clock" type="text" inputmode="numeric" maxlength="5" placeholder="09:30 或 930"></label></fieldset>
+              <fieldset class="date-time-field"><legend>结束时间</legend><label>日期<input v-model="itineraryDraft.end_date" type="date" :min="currentTrip?.start_date" :max="currentTrip?.end_date"></label><label>时间<input v-model.trim="itineraryDraft.end_clock" type="text" inputmode="numeric" maxlength="5" placeholder="11:00 或 1100"></label></fieldset>
               <label>日程类型<select v-model="itineraryDraft.itinerary_type"><option value="play">游玩</option><option value="transit">交通</option></select></label>
               <label>执行状态<select v-model="itineraryDraft.status"><option value="pending">待执行</option><option value="done">已完成</option><option value="cancelled">已取消</option></select></label>
-              <label class="wide-field">提醒时间<input v-model="itineraryDraft.reminder_time" type="datetime-local"><small>不得晚于日程开始时间；游玩日程留空时由系统自动计算。</small></label>
+              <fieldset class="date-time-field wide-field"><legend>提醒时间</legend><label>日期<input v-model="itineraryDraft.reminder_date" type="date" :min="currentTrip?.start_date" :max="currentTrip?.end_date"></label><label>时间<input v-model.trim="itineraryDraft.reminder_clock" type="text" inputmode="numeric" maxlength="5" placeholder="09:00 或 900"></label><div class="time-shortcuts"><button class="quiet" type="button" @click="reminderSameAsStart">同开始时间</button><button class="quiet" type="button" @click="clearItineraryReminder">清空提醒</button></div><small>不得晚于日程开始时间；游玩日程留空时由系统自动计算。</small></fieldset>
             </div>
             <div class="dialog-actions"><button class="quiet" type="button" @click="closeItineraryDialog">取消</button><button class="primary">{{ itineraryEditingId ? '保存修改' : '添加日程' }}</button></div>
           </form>
@@ -1056,6 +1138,7 @@ onUnmounted(() => {
 .active-trip-card.state-upcoming{border-color:#c6dce7;background:linear-gradient(120deg,#476f82 0%,#5e8898 58%,#87aeba 100%)}.active-trip-card.state-completed{border-color:#d7ded9;background:linear-gradient(120deg,#68776f 0%,#7f8e86 58%,#a7b2ac 100%);box-shadow:0 12px 30px rgba(55,72,63,.14)}.active-trip-card.state-cancelled{border-color:#e5c9c6;background:linear-gradient(120deg,#875b58 0%,#a06f6a 58%,#bb918c 100%);box-shadow:0 12px 30px rgba(104,60,57,.14)}.itinerary-status.upcoming{background:#eef3f0;color:#687a70}.itinerary-status.ongoing{background:#dcf2e4;color:#277052}.itinerary-status.completed{background:#e7ece9;color:#647169}.itinerary-status.cancelled{background:#fff0ee;color:#ad5751}.itinerary-row.state-completed{background:#fafbfa}.itinerary-row.state-cancelled{opacity:.68}.itinerary-row.state-cancelled b{text-decoration:line-through}
 .trip-overview{display:grid;grid-template-columns:minmax(210px,.8fr) 2fr;align-items:center;gap:24px;margin-bottom:18px;padding:18px 20px}.trip-overview-title{position:relative;min-width:0;padding-right:72px}.trip-overview-title h2{overflow:hidden;margin:0;color:#315342;font-size:18px;text-overflow:ellipsis;white-space:nowrap}.trip-overview-title>span{position:absolute;top:0;right:0;border-radius:999px;padding:4px 8px;background:#e5f3e9;color:#39755a;font-size:10px;font-weight:700}.trip-overview-title>span.state-upcoming{background:#eef4f7;color:#527586}.trip-overview-title>span.state-completed{background:#edf0ee;color:#69766f}.trip-overview-title>span.state-cancelled{background:#fff0ee;color:#a85a55}.trip-overview dl{display:grid;grid-template-columns:1fr 1.15fr .8fr 1.4fr;gap:10px;margin:0}.trip-overview dl>div{min-width:0;border-left:1px solid #e6ede8;padding-left:12px}.trip-overview dt{margin-bottom:5px;color:#8a9890;font-size:10px}.trip-overview dd{overflow:hidden;margin:0;color:#476052;font-size:12px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}.message.typing{display:flex;align-items:center;gap:8px}.message.typing i{width:8px;height:8px;border-radius:50%;background:#4b9875;box-shadow:12px 0 #79b397,24px 0 #a9cdb9;animation:typing-pulse 1.1s infinite ease-in-out}.message.typing span{margin-left:24px}@keyframes typing-pulse{0%,100%{opacity:.35;transform:translateY(0)}50%{opacity:1;transform:translateY(-2px)}}
 .audit-failure-summary{border-top:1px solid #edf2ee;padding-top:9px}.audit-failure-summary summary{color:#a05e59;font-size:11px;cursor:pointer}.audit-failure-summary .audit-failure-only{margin-top:8px}
+.message-row{display:flex;align-items:flex-start;gap:9px;margin:10px 14px}.message-row.user{flex-direction:row-reverse}.message-row .message{margin:0}.chat-avatar{display:grid;width:32px;height:32px;box-sizing:border-box;flex:0 0 auto;place-items:center;border:1px solid #cce3d5;border-radius:11px;background:linear-gradient(145deg,#e8f6ed,#cfeadb);box-shadow:0 4px 12px rgba(39,91,66,.1);color:#246a4e;font-size:12px;font-weight:800}.message-row.user .chat-avatar{border-color:#2c8266;background:#2b8668;color:#fff}.header-tools{display:flex;align-items:center;gap:8px}.header-tools label{display:flex;align-items:center;gap:6px}.header-tools select{border:1px solid #dce8df;border-radius:8px;padding:7px 28px 7px 8px;background:#fff;color:#4f6d5e;font:inherit}.tool>.muted{margin:0;padding:22px;text-align:center}.date-time-field{display:grid;grid-template-columns:1fr 1fr;gap:10px;min-width:0;margin:0;border:1px solid #dfe9e2;border-radius:12px;padding:12px;background:#f9fcfa}.date-time-field legend{padding:0 5px;color:#486556;font-size:12px;font-weight:700}.date-time-field label{font-size:10px}.date-time-field .time-shortcuts{display:flex;align-items:center;gap:7px}.date-time-field>small{grid-column:1/-1}.time-shortcuts .quiet{padding:7px 9px;font-size:11px}
 @media(max-width:920px){.main-grid,.tool-grid{grid-template-columns:1fr}.chat{min-height:480px}.side-stack{grid-template-columns:1fr}.location-grid{grid-template-columns:1fr 1fr}.active-trip-card{grid-template-columns:135px minmax(0,1fr) auto;gap:16px}.trip-overview{grid-template-columns:1fr}.trip-overview dl{grid-template-columns:1fr 1fr}}
-@media(max-width:680px){.companion-page{padding:26px 16px 55px}.hero{display:block;padding:25px 22px}.hero-status{display:none}.active-trip-card{grid-template-columns:1fr;gap:13px;padding:19px}.active-trip-side{grid-template-columns:auto 1fr;align-items:center;justify-items:start}.active-trip-side span{justify-self:end}.active-trip-empty{align-items:flex-start;flex-direction:column;gap:15px;padding:19px}.workspace-bar,.workspace-bar label{align-items:stretch;flex-direction:column}.workspace-bar select{width:100%;min-width:0}.workspace-actions{display:grid;grid-template-columns:1fr 1fr}.notification-inbox-trigger{justify-content:center}.danger-button{grid-column:1/-1}.trip-overview{padding:16px}.trip-overview dl{grid-template-columns:1fr}.trip-overview dl>div{border-left:0;border-top:1px solid #edf2ee;padding:9px 0 0}.inbox-toolbar{align-items:flex-start;flex-direction:column}.inbox-actions{width:100%;justify-content:space-between}.mail-row{grid-template-columns:10px minmax(0,1fr);padding:15px}.mail-read-action,.read-state{grid-column:2;justify-self:start}.mail-meta{align-items:flex-start;flex-direction:column;gap:4px}.conflict-picker-head{align-items:stretch;flex-direction:column}.conflict-choice{grid-template-columns:auto minmax(0,1fr)}.conflict-choice em{grid-column:2;justify-self:start}.memo-form,.schedule-form,.location-grid,.request-fields,.itinerary-form-grid{grid-template-columns:1fr}.itinerary-form-grid .wide-field{grid-column:auto}.message{max-width:92%}.card header{padding:15px}.notification-item{align-items:flex-start}.schedule-actions{align-items:center}.adjustment-overlay{align-items:end;padding:0}.adjustment-dialog{width:100%;max-height:92vh;border-radius:20px 20px 0 0}.dialog-body{padding:18px}.dialog-actions button{min-width:0}.candidate-actions{display:grid;grid-template-columns:1fr 1fr}.candidate-actions .primary{grid-column:1/-1}.row-actions{align-items:stretch;flex-direction:column}}
+@media(max-width:680px){.companion-page{padding:26px 16px 55px}.hero{display:block;padding:25px 22px}.hero-status{display:none}.active-trip-card{grid-template-columns:1fr;gap:13px;padding:19px}.active-trip-side{grid-template-columns:auto 1fr;align-items:center;justify-items:start}.active-trip-side span{justify-self:end}.active-trip-empty{align-items:flex-start;flex-direction:column;gap:15px;padding:19px}.workspace-bar,.workspace-bar label{align-items:stretch;flex-direction:column}.workspace-bar select{width:100%;min-width:0}.workspace-actions{display:grid;grid-template-columns:1fr 1fr}.notification-inbox-trigger{justify-content:center}.danger-button{grid-column:1/-1}.trip-overview{padding:16px}.trip-overview dl{grid-template-columns:1fr}.trip-overview dl>div{border-left:0;border-top:1px solid #edf2ee;padding:9px 0 0}.inbox-toolbar{align-items:flex-start;flex-direction:column}.inbox-actions{width:100%;justify-content:space-between}.mail-row{grid-template-columns:10px minmax(0,1fr);padding:15px}.mail-read-action,.read-state{grid-column:2;justify-self:start}.mail-meta{align-items:flex-start;flex-direction:column;gap:4px}.conflict-picker-head{align-items:stretch;flex-direction:column}.conflict-choice{grid-template-columns:auto minmax(0,1fr)}.conflict-choice em{grid-column:2;justify-self:start}.memo-form,.schedule-form,.location-grid,.request-fields,.itinerary-form-grid,.date-time-field{grid-template-columns:1fr}.itinerary-form-grid .wide-field{grid-column:auto}.date-time-field>small{grid-column:auto}.message{max-width:92%}.message-row{margin:9px 10px}.chat-avatar{width:29px;height:29px;border-radius:9px}.card header{padding:15px}.tool header{align-items:flex-start;gap:10px}.header-tools{align-items:stretch;flex-direction:column}.notification-item{align-items:flex-start}.schedule-actions{align-items:center}.adjustment-overlay{align-items:end;padding:0}.adjustment-dialog{width:100%;max-height:92vh;border-radius:20px 20px 0 0}.dialog-body{padding:18px}.dialog-actions button{min-width:0}.candidate-actions{display:grid;grid-template-columns:1fr 1fr}.candidate-actions .primary{grid-column:1/-1}.row-actions{align-items:stretch;flex-direction:column}}
 </style>

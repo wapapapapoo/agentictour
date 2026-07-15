@@ -139,9 +139,11 @@ def test_due_reminder_uses_trip_as_context_and_keeps_dify_tour_key(
     assert count == 1
     assert calls[0]["user"] == str(trip.user_id)
     assert calls[0]["inputs"]["tour_id"] == trip.id
-    assert json.loads(calls[0]["inputs"]["trip_context"])[
-        "destination_city"
-    ] == "上海"
+    trip_context = json.loads(calls[0]["inputs"]["trip_context"])
+    assert trip_context["destination_city"] == "上海"
+    assert trip_context["display_timezone"] == "Asia/Shanghai"
+    assert trip_context["database_timezone"] == "UTC"
+    assert trip_context["current_time_local"].endswith("+08:00")
     assert calls[0]["inputs"]["city_adcode"] == "310115"
     assert "city" not in calls[0]["inputs"]
     assert "location_context" not in calls[0]["inputs"]
@@ -150,6 +152,44 @@ def test_due_reminder_uses_trip_as_context_and_keeps_dify_tour_key(
     assert notification.trip_id == trip.id
     assert notification.advice_id is None
     assert notification.category == "memo"
+
+
+def test_itinerary_reminder_sends_trip_local_time_to_dify(
+    db: Session, monkeypatch
+) -> None:
+    trip = _trip()
+    db.add(trip)
+    db.flush()
+    db.add(
+        ItineraryItem(
+            trip_id=trip.id,
+            title="参观博物馆",
+            place_name="上海博物馆",
+            start_time=datetime(2026, 7, 20, 7, 30),
+            end_time=datetime(2026, 7, 20, 9, 30),
+            reminder_time=datetime(2026, 7, 20, 7, 0),
+            itinerary_type="play",
+            status="pending",
+            is_initial=False,
+        )
+    )
+    db.commit()
+    calls = []
+
+    def fake_hikari(**kwargs):
+        calls.append(kwargs)
+        return _audited_output()
+
+    monkeypatch.setattr(reminder_service, "run_hikari_once_audited", fake_hikari)
+
+    assert reminder_service.scan_due_reminders(
+        db, now=datetime(2026, 7, 20, 7, 1)
+    ) == 1
+
+    assert "开始：2026-07-20T15:30+08:00 （Asia/Shanghai）" in calls[0][
+        "original_input"
+    ]
+    assert "2026-07-20T07:30" not in calls[0]["original_input"]
 
 
 def test_cancelled_trip_does_not_emit_due_reminders(db: Session, monkeypatch) -> None:

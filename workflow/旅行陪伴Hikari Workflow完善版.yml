@@ -669,7 +669,7 @@ workflow:
           required: false
           type: paragraph
           variable: trip_context
-      height: 343
+      height: 368
       id: '1782285385726'
       position:
         x: -304.90419462659685
@@ -727,7 +727,7 @@ workflow:
         selected: false
         title: 条件分支
         type: if-else
-      height: 342
+      height: 341
       id: '1782286303865'
       position:
         x: 800.3551651938042
@@ -777,27 +777,41 @@ workflow:
 
               任务判断与行为规则：
 
-              1. 先结合旅行概要、当前城市、用户位置、本地历史消息和本轮原始问题判断真实意图，不得只按“大学、学校、历史、技术”等关键词判断话题是否与旅行相关。旅行概要中的 destination_city 是当前旅行目的地；用户询问该城市或附近的大学、博物馆、公园、医院、车站、商圈、社区、赛事场馆等地点时，应默认视为目的地了解、潜在到访或途中决策，属于旅行相关问题。比如天津旅行中询问“介绍一下天津工业大学”，应正常介绍其与到访有关的概况、校区位置、特色和参观注意点，而不是当作无关学术问题压缩或拒绝。
+              1. 先结合旅行概要、当前城市、用户位置、本地历史消息和本轮原始问题判断真实意图，不得只按“大学、学校、历史、技术”等关键词判断话题是否与旅行相关。旅行概要中的
+              destination_city 是当前旅行目的地；用户询问该城市或附近的大学、博物馆、公园、医院、车站、商圈、社区、赛事场馆等地点时，应默认视为目的地了解、潜在到访或途中决策，属于旅行相关问题。比如天津旅行中询问“介绍一下天津工业大学”，应正常介绍其与到访有关的概况、校区位置、特色和参观注意点，而不是当作无关学术问题压缩或拒绝。
 
-              2. 只有用户明确要求脱离旅行场景的学术推导、技术教程、论文写作、考试解题或大段代码时，才使用“非旅行知识简答”边界：先直接回答核心概念，通常控制在 150 个汉字或 3 个短要点；不要擅自把地点介绍、地方历史、文化背景和交通教育机构介绍归入此类。意图有歧义时优先采用对当前旅行有帮助的解释，必要时在回答结尾提出一个简短确认问题，不得直接判定无关。
+              2. 只有用户明确要求脱离旅行场景的学术推导、技术教程、论文写作、考试解题或大段代码时，才使用“非旅行知识简答”边界：先直接回答核心概念，通常控制在
+              150 个汉字或 3 个短要点；不要擅自把地点介绍、地方历史、文化背景和交通教育机构介绍归入此类。意图有歧义时优先采用对当前旅行有帮助的解释，必要时在回答结尾提出一个简短确认问题，不得直接判定无关。
 
               3. 回答必须结合后端传入的本地历史消息，但不得声称 Dify 保存了会话；不要重复问候、复述用户问题或把同一段正文输出两次。
 
-              4. 涉及行程、备忘录、旅行状态或其他数据库事实时，严格按照“数据库完整结构”和“数据库查询规范”调用 SQL查询 工具；只能使用列出的真实表名和字段名。旅行概要是当前 trip_id 的安全元数据，context 是基准日程快照；最新 SELECT 与快照冲突时以同一 tour_id 的最新查询结果为准。
+              4. 涉及行程、备忘录、旅行状态或其他数据库事实时，严格按照“数据库完整结构”和“数据库查询规范”调用 SQL查询 工具；只能使用列出的真实表名和字段名。旅行概要是当前
+              trip_id 的安全元数据，context 是基准日程快照；最新 SELECT 与快照冲突时以同一 tour_id 的最新查询结果为准。
 
-              5. 天气、附近地点、路线耗时分别优先调用对应专用工具，这些工具能回答时不要改用网页搜索。查询数据库只允许单条 SELECT；严禁 INSERT、UPDATE、DELETE、DROP、ALTER，并始终限制当前 tour_id。工具失败时明确说明无法确认。
+              5. 天气、附近地点、路线耗时分别优先调用对应专用工具，这些工具能回答时不要改用网页搜索。查询数据库只允许单条 SELECT；严禁 INSERT、UPDATE、DELETE、DROP、ALTER，并始终限制当前
+              tour_id。工具失败时明确说明无法确认。
 
-              6. Tavily 只查询公开网页信息，不得用于用户个人行程或备忘录。以下情况使用 Tavily Search：用户明确要求介绍目的地或公共地点；问题涉及开放公告、校区/景区信息、政策、近期资讯等可能变化的事实；或你对公开事实没有把握。普通聊天不要调用 Tavily Research、Crawl 或 Map；只有已经获得明确 URL 且确需核对原文时才用 Tavily Extract。
+              6. Tavily 只查询公开网页信息，不得用于用户个人行程或备忘录。以下情况使用 Tavily Search：用户明确要求介绍目的地或公共地点；问题涉及开放公告、校区/景区信息、政策、近期资讯等可能变化的事实；或你对公开事实没有把握。普通聊天不要调用
+              Tavily Research、Crawl 或 Map；只有已经获得明确 URL 且确需核对原文时才用 Tavily Extract。
 
-              7. 联网搜索时优先官方来源（政府、学校、景区、交通运营方等），其次使用可靠媒体。每个影响结论的公开事实必须有搜索结果支持；搜索不足就明确保留不确定性，不得编造营业时间、票价、地址、距离、天气、交通状态、用户行程或网页 URL。
+              7. 联网搜索时优先官方来源（政府、学校、景区、交通运营方等），其次使用可靠媒体。每个影响结论的公开事实必须有搜索结果支持；搜索不足就明确保留不确定性，不得编造营业时间、票价、地址、距离、天气、交通状态、用户行程或网页
+              URL。
 
-              8. 使用 Tavily 后，在正文末尾只输出一次“参考来源”小节，列出 1 至 4 条最相关来源，严格使用 Markdown 链接“- [来源标题](完整 http/https URL)”，不要输出裸链接、URL 编码后的标题、搜索结果页或重复来源。未使用 Tavily 时不要伪造来源。
+              8. 使用 Tavily 后，在正文末尾只输出一次“参考来源”小节，列出 1 至 4 条最相关来源，严格使用 Markdown 链接“-
+              [来源标题](完整 http/https URL)”，不要输出裸链接、URL 编码后的标题、搜索结果页或重复来源。未使用 Tavily
+              时不要伪造来源。
 
-              9. 用户只要求“介绍”时，给出直接、够用的概况；若对象与当前目的地相关，可补充位置、到访价值和必要注意点，但不要擅自修改日程或生成候选重规划。只有用户明确提出调整行程，或 trigger_type 为事故/重规划类型时，才进入候选方案流程。
+              9. 用户只要求“介绍”时，给出直接、够用的概况；若对象与当前目的地相关，可补充位置、到访价值和必要注意点，但不要擅自修改日程或生成候选重规划。只有用户明确提出调整行程，或
+              trigger_type 为事故/重规划类型时，才进入候选方案流程。
 
-              10. trigger_type=user_input 时直接回答用户；trigger_type=system_auto_advice 仅作为兼容入口，输出一条可直接进入聊天框的简短主动建议，后端会写入 ai_advice 和 chat_messages，不会作为通知发送。
+              10. trigger_type=user_input 时直接回答用户；trigger_type=system_auto_advice
+              仅作为兼容入口，输出一条可直接进入聊天框的简短主动建议，后端会写入 ai_advice 和 chat_messages，不会作为通知发送。
 
-              11. 需要行动时优先给出一个明确可执行的下一步。只输出最终回复正文，可以使用简洁 Markdown 和来源链接；不得输出 JSON、思考过程、工具调用过程或 Markdown 代码块。'
+              11. 需要行动时优先给出一个明确可执行的下一步。只输出最终回复正文，可以使用简洁 Markdown 和来源链接；不得输出 JSON、思考过程、工具调用过程或
+              Markdown 代码块。'
+          maximum_iterations:
+            type: constant
+            value: 48
           model:
             type: constant
             value:
@@ -1387,11 +1401,11 @@ workflow:
           version: 0.0.2
         output_schema: {}
         plugin_unique_identifier: langgenius/agent:0.0.39@ceea6a76b3a495de2df2a55bcea82e903d49b06f4d8e1463c2aa085657f27164
-        selected: false
+        selected: true
         title: 聊天主Agent
         tool_node_version: '2'
         type: agent
-      height: 216
+      height: 215
       id: '1782351047886'
       position:
         x: 1270.8760092496725
@@ -1399,7 +1413,7 @@ workflow:
       positionAbsolute:
         x: 1270.8760092496725
         y: 843.0740866487456
-      selected: false
+      selected: true
       sourcePosition: right
       targetPosition: left
       type: custom
@@ -1470,6 +1484,9 @@ workflow:
               : \"play\",\n      \"reminder_time\": null,\n      \"is_initial\": false,\n\
               \      \"status\": \"pending\"\n    }\n  ]\n}\n没有需要取消的旧行程时 cancelled_itinerary_ids\
               \ 返回空数组；仅当数据库证据确认当前没有任何可调整的未来 pending 行程时，两个数组才可同时为空，并在 reply 中明确说明没有可调整项。"
+          maximum_iterations:
+            type: constant
+            value: 41
           model:
             type: constant
             value:
@@ -2076,7 +2093,7 @@ workflow:
         title: 日程重推荐Agent
         tool_node_version: '2'
         type: agent
-      height: 188
+      height: 187
       id: '17824362484760'
       position:
         x: 1270.8760092496725
@@ -2222,7 +2239,7 @@ workflow:
             type: mixed
             value: all
         type: tool
-      height: 84
+      height: 83
       id: '1783673975969'
       position:
         x: 1385
@@ -2468,7 +2485,7 @@ workflow:
         tool_node_version: '2'
         tool_parameters: {}
         type: tool
-      height: 114
+      height: 113
       id: '1782441089142'
       position:
         x: 1716
@@ -2814,7 +2831,7 @@ workflow:
               AS reminder_time, is_initial, status FROM {{#env.TABLE_ITINERARY_ITEMS#}}
               WHERE trip_id = {{#1782285385726.tour_id#}} ORDER BY start_time ASC;
         type: tool
-      height: 88
+      height: 87
       id: '1782441291535'
       position:
         x: 106.66390513730948
@@ -2857,7 +2874,7 @@ workflow:
           - json
           value_type: object
           variable: db_result
-      height: 112
+      height: 111
       id: hikari_itinerary_context_formatter_v1
       position:
         x: 421.08636076522225
@@ -2924,7 +2941,7 @@ workflow:
         type: llm
         vision:
           enabled: false
-      height: 88
+      height: 87
       id: '17836645655680'
       position:
         x: 2058.017080526812
@@ -2932,7 +2949,7 @@ workflow:
       positionAbsolute:
         x: 2058.017080526812
         y: 60.66666666666663
-      selected: true
+      selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
@@ -3316,7 +3333,7 @@ workflow:
               INTERVAL 8 HOUR), '%Y-%m-%d %H:%i:%s') AS reminded_at FROM {{#env.TABLE_MEMOS#}}
               WHERE trip_id = {{#1782285385726.tour_id#}} ORDER BY created_at ASC;
         type: tool
-      height: 88
+      height: 87
       id: '17836716058920'
       position:
         x: 1060.3501400560242
@@ -3379,7 +3396,7 @@ workflow:
           - text
           value_type: string
           variable: raw_text
-      height: 96
+      height: 95
       id: hikari_replan_parser_v2
       position:
         x: 1560
@@ -3461,6 +3478,9 @@ workflow:
               7. 最终只输出合法 JSON，不要 Markdown 或思考过程，decision 只能是 false、chat_recommendation、itinerary_replan：
 
               {"reply":"检查结论或用户通知正文","decision":"false","conflicting_itinerary_ids":[]}'
+          maximum_iterations:
+            type: constant
+            value: 41
           model:
             type: constant
             value:
@@ -4058,7 +4078,7 @@ workflow:
         title: 系统统一主动检查Agent
         tool_node_version: '2'
         type: agent
-      height: 232
+      height: 231
       id: hikari_auto_check_agent_v2
       position:
         x: 1270.8760092496725
@@ -4115,7 +4135,7 @@ workflow:
           - text
           value_type: string
           variable: raw_text
-      height: 96
+      height: 95
       id: hikari_auto_check_parser_v2
       position:
         x: 1628.7365967563712
@@ -4167,7 +4187,7 @@ workflow:
       type: custom
       width: 242
     viewport:
-      x: 84.99029959807012
-      y: 119.76078085010198
+      x: -447.0097004019299
+      y: -172.23921914989802
       zoom: 0.6765946357896693
   rag_pipeline_variables: []

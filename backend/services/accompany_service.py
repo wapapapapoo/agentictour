@@ -31,6 +31,7 @@ from schemas.accompany import (
     MemoUpdate,
 )
 from services.ai_gateway import AuditRejectedError, run_hikari_once_audited
+from utils.trip_time import trip_time_context
 
 CHAT_HISTORY_MAX_MESSAGES_DEFAULT = 20
 CHAT_HISTORY_MAX_CHARS_DEFAULT = 12000
@@ -49,7 +50,7 @@ def _trip_context(db: Session, trip_id: int) -> str:
             "destination_city": trip.destination_city,
             "start_date": trip.start_date.isoformat(),
             "end_date": trip.end_date.isoformat(),
-            "timezone": trip.timezone,
+            **trip_time_context(trip.timezone),
             "status": trip.status,
         },
         ensure_ascii=False,
