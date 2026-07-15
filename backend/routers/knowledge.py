@@ -15,7 +15,7 @@ from schemas.knowledge import (
     PlanKnowledgeResponse,
     TraceKnowledgeResponse,
 )
-from services import knowledge_service
+from services import knowledge_service, preference_service
 from utils.dify_client import DifyError, DifyRequestError
 
 router = APIRouter(prefix="/api/trip-plans", tags=["知识库同步"])
@@ -67,3 +67,21 @@ def search_knowledge(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/recommend/{user_id}")
+def recommend_feed(
+    user_id: int,
+    top_k: int = Query(default=5, ge=1, le=20),
+    page: int = Query(default=0, ge=0),
+    page_size: int = Query(default=20, ge=10, le=200),
+    db: Session = Depends(get_db),
+) -> Any:
+    return preference_service.recommend_by_prototypes(db, user_id, top_k, page, page_size)
+
+
+@router.get("/trending")
+def trending(
+    db: Session = Depends(get_db),
+) -> Any:
+    return preference_service.trending(db)
