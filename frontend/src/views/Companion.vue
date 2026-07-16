@@ -9,10 +9,14 @@ import {
   type Itinerary,
   type Memo,
   type Notification,
+  type Plan,
   type Trip,
 } from '@/services/api'
+import TripPlanBinding from '@/components/TripPlanBinding.vue'
+import MemoPanel from '@/components/MemoPanel.vue'
 import { extractReferenceSources, renderMarkdown, stripReferenceSection } from '@/utils/markdown'
 import { formatTripDate, tripInputFromUtc, tripInputToUtc } from '@/utils/tripTime'
+import { itineraryDate, preferredItineraryDate, tripDateRange } from '@/utils/itineraryDay'
 import {
   itineraryLifecycle,
   itineraryLifecycleLabel,
@@ -46,6 +50,7 @@ const welcomeMessage: UiMessage = {
   text: '你好，我是 Hikari。选择一趟行程后，我会结合实时行程、位置和历史消息陪伴你。',
 }
 const trips = ref<Trip[]>([])
+const plans = ref<Plan[]>([])
 const tripId = ref<number | null>(null)
 const messages = ref<UiMessage[]>([{ ...welcomeMessage }])
 const message = ref('')
@@ -66,6 +71,9 @@ const notificationBusy = ref(false)
 const reminderError = ref('')
 const memoFilter = ref<'all' | 'pending' | 'sent' | 'unscheduled'>('all')
 const itineraryFilter = ref<'all' | 'upcoming' | 'ongoing' | 'change_pending' | 'completed' | 'cancelled'>('all')
+const selectedItineraryDate = ref('')
+const syncingPlanItineraries = ref(false)
+const planSyncMessage = ref('')
 
 const memoEditingId = ref<number | null>(null)
 const memoDraft = ref({ memo_text: '', reminder_date: '', reminder_clock: '' })
@@ -99,6 +107,7 @@ const location = ref({
 const locationOpen = ref(false)
 
 const currentTrip = computed(() => trips.value.find((trip) => trip.id === tripId.value))
+const currentPlan = computed(() => plans.value.find((plan) => plan.trip_id === tripId.value))
 const ongoingTrip = computed(() => trips.value.find(
   (trip) => tripLifecycle(trip, lifecycleClock.value) === 'ongoing',
 ))
@@ -164,6 +173,18 @@ const filteredMemos = computed(() => memos.value.filter((item) => ({
 const filteredItineraries = computed(() => itineraries.value.filter((item) => (
   itineraryFilter.value === 'all'
   || itineraryLifecycle(item, lifecycleClock.value) === itineraryFilter.value
+)))
+const itineraryDates = computed(() => tripDateRange(
+  currentTrip.value?.start_date,
+  currentTrip.value?.end_date,
+))
+const hasSelectedItineraryDate = computed(() => itineraries.value.some((item) => (
+  itineraryDate(item.start_time) === selectedItineraryDate.value
+)))
+const displayedItineraries = computed(() => filteredItineraries.value.filter((item) => (
+  !selectedItineraryDate.value
+  || !hasSelectedItineraryDate.value
+  || itineraryDate(item.start_time) === selectedItineraryDate.value
 )))
 
 function errorMessage(cause: unknown, fallback: string) {
@@ -365,6 +386,7 @@ async function loadWorkspace() {
     memos.value = memoRows
     itineraries.value = itineraryRows
     advice.value = adviceRows
+    if (!itineraryRows.length) await syncGeneratedItineraries()
   } catch (cause) {
     error.value = errorMessage(cause, '无法读取旅途中数据。')
   } finally {
@@ -374,7 +396,22 @@ async function loadWorkspace() {
 
 async function loadTrips() {
   try {
-    trips.value = await api.listTrips()
+    const tripRows = await api.listTrips()
+    const fetchPlans = (api as { listPlans?: () => Promise<Plan[]> }).listPlans
+    if (typeof fetchPlans === 'function') {
+      try {
+        const planRows = await fetchPlans()
+        plans.value = planRows
+        const plannedTripIds = new Set(planRows.map((plan) => plan.trip_id))
+        trips.value = tripRows.filter((trip) => plannedTripIds.has(trip.id))
+      } catch {
+        plans.value = []
+        trips.value = tripRows
+      }
+    } else {
+      plans.value = []
+      trips.value = tripRows
+    }
     const active = trips.value.find((trip) => tripLifecycle(trip, lifecycleClock.value) === 'ongoing')
     const upcoming = trips.value
       .filter((trip) => tripLifecycle(trip, lifecycleClock.value) === 'upcoming')
@@ -509,10 +546,34 @@ function closeItineraryDialog() {
 
 function resetItinerary() {
   itineraryEditingId.value = null
+  const defaultDate = selectedItineraryDate.value || currentTrip.value?.start_date || ''
   itineraryDraft.value = {
-    title: '', place_name: '', start_date: '', start_clock: '', end_date: '', end_clock: '', itinerary_type: 'play', reminder_date: '', reminder_clock: '', status: 'pending',
+    title: '', place_name: '', start_date: defaultDate, start_clock: '09:00', end_date: defaultDate, end_clock: '10:00', itinerary_type: 'play', reminder_date: '', reminder_clock: '', status: 'pending',
   }
 }
+
+async function syncGeneratedItineraries() {
+  const plan = currentPlan.value
+  const sync = (api as { syncPlanItineraries?: (id: number) => Promise<{ created_count: number; itinerary_items: Itinerary[] }> }).syncPlanItineraries
+  if (!plan || !tripId.value || syncingPlanItineraries.value || typeof sync !== 'function') return
+  syncingPlanItineraries.value = true
+  planSyncMessage.value = ''
+  try {
+    const result = await sync(plan.id)
+    itineraries.value = result.itinerary_items
+    if (result.created_count) planSyncMessage.value = `已从旅行规划导入 ${result.created_count} 项日程，可继续编辑。`
+  } catch (cause) {
+    planSyncMessage.value = errorMessage(cause, '暂时无法导入旅行规划日程。')
+  } finally {
+    syncingPlanItineraries.value = false
+  }
+}
+
+watch(() => itineraryDraft.value.itinerary_type, (type) => {
+  if (type === 'transit' && !joinDateTime(itineraryDraft.value.reminder_date, itineraryDraft.value.reminder_clock)) {
+    reminderSameAsStart()
+  }
+})
 
 async function saveItinerary() {
   if (!tripId.value) return
@@ -569,6 +630,7 @@ async function saveItinerary() {
     itineraryDialogOpen.value = false
     resetItinerary()
     itineraries.value = await api.listItineraries(tripId.value)
+    selectedItineraryDate.value = draft.start_date
   } catch (cause) {
     itineraryFormError.value = errorMessage(cause, '日程保存失败。')
   }
@@ -930,6 +992,8 @@ watch(tripId, () => {
   adjustment.value = closedAdjustment()
   adjustmentError.value = ''
   promptedAutomaticAdviceId.value = null
+  selectedItineraryDate.value = preferredItineraryDate(itineraryDates.value)
+  planSyncMessage.value = ''
   messages.value = [{ ...welcomeMessage }]
   void loadWorkspace()
 })
@@ -958,9 +1022,17 @@ onUnmounted(() => {
 
 <template>
   <div class="page companion-page">
-    <section class="active-trip-section" aria-label="旅行计划状态">
-      <button v-if="featuredTrip" :class="['active-trip-card', `state-${featuredTripState}`]" type="button" @click="focusFeaturedTrip">
-        <span class="active-trip-marker"><i></i>{{ featuredTripMarker(featuredTripState) }}</span>
+    <section
+      class="active-trip-section"
+      aria-label="旅行计划状态"
+    >
+      <button
+        v-if="featuredTrip"
+        :class="['active-trip-card', `state-${featuredTripState}`]"
+        type="button"
+        @click="focusFeaturedTrip"
+      >
+        <span class="active-trip-marker"><i />{{ featuredTripMarker(featuredTripState) }}</span>
         <span class="active-trip-main">
           <small>{{ featuredTrip.title }}</small>
           <template v-if="featuredTrip.id === currentTrip?.id && ongoingItinerary">
@@ -977,30 +1049,91 @@ onUnmounted(() => {
           <span>{{ currentTrip?.id === featuredTrip.id ? featuredTripSummary(featuredTripState) : '进入计划' }}</span>
         </span>
       </button>
-      <div v-else class="active-trip-empty">
-        <span class="active-trip-marker idle"><i></i>TRIP STATUS</span>
+      <div
+        v-else
+        class="active-trip-empty"
+      >
+        <span class="active-trip-marker idle"><i />TRIP STATUS</span>
         <div><b>目前还没有旅行计划</b><small>创建计划后，这里会按时间显示待出发、进行中、已结束或已取消。</small></div>
       </div>
     </section>
 
+    <TripPlanBinding
+      :trip="currentTrip"
+      :plan="currentPlan"
+    />
     <section class="hero">
       <div>
-        <p class="eyebrow">TRAVEL COMPANION · HIKARI</p>
+        <p class="eyebrow">
+          TRAVEL COMPANION · HIKARI
+        </p>
         <h1>{{ currentTrip ? heroCopy[0] : '还没有选中的旅行计划。' }}</h1>
         <p>{{ currentTrip ? heroCopy[1] : '新建或选择计划后，可以在这里管理日程、提醒与旅途对话。' }}</p>
       </div>
-      <div class="hero-status"><b>{{ currentTrip?.destination_city || '等待计划' }}</b><span>{{ currentTripState ? tripLifecycleLabel[currentTripState] : '暂无状态' }}</span></div>
+      <div class="hero-status">
+        <b>{{ currentTrip?.destination_city || '等待计划' }}</b><span>{{ currentTripState ? tripLifecycleLabel[currentTripState] : '暂无状态' }}</span>
+      </div>
     </section>
 
-    <p v-if="error" class="error">{{ error }}<button @click="error = ''">×</button></p>
+    <p
+      v-if="error"
+      class="error"
+    >
+      {{ error }}<button @click="error = ''">
+        ×
+      </button>
+    </p>
 
     <section class="workspace-bar">
-      <label>当前行程<select v-model="tripId"><option :value="null">请选择行程</option><option v-for="trip in trips" :key="trip.id" :value="trip.id">{{ trip.destination_city }} · {{ trip.title }}</option></select></label>
-      <div class="workspace-actions"><button class="notification-inbox-trigger" type="button" :class="{ 'has-unread': unreadCount > 0 }" @click="openReminderInbox"><span class="mail-icon" aria-hidden="true">✉</span><span>提醒</span><b v-if="unreadCount" class="unread-badge">{{ unreadCount > 99 ? '99+' : unreadCount }}</b><small v-else>已读</small></button><button class="secondary" @click="locationOpen = !locationOpen">位置与城市</button><button class="secondary" @click="loadWorkspace">刷新数据</button><button v-if="currentTrip" class="danger-button" @click="requestDelete('trip', currentTrip.id, currentTrip.title)">删除当前计划</button></div>
+      <label>当前行程<select v-model="tripId"><option :value="null">请选择行程</option><option
+        v-for="trip in trips"
+        :key="trip.id"
+        :value="trip.id"
+      >{{ trip.destination_city }} · {{ trip.title }}</option></select></label>
+      <div class="workspace-actions">
+        <button
+          class="notification-inbox-trigger"
+          type="button"
+          :class="{ 'has-unread': unreadCount > 0 }"
+          @click="openReminderInbox"
+        >
+          <span
+            class="mail-icon"
+            aria-hidden="true"
+          >✉</span><span>提醒</span><b
+            v-if="unreadCount"
+            class="unread-badge"
+          >{{ unreadCount > 99 ? '99+' : unreadCount }}</b><small v-else>已读</small>
+        </button><button
+          class="secondary"
+          @click="locationOpen = !locationOpen"
+        >
+          位置与城市
+        </button><button
+          class="secondary"
+          @click="loadWorkspace"
+        >
+          刷新数据
+        </button><button
+          v-if="currentTrip"
+          class="danger-button"
+          @click="requestDelete('trip', currentTrip.id, currentTrip.title)"
+        >
+          删除当前计划
+        </button>
+      </div>
     </section>
 
-    <section v-if="currentTrip" class="card trip-overview" aria-label="当前计划基本信息">
-      <div class="trip-overview-title"><p class="eyebrow">CURRENT PLAN</p><h2>{{ currentTrip.title }}</h2><span :class="`state-${currentTripState}`">{{ currentTripState ? tripLifecycleLabel[currentTripState] : '' }}</span></div>
+    <section
+      v-if="currentTrip"
+      class="card trip-overview"
+      aria-label="当前计划基本信息"
+    >
+      <div class="trip-overview-title">
+        <p class="eyebrow">
+          CURRENT PLAN
+        </p><h2>{{ currentTrip.title }}</h2><span :class="`state-${currentTripState}`">{{ currentTripState ? tripLifecycleLabel[currentTripState] : '' }}</span>
+      </div>
       <dl>
         <div><dt>路线</dt><dd>{{ currentTrip.origin_city }} → {{ currentTrip.destination_city }}</dd></div>
         <div><dt>计划日期</dt><dd>{{ currentTrip.start_date }} — {{ currentTrip.end_date }}</dd></div>
@@ -1009,140 +1142,560 @@ onUnmounted(() => {
       </dl>
     </section>
 
-    <section v-if="locationOpen" class="card location-panel">
-      <div><p class="eyebrow">LIVE LOCATION</p><h2>提供给 Hikari 的当前位置</h2></div>
-      <div class="location-grid"><input v-model="location.city_adcode" placeholder="城市 adcode，如 310000"><input v-model="location.place_name" placeholder="位置名称"><input v-model.number="location.longitude" type="number" step="any" placeholder="经度"><input v-model.number="location.latitude" type="number" step="any" placeholder="纬度"></div>
-      <div class="panel-actions"><button class="secondary" @click="useBrowserLocation">获取浏览器定位</button><button class="primary" @click="saveLocation">保存位置</button></div>
+    <section
+      v-if="locationOpen"
+      class="card location-panel"
+    >
+      <div>
+        <p class="eyebrow">
+          LIVE LOCATION
+        </p><h2>提供给 Hikari 的当前位置</h2>
+      </div>
+      <div class="location-grid">
+        <input
+          v-model="location.city_adcode"
+          placeholder="城市 adcode，如 310000"
+        ><input
+          v-model="location.place_name"
+          placeholder="位置名称"
+        ><input
+          v-model.number="location.longitude"
+          type="number"
+          step="any"
+          placeholder="经度"
+        ><input
+          v-model.number="location.latitude"
+          type="number"
+          step="any"
+          placeholder="纬度"
+        >
+      </div>
+      <div class="panel-actions">
+        <button
+          class="secondary"
+          @click="useBrowserLocation"
+        >
+          获取浏览器定位
+        </button><button
+          class="primary"
+          @click="saveLocation"
+        >
+          保存位置
+        </button>
+      </div>
     </section>
 
-    <p v-if="workspaceLoading" class="loading-line">正在同步旅途数据…</p>
+    <p
+      v-if="workspaceLoading"
+      class="loading-line"
+    >
+      正在同步旅途数据…
+    </p>
 
     <div class="main-grid">
       <section class="card chat">
-        <header><div><p class="eyebrow">CONVERSATION</p><h2>和 Hikari 对话</h2></div></header>
-        <div class="messages" :aria-busy="chatLoading">
-          <div v-for="(item, index) in messages" :key="index" class="message-row" :class="item.role">
-            <span class="chat-avatar" :aria-label="item.role === 'agent' ? 'Hikari' : '我'">{{ item.role === 'agent' ? 'H' : '我' }}</span>
-            <div class="message" :class="item.role">
-              <div v-if="item.role === 'agent'" class="markdown-body" v-html="renderMarkdown(stripReferenceSection(item.text))"></div><span v-else>{{ item.text }}</span>
-              <nav v-if="item.role === 'agent' && extractReferenceSources(item.text).length" class="message-sources" aria-label="参考来源">
+        <header>
+          <div>
+            <p class="eyebrow">
+              CONVERSATION
+            </p><h2>和 Hikari 对话</h2>
+          </div>
+        </header>
+        <div
+          class="messages"
+          :aria-busy="chatLoading"
+        >
+          <div
+            v-for="(item, index) in messages"
+            :key="index"
+            class="message-row"
+            :class="item.role"
+          >
+            <span
+              class="chat-avatar"
+              :aria-label="item.role === 'agent' ? 'Hikari' : '我'"
+            >{{ item.role === 'agent' ? 'H' : '我' }}</span>
+            <div
+              class="message"
+              :class="item.role"
+            >
+              <div
+                v-if="item.role === 'agent'"
+                class="markdown-body"
+                v-html="renderMarkdown(stripReferenceSection(item.text))"
+              /><span v-else>{{ item.text }}</span>
+              <nav
+                v-if="item.role === 'agent' && extractReferenceSources(item.text).length"
+                class="message-sources"
+                aria-label="参考来源"
+              >
                 <span>参考来源</span>
-                <a v-for="source in extractReferenceSources(item.text)" :key="source.url" :href="source.url" target="_blank" rel="noopener noreferrer">{{ source.title }}</a>
+                <a
+                  v-for="source in extractReferenceSources(item.text)"
+                  :key="source.url"
+                  :href="source.url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >{{ source.title }}</a>
               </nav>
-              <small v-if="item.role === 'agent' && item.auditStatus" :class="['audit-mark', item.auditStatus]">审核 {{ item.auditStatus === 'pass' ? '通过' : '未通过' }}<i v-if="item.auditReason"> · {{ item.auditReason }}</i></small>
+              <small
+                v-if="item.role === 'agent' && item.auditStatus"
+                :class="['audit-mark', item.auditStatus]"
+              >审核 {{ item.auditStatus === 'pass' ? '通过' : '未通过' }}<i v-if="item.auditReason"> · {{ item.auditReason }}</i></small>
             </div>
           </div>
-          <div v-if="chatLoading" class="message-row agent">
-            <span class="chat-avatar" aria-label="Hikari">H</span>
-            <div class="message agent typing"><i></i><span>Hikari 正在思考并核对旅途信息…</span></div>
+          <div
+            v-if="chatLoading"
+            class="message-row agent"
+          >
+            <span
+              class="chat-avatar"
+              aria-label="Hikari"
+            >H</span>
+            <div class="message agent typing">
+              <i /><span>Hikari 正在思考并核对旅途信息…</span>
+            </div>
           </div>
         </div>
-        <form class="composer" @submit.prevent="send"><input v-model="message" :disabled="chatLoading || !tripId" placeholder="问问 Hikari 当前安排、提醒或附近建议…"><button :disabled="chatLoading || !tripId">{{ chatLoading ? '等待回复…' : '发送' }}</button></form>
+        <form
+          class="composer"
+          @submit.prevent="send"
+        >
+          <input
+            v-model="message"
+            :disabled="chatLoading || !tripId"
+            placeholder="问问 Hikari 当前安排、提醒或附近建议…"
+          ><button :disabled="chatLoading || !tripId">
+            {{ chatLoading ? '等待回复…' : '发送' }}
+          </button>
+        </form>
       </section>
 
       <aside class="side-stack">
         <section class="card advice-card">
-          <header><div><p class="eyebrow">ADVICE</p><h2>调整建议</h2></div></header>
+          <header>
+            <div>
+              <p class="eyebrow">
+                ADVICE
+              </p><h2>调整建议</h2>
+            </div>
+          </header>
           <div class="advice-entry">
             <p>在弹窗内说明变化、查看候选日程并完成采纳或修改。</p>
-            <button class="primary" :disabled="loading || !tripId" @click="openAdjustment">{{ pendingManualAdvice ? '继续处理候选方案' : '调整行程' }}</button>
-            <button v-if="pendingAutomaticAdvice" class="pending-change" type="button" @click="openAutomaticAdvice(pendingAutomaticAdvice)"><span>有一条自动变化等待确认</span><b>进入处理 →</b></button>
-            <details v-if="legacyFailedAdvice" class="audit-failure-summary"><summary>最近一次调整未生成成功</summary><p class="audit-failure-only">{{ legacyFailedAdvice.audit_reason || stripThink(legacyFailedAdvice.advice_text) }}</p></details>
+            <button
+              class="primary"
+              :disabled="loading || !tripId"
+              @click="openAdjustment"
+            >
+              {{ pendingManualAdvice ? '继续处理候选方案' : '调整行程' }}
+            </button>
+            <button
+              v-if="pendingAutomaticAdvice"
+              class="pending-change"
+              type="button"
+              @click="openAutomaticAdvice(pendingAutomaticAdvice)"
+            >
+              <span>有一条自动变化等待确认</span><b>进入处理 →</b>
+            </button>
+            <details
+              v-if="legacyFailedAdvice"
+              class="audit-failure-summary"
+            >
+              <summary>最近一次调整未生成成功</summary><p class="audit-failure-only">
+                {{ legacyFailedAdvice.audit_reason || stripThink(legacyFailedAdvice.advice_text) }}
+              </p>
+            </details>
           </div>
         </section>
-
+        <MemoPanel
+          :memos="memos"
+          :items="filteredMemos"
+          :filter="memoFilter"
+          :disabled="!tripId"
+          :format-date="formatDate"
+          @update:filter="memoFilter = $event"
+          @create="openMemoDialog"
+          @edit="editMemo"
+          @remove="requestDelete('memo', $event.memo_id, $event.memo_text)"
+        />
       </aside>
     </div>
 
     <div class="tool-grid">
-      <section class="card tool">
-        <header><div><p class="eyebrow">MEMOS</p><h2>旅途备忘</h2></div><div class="header-tools"><label>筛选<select v-model="memoFilter"><option value="all">全部</option><option value="pending">待提醒</option><option value="sent">已发送</option><option value="unscheduled">无定时</option></select></label><button class="header-action" :disabled="!tripId" @click="openMemoDialog">添加备忘</button></div></header>
-        <div v-for="item in filteredMemos" :key="item.memo_id" class="data-row"><div><b>{{ item.memo_text }}</b><small>提醒：{{ formatDate(item.reminder_time) }}<i v-if="item.reminded_at"> · 已发送</i></small></div><div class="row-actions"><button class="quiet" @click="editMemo(item)">编辑</button><button class="delete-button" @click="requestDelete('memo', item.memo_id, item.memo_text)">删除</button></div></div>
-        <p v-if="!filteredMemos.length" class="muted">{{ memos.length ? '当前筛选下没有备忘。' : '暂无备忘。' }}</p>
+      <section
+        v-if="false"
+        class="card tool"
+      >
+        <header>
+          <div>
+            <p class="eyebrow">
+              MEMOS
+            </p><h2>旅途备忘</h2>
+          </div><div class="header-tools">
+            <label>筛选<select v-model="memoFilter"><option value="all">全部</option><option value="pending">待提醒</option><option value="sent">已发送</option><option value="unscheduled">无定时</option></select></label><button
+              class="header-action"
+              :disabled="!tripId"
+              @click="openMemoDialog"
+            >
+              添加备忘
+            </button>
+          </div>
+        </header>
+        <div
+          v-for="item in filteredMemos"
+          :key="item.memo_id"
+          class="data-row"
+        >
+          <div><b>{{ item.memo_text }}</b><small>提醒：{{ formatDate(item.reminder_time) }}<i v-if="item.reminded_at"> · 已发送</i></small></div><div class="row-actions">
+            <button
+              class="quiet"
+              @click="editMemo(item)"
+            >
+              编辑
+            </button><button
+              class="delete-button"
+              @click="requestDelete('memo', item.memo_id, item.memo_text)"
+            >
+              删除
+            </button>
+          </div>
+        </div>
+        <p
+          v-if="!filteredMemos.length"
+          class="muted"
+        >
+          {{ memos.length ? '当前筛选下没有备忘。' : '暂无备忘。' }}
+        </p>
       </section>
 
       <section class="card tool itinerary-tool">
-        <header><div><p class="eyebrow">ITINERARY</p><h2>实时日程</h2></div><div class="header-tools"><label>筛选<select v-model="itineraryFilter"><option value="all">全部</option><option value="upcoming">待开始</option><option value="ongoing">进行中</option><option value="change_pending">变更待确认</option><option value="completed">已完成</option><option value="cancelled">已取消</option></select></label><button class="header-action" :disabled="!tripId" @click="openItineraryDialog">添加日程</button></div></header>
-        <div v-for="item in filteredItineraries" :key="item.itinerary_id" class="data-row itinerary-row" :class="`state-${itineraryState(item)}`"><div><div class="tag-line"><span>{{ item.itinerary_type === 'transit' ? '交通' : '游玩' }}</span><i class="itinerary-status" :class="itineraryState(item)">{{ itineraryLifecycleLabel[itineraryState(item)] }}</i><em v-if="item.is_initial">当日首项</em></div><b>{{ item.title }} · {{ item.place_name }}</b><small>{{ formatDate(item.start_time) }} — {{ formatDate(item.end_time) }}<br>提醒：{{ formatDate(item.reminder_time) }}<i v-if="item.reminded_at"> · 已发送</i></small></div><div class="row-actions"><button class="quiet" @click="editItinerary(item)">编辑</button><button class="delete-button" @click="requestDelete('itinerary', item.itinerary_id, item.title)">删除</button></div></div>
-        <p v-if="!filteredItineraries.length" class="muted">{{ itineraries.length ? '当前筛选下没有日程。' : '暂无实时日程。' }}</p>
+        <header>
+          <div>
+            <p class="eyebrow">
+              ITINERARY
+            </p><h2>实时日程</h2>
+          </div><div class="header-tools">
+            <label>筛选<select v-model="itineraryFilter"><option value="all">全部</option><option value="upcoming">待开始</option><option value="ongoing">进行中</option><option value="change_pending">变更待确认</option><option value="completed">已完成</option><option value="cancelled">已取消</option></select></label><button
+              class="header-action"
+              :disabled="!tripId"
+              @click="openItineraryDialog"
+            >
+              添加日程
+            </button>
+          </div>
+        </header>
+        <div
+          v-if="itineraryDates.length"
+          class="itinerary-day-bar"
+          aria-label="选择日程日期"
+        >
+          <button
+            v-for="date in itineraryDates"
+            :key="date"
+            type="button"
+            :class="{ active: selectedItineraryDate === date }"
+            @click="selectedItineraryDate = date"
+          >
+            {{ date.slice(5).replace('-', '月') }}日
+          </button>
+          <button
+            v-if="currentPlan"
+            class="sync-plan-button"
+            type="button"
+            :disabled="syncingPlanItineraries"
+            @click="syncGeneratedItineraries"
+          >
+            {{ syncingPlanItineraries ? '正在导入…' : '从旅行规划导入' }}
+          </button>
+        </div>
+        <p
+          v-if="planSyncMessage"
+          class="plan-sync-message"
+        >
+          {{ planSyncMessage }}
+        </p>
+        <div
+          v-for="item in displayedItineraries"
+          :key="item.itinerary_id"
+          class="data-row itinerary-row"
+          :class="`state-${itineraryState(item)}`"
+        >
+          <div>
+            <div class="tag-line">
+              <span>{{ item.itinerary_type === 'transit' ? '交通' : '游玩' }}</span><i
+                class="itinerary-status"
+                :class="itineraryState(item)"
+              >{{ itineraryLifecycleLabel[itineraryState(item)] }}</i><em v-if="item.is_initial">当日首项</em>
+            </div><b>{{ item.title }} · {{ item.place_name }}</b><small>{{ formatDate(item.start_time) }} — {{ formatDate(item.end_time) }}<br>提醒：{{ formatDate(item.reminder_time) }}<i v-if="item.reminded_at"> · 已发送</i></small>
+          </div><div class="row-actions">
+            <button
+              class="quiet"
+              @click="editItinerary(item)"
+            >
+              编辑
+            </button><button
+              class="delete-button"
+              @click="requestDelete('itinerary', item.itinerary_id, item.title)"
+            >
+              删除
+            </button>
+          </div>
+        </div>
+        <p
+          v-if="!displayedItineraries.length"
+          class="muted"
+        >
+          {{ itineraries.length ? '当天没有符合条件的日程。' : '暂无实时日程。' }}
+        </p>
       </section>
     </div>
 
     <Teleport to="body">
-      <div v-if="adjustment.open" class="adjustment-overlay" role="presentation">
-        <section class="adjustment-dialog" role="dialog" aria-modal="true" aria-labelledby="adjustment-title">
+      <div
+        v-if="adjustment.open"
+        class="adjustment-overlay"
+        role="presentation"
+      >
+        <section
+          class="adjustment-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="adjustment-title"
+        >
           <header class="dialog-header">
-            <div><p class="eyebrow">ITINERARY ADJUSTMENT</p><h2 id="adjustment-title">{{ adjustment.mode === 'automatic' ? '处理自动变化' : '调整行程' }}</h2></div>
-            <button class="dialog-close" :disabled="loading" aria-label="关闭调整弹窗" @click="closeAdjustment">×</button>
+            <div>
+              <p class="eyebrow">
+                ITINERARY ADJUSTMENT
+              </p><h2 id="adjustment-title">
+                {{ adjustment.mode === 'automatic' ? '处理自动变化' : '调整行程' }}
+              </h2>
+            </div>
+            <button
+              class="dialog-close"
+              :disabled="loading"
+              aria-label="关闭调整弹窗"
+              @click="closeAdjustment"
+            >
+              ×
+            </button>
           </header>
 
           <div class="dialog-body">
-            <p v-if="adjustmentError" class="audit-failure-only">{{ adjustmentError }}</p>
-            <div v-if="loading && adjustmentOperation" class="adjustment-progress" role="status" aria-live="polite"><span></span><div><b>{{ adjustmentOperation }}</b><small>请求已经发送，请不要重复点击或关闭页面。</small></div></div>
+            <p
+              v-if="adjustmentError"
+              class="audit-failure-only"
+            >
+              {{ adjustmentError }}
+            </p>
+            <div
+              v-if="loading && adjustmentOperation"
+              class="adjustment-progress"
+              role="status"
+              aria-live="polite"
+            >
+              <span /><div><b>{{ adjustmentOperation }}</b><small>请求已经发送，请不要重复点击或关闭页面。</small></div>
+            </div>
 
             <template v-if="adjustment.stage === 'auto-confirm'">
               <div class="system-change">
                 <span>系统自动提示</span>
-                <div class="markdown-body compact" v-html="renderMarkdown(adjustment.systemNotice)"></div>
+                <div
+                  class="markdown-body compact"
+                  v-html="renderMarkdown(adjustment.systemNotice)"
+                />
               </div>
-              <p class="dialog-hint">是否根据这项变化重新生成一份待确认的行程方案？</p>
+              <p class="dialog-hint">
+                是否根据这项变化重新生成一份待确认的行程方案？
+              </p>
               <div class="dialog-actions automatic-resolution-actions">
-                <button class="danger-soft" :disabled="loading" @click="resolveAutomaticAdjustment('cancel_original')">取消原行程</button>
-                <button class="quiet" :disabled="loading" @click="resolveAutomaticAdjustment('keep_original')">保留原行程</button>
-                <button class="primary" :disabled="loading" @click="continueAutomaticAdjustment">同意更改</button>
+                <button
+                  class="danger-soft"
+                  :disabled="loading"
+                  @click="resolveAutomaticAdjustment('cancel_original')"
+                >
+                  取消原行程
+                </button>
+                <button
+                  class="quiet"
+                  :disabled="loading"
+                  @click="resolveAutomaticAdjustment('keep_original')"
+                >
+                  保留原行程
+                </button>
+                <button
+                  class="primary"
+                  :disabled="loading"
+                  @click="continueAutomaticAdjustment"
+                >
+                  同意更改
+                </button>
               </div>
             </template>
 
             <template v-else-if="adjustment.stage === 'request'">
-              <div v-if="adjustment.mode === 'automatic'" class="request-fields">
-                <label>系统自动提示<textarea :value="adjustment.systemNotice" readonly></textarea></label>
-                <label>用户补充<textarea v-model="adjustment.supplement" placeholder="可选：补充时间、地点或偏好"></textarea></label>
+              <div
+                v-if="adjustment.mode === 'automatic'"
+                class="request-fields"
+              >
+                <label>系统自动提示<textarea
+                  :value="adjustment.systemNotice"
+                  readonly
+                /></label>
+                <label>用户补充<textarea
+                  v-model="adjustment.supplement"
+                  placeholder="可选：补充时间、地点或偏好"
+                /></label>
               </div>
-              <div v-else class="request-fields single-field">
-                <label>调整要求<textarea v-model="adjustment.requirement" autofocus placeholder="例如：把明天下午的室外活动改成室内活动"></textarea></label>
+              <div
+                v-else
+                class="request-fields single-field"
+              >
+                <label>调整要求<textarea
+                  v-model="adjustment.requirement"
+                  autofocus
+                  placeholder="例如：把明天下午的室外活动改成室内活动"
+                /></label>
               </div>
               <section class="conflict-picker">
-                <div class="conflict-picker-head"><div><b>选择可能冲突的日程</b><small>只允许候选方案替换勾选项；未勾选日程必须保持不变。</small></div><span>{{ adjustment.selectedItineraryIds.length }} 项已选</span></div>
-                <div v-if="adjustableItineraries.length" class="conflict-list">
-                  <label v-for="item in adjustableItineraries" :key="item.itinerary_id" class="conflict-choice" :class="{ locked: adjustment.lockedItineraryIds.includes(item.itinerary_id) }">
-                    <input :checked="adjustment.selectedItineraryIds.includes(item.itinerary_id)" :disabled="adjustment.lockedItineraryIds.includes(item.itinerary_id)" type="checkbox" @change="changeConflict(item.itinerary_id, $event)">
+                <div class="conflict-picker-head">
+                  <div><b>选择可能冲突的日程</b><small>只允许候选方案替换勾选项；未勾选日程必须保持不变。</small></div><span>{{ adjustment.selectedItineraryIds.length }} 项已选</span>
+                </div>
+                <div
+                  v-if="adjustableItineraries.length"
+                  class="conflict-list"
+                >
+                  <label
+                    v-for="item in adjustableItineraries"
+                    :key="item.itinerary_id"
+                    class="conflict-choice"
+                    :class="{ locked: adjustment.lockedItineraryIds.includes(item.itinerary_id) }"
+                  >
+                    <input
+                      :checked="adjustment.selectedItineraryIds.includes(item.itinerary_id)"
+                      :disabled="adjustment.lockedItineraryIds.includes(item.itinerary_id)"
+                      type="checkbox"
+                      @change="changeConflict(item.itinerary_id, $event)"
+                    >
                     <span><b>{{ item.title }}</b><small>{{ item.place_name }} · {{ formatDate(item.start_time) }} — {{ formatDate(item.end_time) }} · {{ itineraryLifecycleLabel[itineraryState(item)] }}</small></span>
                     <em v-if="adjustment.lockedItineraryIds.includes(item.itinerary_id)">系统冲突 · 已锁定</em>
                   </label>
                 </div>
-                <p v-else class="conflict-empty">当前没有可调整的待执行日程。Hikari 只会在不影响现有安排的空档中推荐。</p>
-                <p v-if="!adjustment.selectedItineraryIds.length" class="conflict-tip">未选择冲突项：Hikari 不会取消或改动任何已有日程，只能在可用空档中新增建议。</p>
+                <p
+                  v-else
+                  class="conflict-empty"
+                >
+                  当前没有可调整的待执行日程。Hikari 只会在不影响现有安排的空档中推荐。
+                </p>
+                <p
+                  v-if="!adjustment.selectedItineraryIds.length"
+                  class="conflict-tip"
+                >
+                  未选择冲突项：Hikari 不会取消或改动任何已有日程，只能在可用空档中新增建议。
+                </p>
               </section>
               <div class="dialog-actions">
-                <button class="quiet" :disabled="loading" @click="closeAdjustment">取消</button>
-                <button class="primary" :disabled="loading || (adjustment.mode === 'manual' && !adjustment.requirement.trim())" @click="submitAdjustmentRequest">{{ loading ? '正在生成…' : '生成候选方案' }}</button>
+                <button
+                  class="quiet"
+                  :disabled="loading"
+                  @click="closeAdjustment"
+                >
+                  取消
+                </button>
+                <button
+                  class="primary"
+                  :disabled="loading || (adjustment.mode === 'manual' && !adjustment.requirement.trim())"
+                  @click="submitAdjustmentRequest"
+                >
+                  {{ loading ? '正在生成…' : '生成候选方案' }}
+                </button>
               </div>
             </template>
 
             <template v-else-if="adjustment.stage === 'candidate' && activeCandidate">
               <div class="candidate-heading">
-                <div class="tag-line"><span>{{ adviceType(activeCandidate.advice_type) }}</span><i>{{ adviceResult(activeCandidate.result) }}</i></div>
+                <div class="tag-line">
+                  <span>{{ adviceType(activeCandidate.advice_type) }}</span><i>{{ adviceResult(activeCandidate.result) }}</i>
+                </div>
                 <small>方案尚未写入实时日程</small>
               </div>
-              <p v-if="activeCandidate.audit_status === 'failed'" class="audit-failure-only">{{ activeCandidate.audit_reason || stripThink(activeCandidate.advice_text) }}</p>
-              <div v-else class="candidate-content markdown-body" v-html="renderMarkdown(stripThink(activeCandidate.advice_text))"></div>
+              <p
+                v-if="activeCandidate.audit_status === 'failed'"
+                class="audit-failure-only"
+              >
+                {{ activeCandidate.audit_reason || stripThink(activeCandidate.advice_text) }}
+              </p>
+              <div
+                v-else
+                class="candidate-content markdown-body"
+                v-html="renderMarkdown(stripThink(activeCandidate.advice_text))"
+              />
               <div class="dialog-actions candidate-actions">
                 <template v-if="adjustment.mode === 'automatic'">
-                  <button class="danger-soft" :disabled="loading" @click="resolveAutomaticAdjustment('cancel_original')">取消原行程</button>
-                  <button class="quiet" :disabled="loading" @click="resolveAutomaticAdjustment('keep_original')">保留原行程</button>
+                  <button
+                    class="danger-soft"
+                    :disabled="loading"
+                    @click="resolveAutomaticAdjustment('cancel_original')"
+                  >
+                    取消原行程
+                  </button>
+                  <button
+                    class="quiet"
+                    :disabled="loading"
+                    @click="resolveAutomaticAdjustment('keep_original')"
+                  >
+                    保留原行程
+                  </button>
                 </template>
-                <button v-else class="quiet" :disabled="loading" @click="rejectCandidate">放弃方案</button>
-                <button class="quiet" :disabled="loading" @click="adjustment.stage = 'revision'">进一步修改</button>
-                <button class="primary" :disabled="loading || activeCandidate.audit_status !== 'pass'" @click="acceptCandidate">采纳并更新日程</button>
+                <button
+                  v-else
+                  class="quiet"
+                  :disabled="loading"
+                  @click="rejectCandidate"
+                >
+                  放弃方案
+                </button>
+                <button
+                  class="quiet"
+                  :disabled="loading"
+                  @click="adjustment.stage = 'revision'"
+                >
+                  进一步修改
+                </button>
+                <button
+                  class="primary"
+                  :disabled="loading || activeCandidate.audit_status !== 'pass'"
+                  @click="acceptCandidate"
+                >
+                  采纳并更新日程
+                </button>
               </div>
             </template>
 
             <template v-else-if="adjustment.stage === 'revision' && activeCandidate">
-              <div class="candidate-summary markdown-body compact" v-html="renderMarkdown(stripThink(activeCandidate.advice_text))"></div>
-              <label class="revision-field">进一步修改要求<textarea v-model="adjustment.revision" autofocus placeholder="例如：不要安排博物馆，改为室内运动"></textarea></label>
+              <div
+                class="candidate-summary markdown-body compact"
+                v-html="renderMarkdown(stripThink(activeCandidate.advice_text))"
+              />
+              <label class="revision-field">进一步修改要求<textarea
+                v-model="adjustment.revision"
+                autofocus
+                placeholder="例如：不要安排博物馆，改为室内运动"
+              /></label>
               <div class="dialog-actions">
-                <button class="quiet" :disabled="loading" @click="adjustment.stage = 'candidate'">返回方案</button>
-                <button class="primary" :disabled="loading || !adjustment.revision.trim()" @click="reviseCandidate">重新生成</button>
+                <button
+                  class="quiet"
+                  :disabled="loading"
+                  @click="adjustment.stage = 'candidate'"
+                >
+                  返回方案
+                </button>
+                <button
+                  class="primary"
+                  :disabled="loading || !adjustment.revision.trim()"
+                  @click="reviseCandidate"
+                >
+                  重新生成
+                </button>
               </div>
             </template>
           </div>
@@ -1151,35 +1704,105 @@ onUnmounted(() => {
     </Teleport>
 
     <Teleport to="body">
-      <div v-if="reminderDialogOpen" class="adjustment-overlay" role="presentation">
-        <section class="adjustment-dialog notification-dialog" role="dialog" aria-modal="true" aria-labelledby="notification-dialog-title">
+      <div
+        v-if="reminderDialogOpen"
+        class="adjustment-overlay"
+        role="presentation"
+      >
+        <section
+          class="adjustment-dialog notification-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="notification-dialog-title"
+        >
           <header class="dialog-header">
-            <div><p class="eyebrow">REMINDER INBOX</p><h2 id="notification-dialog-title">自动提醒</h2></div>
-            <button class="dialog-close" aria-label="关闭提醒弹窗" @click="reminderDialogOpen = false">×</button>
+            <div>
+              <p class="eyebrow">
+                REMINDER INBOX
+              </p><h2 id="notification-dialog-title">
+                自动提醒
+              </h2>
+            </div>
+            <button
+              class="dialog-close"
+              aria-label="关闭提醒弹窗"
+              @click="reminderDialogOpen = false"
+            >
+              ×
+            </button>
           </header>
           <div class="inbox-toolbar">
             <div><b>{{ currentTripNotifications.length }}</b> 条消息<span v-if="unreadCount"> · {{ unreadCount }} 条未读</span><span v-else> · 已全部读完</span></div>
             <div class="inbox-actions">
-              <label><input v-model="unreadOnly" type="checkbox">仅看未读</label>
-              <button class="quiet" :disabled="notificationBusy || !unreadCount" @click="markAllNotificationsRead">全部标为已读</button>
+              <label><input
+                v-model="unreadOnly"
+                type="checkbox"
+              >仅看未读</label>
+              <button
+                class="quiet"
+                :disabled="notificationBusy || !unreadCount"
+                @click="markAllNotificationsRead"
+              >
+                全部标为已读
+              </button>
             </div>
           </div>
           <div class="inbox-list">
-            <p v-if="reminderError" class="audit-failure-only">{{ reminderError }}</p>
-            <article v-for="item in visibleNotifications" :key="item.notification_id" class="mail-row" :class="{ unread: !item.read_at }">
-              <span class="mail-state-dot" aria-hidden="true"></span>
+            <p
+              v-if="reminderError"
+              class="audit-failure-only"
+            >
+              {{ reminderError }}
+            </p>
+            <article
+              v-for="item in visibleNotifications"
+              :key="item.notification_id"
+              class="mail-row"
+              :class="{ unread: !item.read_at }"
+            >
+              <span
+                class="mail-state-dot"
+                aria-hidden="true"
+              />
               <div class="mail-content">
-                <div class="mail-meta"><b>{{ notificationType(item.category) }}</b><time>{{ formatDate(item.created_at) }}</time></div>
-                <div class="markdown-body compact" v-html="renderMarkdown(stripThink(item.content))"></div>
+                <div class="mail-meta">
+                  <b>{{ notificationType(item.category) }}</b><time>{{ formatDate(item.created_at) }}</time>
+                </div>
+                <div
+                  class="markdown-body compact"
+                  v-html="renderMarkdown(stripThink(item.content))"
+                />
               </div>
               <div class="mail-row-actions">
-                <span v-if="notificationAdviceStatus(item)" class="advice-state" :class="{ pending: notificationIsActionable(item) }">{{ notificationAdviceStatus(item) }}</span>
-                <button v-if="notificationIsActionable(item)" class="mail-advice-action" @click="openNotificationAdjustment(item)">处理变化 →</button>
-                <button v-else-if="!item.read_at" class="mail-read-action" @click="markRead(item)">标为已读</button>
-                <span v-else class="read-state">已读</span>
+                <span
+                  v-if="notificationAdviceStatus(item)"
+                  class="advice-state"
+                  :class="{ pending: notificationIsActionable(item) }"
+                >{{ notificationAdviceStatus(item) }}</span>
+                <button
+                  v-if="notificationIsActionable(item)"
+                  class="mail-advice-action"
+                  @click="openNotificationAdjustment(item)"
+                >
+                  处理变化 →
+                </button>
+                <button
+                  v-else-if="!item.read_at"
+                  class="mail-read-action"
+                  @click="markRead(item)"
+                >
+                  标为已读
+                </button>
+                <span
+                  v-else
+                  class="read-state"
+                >已读</span>
               </div>
             </article>
-            <div v-if="!visibleNotifications.length" class="inbox-empty">
+            <div
+              v-if="!visibleNotifications.length"
+              class="inbox-empty"
+            >
               <span>✓</span><b>{{ unreadOnly ? '没有未读提醒' : '还没有自动提醒' }}</b><small>{{ unreadOnly ? '所有消息都已处理。' : '系统产生提醒后会集中显示在这里。' }}</small>
             </div>
           </div>
@@ -1188,53 +1811,248 @@ onUnmounted(() => {
     </Teleport>
 
     <Teleport to="body">
-      <div v-if="memoDialogOpen" class="adjustment-overlay" role="presentation">
-        <section class="adjustment-dialog entry-dialog memo-dialog" role="dialog" aria-modal="true" aria-labelledby="memo-dialog-title">
+      <div
+        v-if="memoDialogOpen"
+        class="adjustment-overlay"
+        role="presentation"
+      >
+        <section
+          class="adjustment-dialog entry-dialog memo-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="memo-dialog-title"
+        >
           <header class="dialog-header">
-            <div><p class="eyebrow">MEMO</p><h2 id="memo-dialog-title">{{ memoEditingId ? '编辑旅途备忘' : '新增旅途备忘' }}</h2></div>
-            <button class="dialog-close" aria-label="关闭备忘弹窗" @click="closeMemoDialog">×</button>
-          </header>
-          <form class="dialog-body modal-form" @submit.prevent="saveMemo">
-            <p v-if="error" class="audit-failure-only">{{ error }}</p>
-            <label>备忘内容<textarea v-model="memoDraft.memo_text" autofocus placeholder="例如：出发前带好证件和充电宝"></textarea></label>
-            <p v-if="memoFormError" class="form-error" role="alert">{{ memoFormError }}</p>
-            <fieldset class="date-time-field"><legend>提醒时间（可选）</legend><label class="date-picker-field">日期<DatePicker v-model="memoDraft.reminder_date" label="备忘提醒日期" :min="currentTrip?.start_date" :max="currentTrip?.end_date" /></label><label>时间<TimeSelect v-model="memoDraft.reminder_clock" label="备忘提醒" /></label></fieldset>
-            <div class="dialog-actions"><button class="quiet" type="button" @click="closeMemoDialog">取消</button><button class="primary" :disabled="!memoDraft.memo_text.trim()">{{ memoEditingId ? '保存修改' : '添加备忘' }}</button></div>
-          </form>
-        </section>
-      </div>
-
-      <div v-if="itineraryDialogOpen" class="adjustment-overlay" role="presentation">
-        <section class="adjustment-dialog entry-dialog itinerary-dialog" role="dialog" aria-modal="true" aria-labelledby="itinerary-dialog-title">
-          <header class="dialog-header">
-            <div><p class="eyebrow">ITINERARY</p><h2 id="itinerary-dialog-title">{{ itineraryEditingId ? '编辑实时日程' : '新增实时日程' }}</h2></div>
-            <button class="dialog-close" aria-label="关闭日程弹窗" @click="closeItineraryDialog">×</button>
-          </header>
-          <form class="dialog-body modal-form" @submit.prevent="saveItinerary">
-            <p v-if="error" class="audit-failure-only">{{ error }}</p>
-            <div class="itinerary-form-grid">
-              <label>事项名称<input v-model="itineraryDraft.title" autofocus placeholder="例如：参观博物馆"></label>
-              <label>地点<input v-model="itineraryDraft.place_name" placeholder="填写具体地点"></label>
-              <p v-if="itineraryFormError" class="form-error wide-field" role="alert">{{ itineraryFormError }}</p>
-              <fieldset class="date-time-field"><legend>开始时间</legend><label class="date-picker-field">日期<DatePicker v-model="itineraryDraft.start_date" label="日程开始日期" :min="currentTrip?.start_date" :max="currentTrip?.end_date" /></label><label>时间<TimeSelect v-model="itineraryDraft.start_clock" label="日程开始" /></label></fieldset>
-              <fieldset class="date-time-field"><legend>结束时间</legend><label class="date-picker-field">日期<DatePicker v-model="itineraryDraft.end_date" label="日程结束日期" :min="currentTrip?.start_date" :max="currentTrip?.end_date" /></label><label>时间<TimeSelect v-model="itineraryDraft.end_clock" label="日程结束" /></label></fieldset>
-              <label>日程类型<select v-model="itineraryDraft.itinerary_type"><option value="play">游玩</option><option value="transit">交通</option></select></label>
-              <label>执行状态<select v-model="itineraryDraft.status"><option value="pending">待执行</option><option value="change_pending" disabled>变更待确认（系统）</option><option value="done">已完成</option><option value="cancelled">已取消</option></select></label>
-              <fieldset class="date-time-field wide-field"><legend>提醒时间</legend><label class="date-picker-field">日期<DatePicker v-model="itineraryDraft.reminder_date" label="日程提醒日期" :min="currentTrip?.start_date" :max="currentTrip?.end_date" /></label><label>时间<TimeSelect v-model="itineraryDraft.reminder_clock" label="日程提醒" /></label><div class="time-shortcuts"><button class="quiet" type="button" @click="reminderSameAsStart">同开始时间</button><button class="quiet" type="button" @click="clearItineraryReminder">清空提醒</button></div><small>可以早于开始时间，例如 10:30 开始、09:30 提醒；不得晚于开始时间。</small></fieldset>
+            <div>
+              <p class="eyebrow">
+                MEMO
+              </p><h2 id="memo-dialog-title">
+                {{ memoEditingId ? '编辑旅途备忘' : '新增旅途备忘' }}
+              </h2>
             </div>
-            <div class="dialog-actions"><button class="quiet" type="button" @click="closeItineraryDialog">取消</button><button class="primary">{{ itineraryEditingId ? '保存修改' : '添加日程' }}</button></div>
+            <button
+              class="dialog-close"
+              aria-label="关闭备忘弹窗"
+              @click="closeMemoDialog"
+            >
+              ×
+            </button>
+          </header>
+          <form
+            class="dialog-body modal-form"
+            @submit.prevent="saveMemo"
+          >
+            <p
+              v-if="error"
+              class="audit-failure-only"
+            >
+              {{ error }}
+            </p>
+            <label>备忘内容<textarea
+              v-model="memoDraft.memo_text"
+              autofocus
+              placeholder="例如：出发前带好证件和充电宝"
+            /></label>
+            <p
+              v-if="memoFormError"
+              class="form-error"
+              role="alert"
+            >
+              {{ memoFormError }}
+            </p>
+            <fieldset class="date-time-field">
+              <legend>提醒时间（可选）</legend><label class="date-picker-field">日期<DatePicker
+                v-model="memoDraft.reminder_date"
+                label="备忘提醒日期"
+                :min="currentTrip?.start_date"
+                :max="currentTrip?.end_date"
+              /></label><label>时间<TimeSelect
+                v-model="memoDraft.reminder_clock"
+                label="备忘提醒"
+              /></label>
+            </fieldset>
+            <div class="dialog-actions">
+              <button
+                class="quiet"
+                type="button"
+                @click="closeMemoDialog"
+              >
+                取消
+              </button><button
+                class="primary"
+                :disabled="!memoDraft.memo_text.trim()"
+              >
+                {{ memoEditingId ? '保存修改' : '添加备忘' }}
+              </button>
+            </div>
           </form>
         </section>
       </div>
 
-      <div v-if="deleteTarget" class="adjustment-overlay" role="presentation">
-        <section class="adjustment-dialog confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-dialog-title">
+      <div
+        v-if="itineraryDialogOpen"
+        class="adjustment-overlay"
+        role="presentation"
+      >
+        <section
+          class="adjustment-dialog entry-dialog itinerary-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="itinerary-dialog-title"
+        >
+          <header class="dialog-header">
+            <div>
+              <p class="eyebrow">
+                ITINERARY
+              </p><h2 id="itinerary-dialog-title">
+                {{ itineraryEditingId ? '编辑实时日程' : '新增实时日程' }}
+              </h2>
+            </div>
+            <button
+              class="dialog-close"
+              aria-label="关闭日程弹窗"
+              @click="closeItineraryDialog"
+            >
+              ×
+            </button>
+          </header>
+          <form
+            class="dialog-body modal-form"
+            @submit.prevent="saveItinerary"
+          >
+            <p
+              v-if="error"
+              class="audit-failure-only"
+            >
+              {{ error }}
+            </p>
+            <div class="itinerary-form-grid">
+              <label>事项名称<input
+                v-model="itineraryDraft.title"
+                autofocus
+                placeholder="例如：参观博物馆"
+              ></label>
+              <label>地点<input
+                v-model="itineraryDraft.place_name"
+                placeholder="填写具体地点"
+              ></label>
+              <p
+                v-if="itineraryFormError"
+                class="form-error wide-field"
+                role="alert"
+              >
+                {{ itineraryFormError }}
+              </p>
+              <fieldset class="date-time-field">
+                <legend>开始时间</legend><label class="date-picker-field">日期<DatePicker
+                  v-model="itineraryDraft.start_date"
+                  label="日程开始日期"
+                  :min="currentTrip?.start_date"
+                  :max="currentTrip?.end_date"
+                /></label><label>时间<TimeSelect
+                  v-model="itineraryDraft.start_clock"
+                  label="日程开始"
+                /></label>
+              </fieldset>
+              <fieldset class="date-time-field">
+                <legend>结束时间</legend><label class="date-picker-field">日期<DatePicker
+                  v-model="itineraryDraft.end_date"
+                  label="日程结束日期"
+                  :min="currentTrip?.start_date"
+                  :max="currentTrip?.end_date"
+                /></label><label>时间<TimeSelect
+                  v-model="itineraryDraft.end_clock"
+                  label="日程结束"
+                /></label>
+              </fieldset>
+              <label>日程类型<select v-model="itineraryDraft.itinerary_type"><option value="play">游玩</option><option value="transit">交通</option></select></label>
+              <label>执行状态<select v-model="itineraryDraft.status"><option value="pending">待执行</option><option
+                value="change_pending"
+                disabled
+              >变更待确认（系统）</option><option value="done">已完成</option><option value="cancelled">已取消</option></select></label>
+              <fieldset class="date-time-field wide-field">
+                <legend>提醒时间</legend><label class="date-picker-field">日期<DatePicker
+                  v-model="itineraryDraft.reminder_date"
+                  label="日程提醒日期"
+                  :min="currentTrip?.start_date"
+                  :max="currentTrip?.end_date"
+                /></label><label>时间<TimeSelect
+                  v-model="itineraryDraft.reminder_clock"
+                  label="日程提醒"
+                /></label><div class="time-shortcuts">
+                  <button
+                    class="quiet"
+                    type="button"
+                    @click="reminderSameAsStart"
+                  >
+                    同开始时间
+                  </button><button
+                    class="quiet"
+                    type="button"
+                    @click="clearItineraryReminder"
+                  >
+                    清空提醒
+                  </button>
+                </div><small>可以早于开始时间，例如 10:30 开始、09:30 提醒；不得晚于开始时间。</small>
+              </fieldset>
+            </div>
+            <div class="dialog-actions">
+              <button
+                class="quiet"
+                type="button"
+                @click="closeItineraryDialog"
+              >
+                取消
+              </button><button class="primary">
+                {{ itineraryEditingId ? '保存修改' : '添加日程' }}
+              </button>
+            </div>
+          </form>
+        </section>
+      </div>
+
+      <div
+        v-if="deleteTarget"
+        class="adjustment-overlay"
+        role="presentation"
+      >
+        <section
+          class="adjustment-dialog confirm-dialog"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="delete-dialog-title"
+        >
           <div class="dialog-body delete-confirmation">
             <span class="danger-symbol">!</span>
-            <div><p class="eyebrow">DELETE</p><h2 id="delete-dialog-title">{{ deleteTarget.kind === 'trip' ? '确认删除计划' : '确认删除' }}</h2></div>
-            <p v-if="error" class="audit-failure-only">{{ error }}</p>
+            <div>
+              <p class="eyebrow">
+                DELETE
+              </p><h2 id="delete-dialog-title">
+                {{ deleteTarget.kind === 'trip' ? '确认删除计划' : '确认删除' }}
+              </h2>
+            </div>
+            <p
+              v-if="error"
+              class="audit-failure-only"
+            >
+              {{ error }}
+            </p>
             <p>将删除“{{ deleteTarget.label }}”{{ deleteTarget.kind === 'trip' ? '及其日程、备忘和陪伴记录，此操作无法撤销。' : '，此操作无法撤销。' }}</p>
-            <div class="dialog-actions split-actions"><button class="quiet" :disabled="loading" @click="deleteTarget = null">取消</button><button class="danger-primary" :disabled="loading" @click="confirmDelete">确认删除{{ deleteTarget.kind === 'trip' ? '计划' : '' }}</button></div>
+            <div class="dialog-actions split-actions">
+              <button
+                class="quiet"
+                :disabled="loading"
+                @click="deleteTarget = null"
+              >
+                取消
+              </button><button
+                class="danger-primary"
+                :disabled="loading"
+                @click="confirmDelete"
+              >
+                确认删除{{ deleteTarget.kind === 'trip' ? '计划' : '' }}
+              </button>
+            </div>
           </div>
         </section>
       </div>
@@ -1258,4 +2076,81 @@ onUnmounted(() => {
 @media(max-width:680px){.companion-page{padding:26px 16px 55px}.hero{display:block;padding:25px 22px}.hero-status{display:none}.active-trip-card{grid-template-columns:1fr;gap:13px;padding:19px}.active-trip-side{grid-template-columns:auto 1fr;align-items:center;justify-items:start}.active-trip-side span{justify-self:end}.active-trip-empty{align-items:flex-start;flex-direction:column;gap:15px;padding:19px}.workspace-bar,.workspace-bar label{align-items:stretch;flex-direction:column}.workspace-bar select{width:100%;min-width:0}.workspace-actions{display:grid;grid-template-columns:1fr 1fr}.notification-inbox-trigger{justify-content:center}.danger-button{grid-column:1/-1}.trip-overview{padding:16px}.trip-overview dl{grid-template-columns:1fr}.trip-overview dl>div{border-left:0;border-top:1px solid #edf2ee;padding:9px 0 0}.inbox-toolbar{align-items:flex-start;flex-direction:column}.inbox-actions{width:100%;justify-content:space-between}.mail-row{grid-template-columns:10px minmax(0,1fr);padding:15px}.mail-row-actions{grid-column:2;justify-items:start}.mail-meta{align-items:flex-start;flex-direction:column;gap:4px}.conflict-picker-head{align-items:stretch;flex-direction:column}.conflict-choice{grid-template-columns:auto minmax(0,1fr)}.conflict-choice em{grid-column:2;justify-self:start}.memo-form,.schedule-form,.location-grid,.request-fields,.itinerary-form-grid,.date-time-field{grid-template-columns:1fr}.itinerary-form-grid .wide-field{grid-column:auto}.date-time-field>small{grid-column:auto}.message{max-width:92%}.message-row{margin:9px 10px}.chat-avatar{width:29px;height:29px;border-radius:9px}.card header{padding:15px}.tool header{align-items:flex-start;gap:10px}.header-tools{align-items:stretch;flex-direction:column}.notification-item{align-items:flex-start}.schedule-actions{align-items:center}.adjustment-overlay{align-items:end;padding:0}.adjustment-dialog{width:100%;max-height:92vh;border-radius:20px 20px 0 0}.dialog-body{padding:18px}.dialog-actions button{min-width:0}.candidate-actions{display:grid;grid-template-columns:1fr 1fr}.candidate-actions .primary{grid-column:1/-1}.row-actions{align-items:stretch;flex-direction:column}}
 .itinerary-dialog{width:min(880px,100%)}
 @media(min-width:681px){.wide-field :deep(.date-picker-popover),.wide-field :deep(.time-picker-popover){top:auto;bottom:calc(100% + 8px)}}
+</style>
+
+<style scoped>
+.main-grid {
+  align-items: stretch;
+}
+
+.side-stack {
+  min-height: 560px;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: stretch;
+}
+
+.tool-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.itinerary-tool {
+  min-height: 360px;
+}
+
+.itinerary-day-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 12px 20px;
+  border-bottom: 1px solid #edf2ee;
+}
+
+.itinerary-day-bar button {
+  flex: 0 0 auto;
+  border: 1px solid #dce8df;
+  border-radius: 999px;
+  padding: 7px 12px;
+  background: #fff;
+  color: #60766a;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.itinerary-day-bar button.active {
+  border-color: #2f8063;
+  background: #2f8063;
+  color: #fff;
+  font-weight: 700;
+}
+
+.itinerary-day-bar .sync-plan-button {
+  margin-left: auto;
+  border-color: #b8d8c3;
+  background: #eef8f1;
+  color: #397458;
+  font-weight: 700;
+}
+
+.itinerary-day-bar .sync-plan-button:disabled {
+  cursor: wait;
+  opacity: .65;
+}
+
+.plan-sync-message {
+  margin: 10px 20px 0;
+  color: #4c8066;
+  font-size: 12px;
+}
+
+@media (max-width: 920px) {
+  .side-stack {
+    min-height: auto;
+    grid-template-rows: auto;
+  }
+
+  .itinerary-day-bar {
+    padding: 11px 14px;
+  }
+}
 </style>

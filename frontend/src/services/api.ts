@@ -70,6 +70,7 @@ export const api = {
   revisePlan: (id: number, revision_request: string) => request<Plan>(`/trip-plans/${id}/revise`, { method: 'POST', body: JSON.stringify({ user_id: requireUserId(), revision_request }) }),
   listPlans: () => request<Plan[]>(`/trip-plans?user_id=${requireUserId()}`),
   getPlan: (id: number) => request<Plan>(`/trip-plans/${id}`),
+  syncPlanItineraries: (id: number) => request<{ created_count: number; itinerary_items: Itinerary[] }>(`/trip-plans/${id}/itineraries/sync`, { method: 'POST' }),
   deletePlan: (id: number) => request<void>(`/trip-plans/${id}`, { method: 'DELETE' }),
   humanizePlan: (id: number) => request<{ natural_language: string }>(`/trip-plans/${id}/humanize`, { method: 'POST', body: JSON.stringify({ user_id: requireUserId() }) }),
   createMaterial: (payload: Record<string, unknown>) => request<BlogMaterial>('/blog/materials', { method: 'POST', body: JSON.stringify({ ...payload, start_date: optionalDate(payload.start_date), end_date: optionalDate(payload.end_date), user_id: requireUserId() }) }),

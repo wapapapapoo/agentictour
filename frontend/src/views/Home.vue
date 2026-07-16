@@ -5,7 +5,7 @@ import PlanHistory from '@/components/PlanHistory.vue'
 import PlanPreviewModal from '@/components/PlanPreviewModal.vue'
 
 const form = ref({ origin_city: '上海', destination_city: '杭州', start_date: '', end_date: '', people_count: '2', budget_total: '4000', interests: '人文街巷、咖啡、自然风光', hotel_level: '舒适型', transport_preference: '高铁优先', pace: '适中', special_requirements: '' })
-const loading = ref(false); const historyLoading = ref(true); const error = ref(''); const plan = ref<Plan | null>(null); const historyPreview = ref<Plan | null>(null); const histories = ref<Plan[]>([]); const revision = ref(''); const naturalLanguage = ref(''); const editingTrip = ref(false); const tripDraft = ref({ id: 0, title: '', origin_city: '', destination_city: '', start_date: '', end_date: '', status: 'planned' }); const publishing = ref(false); const publishMsg = ref('')
+const loading = ref(false); const historyLoading = ref(true); const historyRevisionLoading = ref(false); const historyRevisionError = ref(''); const error = ref(''); const plan = ref<Plan | null>(null); const historyPreview = ref<Plan | null>(null); const histories = ref<Plan[]>([]); const revision = ref(''); const naturalLanguage = ref(''); const editingTrip = ref(false); const tripDraft = ref({ id: 0, title: '', origin_city: '', destination_city: '', start_date: '', end_date: '', status: 'planned' }); const publishing = ref(false); const publishMsg = ref('')
 const today = new Date().toISOString().slice(0, 10)
 function parseJsonObject(source: string): Record<string, unknown> | null {
   const cleaned = source.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/```(?:json)?/gi, '').trim()
@@ -45,6 +45,7 @@ async function revise() { if (!plan.value || !revision.value.trim()) return; loa
 async function humanize() { if (!plan.value) return; loading.value = true; try { naturalLanguage.value = (await api.humanizePlan(plan.value.id)).natural_language } catch (cause) { error.value = cause instanceof Error ? cause.message : '暂时无法生成讲解。' } finally { loading.value = false } }
 function printPlan() { globalThis.print() }
 async function openHistory(item: Plan) { loading.value = true; error.value = ''; try { historyPreview.value = await api.getPlan(item.id) } catch (cause) { error.value = cause instanceof Error ? cause.message : '读取失败。' } finally { loading.value = false } }
+async function reviseHistory(revisionRequest: string) { if (!historyPreview.value || !revisionRequest.trim()) return; historyRevisionLoading.value = true; historyRevisionError.value = ''; try { historyPreview.value = await api.revisePlan(historyPreview.value.id, revisionRequest.trim()); await loadHistory() } catch (cause) { historyRevisionError.value = cause instanceof Error ? cause.message : '调整失败。' } finally { historyRevisionLoading.value = false } }
 async function openTripEditor() { if (!plan.value) return; try { const trip = await api.getTrip(plan.value.trip_id); tripDraft.value = { id: trip.id, title: trip.title, origin_city: trip.origin_city, destination_city: trip.destination_city, start_date: trip.start_date, end_date: trip.end_date, status: trip.status === 'cancelled' ? 'cancelled' : 'planned' }; editingTrip.value = true } catch (cause) { error.value = cause instanceof Error ? cause.message : '无法读取行程详情。' } }
 async function saveTrip() { try { await api.updateTrip(tripDraft.value.id, { title: tripDraft.value.title, origin_city: tripDraft.value.origin_city, destination_city: tripDraft.value.destination_city, start_date: tripDraft.value.start_date, end_date: tripDraft.value.end_date, status: tripDraft.value.status }); editingTrip.value = false; await loadHistory() } catch (cause) { error.value = cause instanceof Error ? cause.message : '保存行程失败。' } }
 async function removePlan() { if (!plan.value || !globalThis.confirm('确定删除这份行程计划吗？')) return; try { await api.deletePlan(plan.value.id); plan.value = null; await loadHistory() } catch (cause) { error.value = cause instanceof Error ? cause.message : '删除失败。' } }
@@ -54,7 +55,7 @@ onMounted(loadHistory)
 
 <template>
   <div class="page planner-page">
-    <PlanPreviewModal v-if="historyPreview" :plan="historyPreview" @close="historyPreview = null" />
+    <PlanPreviewModal v-if="historyPreview" :plan="historyPreview" :revising="historyRevisionLoading" :error="historyRevisionError" @close="historyPreview = null" @revise="reviseHistory" />
     <section class="hero">
       <div>
         <p class="eyebrow">
