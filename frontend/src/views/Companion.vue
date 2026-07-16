@@ -2050,14 +2050,10 @@ onUnmounted(() => {
 
 .itinerary-tool {
   display: flex;
-  height: 220px;
-  min-height: 0;
   flex-direction: column;
-  overflow: hidden;
 }
 
 .itinerary-list {
-  min-height: 0;
   flex: 1;
   overflow-y: auto;
   overscroll-behavior: contain;
