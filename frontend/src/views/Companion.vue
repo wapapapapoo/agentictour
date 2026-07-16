@@ -1026,8 +1026,16 @@ onUnmounted(() => {
 
 <template>
   <div class="page companion-page">
-    <section class="active-trip-section" aria-label="旅行计划状态">
-      <button v-if="featuredTrip" :class="['active-trip-card', `state-${featuredTripState}`]" type="button" @click="focusFeaturedTrip">
+    <section
+      class="active-trip-section"
+      aria-label="旅行计划状态"
+    >
+      <button
+        v-if="featuredTrip"
+        :class="['active-trip-card', `state-${featuredTripState}`]"
+        type="button"
+        @click="focusFeaturedTrip"
+      >
         <span class="active-trip-marker"><i />{{ featuredTripMarker(featuredTripState) }}</span>
         <span class="active-trip-main">
           <small>{{ featuredTrip.title }}</small>
@@ -1042,7 +1050,10 @@ onUnmounted(() => {
         </span>
         <span class="active-trip-side"><b>{{ featuredTripState ? tripLifecycleLabel[featuredTripState] : '' }}</b><span>{{ currentTrip?.id === featuredTrip.id ? featuredTripSummary(featuredTripState) : '进入计划' }}</span></span>
       </button>
-      <div v-else class="active-trip-empty">
+      <div
+        v-else
+        class="active-trip-empty"
+      >
         <span class="active-trip-marker idle"><i />TRIP STATUS</span>
         <div><b>目前还没有旅行计划</b><small>创建计划后，这里会按时间显示待出发、进行中、已结束或已取消。</small></div>
       </div>
@@ -1125,8 +1136,18 @@ onUnmounted(() => {
         <div><dt>{{ locationCoordinateLabel }}</dt><dd>{{ location.longitude.toFixed(6) }}, {{ location.latitude.toFixed(6) }}</dd></div>
         <div><dt>更新时间</dt><dd>{{ formatDate(location.updated_at) }}</dd></div>
       </dl>
-      <p v-if="locationResolutionError" class="location-resolution-error">{{ locationResolutionError }}。{{ locationResolutionHint }}</p>
-      <p v-if="!location" class="location-empty">尚未获取位置。点击右上方“刷新”并允许浏览器定位即可自动补全。</p>
+      <p
+        v-if="locationResolutionError"
+        class="location-resolution-error"
+      >
+        {{ locationResolutionError }}。{{ locationResolutionHint }}
+      </p>
+      <p
+        v-if="!location"
+        class="location-empty"
+      >
+        尚未获取位置。点击右上方“刷新”并允许浏览器定位即可自动补全。
+      </p>
     </section>
 
     <p
@@ -1343,39 +1364,41 @@ onUnmounted(() => {
             {{ date.slice(5).replace('-', '月') }}日
           </button>
         </div>
-        <div
-          v-for="item in displayedItineraries"
-          :key="item.itinerary_id"
-          class="data-row itinerary-row"
-          :class="`state-${itineraryState(item)}`"
-        >
-          <div>
-            <div class="tag-line">
-              <span>{{ item.itinerary_type === 'transit' ? '交通' : '游玩' }}</span><i
-                class="itinerary-status"
-                :class="itineraryState(item)"
-              >{{ itineraryLifecycleLabel[itineraryState(item)] }}</i><em v-if="item.is_initial">当日首项</em>
-            </div><b>{{ item.title }} · {{ item.place_name }}</b><small>{{ formatDate(item.start_time) }} — {{ formatDate(item.end_time) }}<br>提醒：{{ formatDate(item.reminder_time) }}<i v-if="item.reminded_at"> · 已发送</i></small>
-          </div><div class="row-actions">
-            <button
-              class="quiet"
-              @click="editItinerary(item)"
-            >
-              编辑
-            </button><button
-              class="delete-button"
-              @click="requestDelete('itinerary', item.itinerary_id, item.title)"
-            >
-              删除
-            </button>
+        <div class="itinerary-list">
+          <div
+            v-for="item in displayedItineraries"
+            :key="item.itinerary_id"
+            class="data-row itinerary-row"
+            :class="`state-${itineraryState(item)}`"
+          >
+            <div>
+              <div class="tag-line">
+                <span>{{ item.itinerary_type === 'transit' ? '交通' : '游玩' }}</span><i
+                  class="itinerary-status"
+                  :class="itineraryState(item)"
+                >{{ itineraryLifecycleLabel[itineraryState(item)] }}</i><em v-if="item.is_initial">当日首项</em>
+              </div><b>{{ item.title }} · {{ item.place_name }}</b><small>{{ formatDate(item.start_time) }} — {{ formatDate(item.end_time) }}<br>提醒：{{ formatDate(item.reminder_time) }}<i v-if="item.reminded_at"> · 已发送</i></small>
+            </div><div class="row-actions">
+              <button
+                class="quiet"
+                @click="editItinerary(item)"
+              >
+                编辑
+              </button><button
+                class="delete-button"
+                @click="requestDelete('itinerary', item.itinerary_id, item.title)"
+              >
+                删除
+              </button>
+            </div>
           </div>
+          <p
+            v-if="!displayedItineraries.length"
+            class="muted"
+          >
+            {{ itineraries.length ? '当天没有符合条件的日程。' : '暂无实时日程。' }}
+          </p>
         </div>
-        <p
-          v-if="!displayedItineraries.length"
-          class="muted"
-        >
-          {{ itineraries.length ? '当天没有符合条件的日程。' : '暂无实时日程。' }}
-        </p>
       </section>
     </div>
 
@@ -2026,7 +2049,29 @@ onUnmounted(() => {
 }
 
 .itinerary-tool {
-  min-height: 360px;
+  display: flex;
+  height: 220px;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.itinerary-list {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.itinerary-list > .muted {
+  display: grid;
+  box-sizing: border-box;
+  min-height: 100%;
+  place-items: center;
+  margin: 0;
+  padding: 16px;
+  text-align: center;
 }
 
 .itinerary-day-bar {
