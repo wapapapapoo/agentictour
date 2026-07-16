@@ -56,10 +56,13 @@ def test_workflows_treat_backend_itinerary_snapshot_as_current_authority() -> No
 
     assert "backend_itinerary_context" in hikari
     assert "absence_means_deleted" in hikari
+    assert "change_pending_items" in hikari
+    assert "不得再次触发" in hikari
     assert "历史消息不能证明日程仍然存在" in hikari
     assert "status = 'pending'" in hikari
     assert "backend_itinerary_context" in audit
     assert "当前数据库状态" in audit
+    assert "change_pending_items" in audit
 
 
 def test_user_iteration_counts_remain_unchanged() -> None:

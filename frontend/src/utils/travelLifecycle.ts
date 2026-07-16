@@ -2,7 +2,7 @@ import type { Itinerary, Trip } from '@/services/api'
 import { parseUtcDate } from '@/utils/tripTime'
 
 export type TripLifecycle = 'upcoming' | 'ongoing' | 'completed' | 'cancelled'
-export type ItineraryLifecycle = 'upcoming' | 'ongoing' | 'completed' | 'cancelled'
+export type ItineraryLifecycle = 'upcoming' | 'ongoing' | 'change_pending' | 'completed' | 'cancelled'
 
 function localDateKey(now: Date, timeZone: string) {
   try {
@@ -33,6 +33,7 @@ export function itineraryLifecycle(
 ): ItineraryLifecycle {
   if (itinerary.status === 'cancelled') return 'cancelled'
   if (itinerary.status === 'done') return 'completed'
+  if (itinerary.status === 'change_pending') return 'change_pending'
   const start = parseUtcDate(itinerary.start_time)
   const end = parseUtcDate(itinerary.end_time)
   if (!start || !end) return 'upcoming'
@@ -51,6 +52,7 @@ export const tripLifecycleLabel: Record<TripLifecycle, string> = {
 export const itineraryLifecycleLabel: Record<ItineraryLifecycle, string> = {
   upcoming: '待开始',
   ongoing: '进行中',
+  change_pending: '变更待确认',
   completed: '已完成',
   cancelled: '已取消',
 }

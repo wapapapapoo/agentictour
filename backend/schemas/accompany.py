@@ -32,7 +32,7 @@ class ItineraryCreate(BaseModel):
     itinerary_type: Literal["transit", "play"] = "play"
     reminder_time: datetime | None = None
     is_initial: bool = False
-    status: Literal["pending", "done", "cancelled"] = "pending"
+    status: Literal["pending", "change_pending", "done", "cancelled"] = "pending"
 
     @model_validator(mode="after")
     def validate_times(self) -> Self:
@@ -55,7 +55,7 @@ class ItineraryUpdate(BaseModel):
     itinerary_type: Literal["transit", "play"] | None = None
     reminder_time: datetime | None = None
     is_initial: bool | None = None
-    status: Literal["pending", "done", "cancelled"] | None = None
+    status: Literal["pending", "change_pending", "done", "cancelled"] | None = None
 
 
 class ItineraryResponse(BaseModel):
@@ -95,7 +95,13 @@ class AdviceGenerateRequest(BaseModel):
 
 
 class AdviceActionRequest(BaseModel):
-    action: Literal["accept", "reject", "revise"]
+    action: Literal[
+        "accept",
+        "reject",
+        "revise",
+        "keep_original",
+        "cancel_original",
+    ]
     user_id: int = Field(gt=0)
     additional_requirement: str = ""
     selected_itinerary_ids: list[int] = Field(default_factory=list)

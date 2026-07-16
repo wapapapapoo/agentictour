@@ -142,7 +142,6 @@ def test_expired_pending_itineraries_are_automatically_completed(db: Session) ->
             status="cancelled",
         ),
     )
-
     accompany_service.sync_itinerary_statuses(
         db,
         trip_id=1,
@@ -246,6 +245,15 @@ def test_chat_sends_authoritative_current_itinerary_state_instead_of_history(
             status="cancelled",
         ),
     )
+    change_pending = accompany_service.create_itinerary(
+        db,
+        _item(
+            datetime(2026, 7, 22, 10),
+            datetime(2026, 7, 22, 11),
+            title="等待确认变化的行程",
+            status="change_pending",
+        ),
+    )
 
     def fake_hikari(**kwargs):
         captured.update(kwargs["inputs"])
@@ -264,6 +272,11 @@ def test_chat_sends_authoritative_current_itinerary_state_instead_of_history(
     assert snapshot["absence_means_deleted"] is True
     assert snapshot["active_items"][0]["itinerary_id"] == active.itinerary_id
     assert snapshot["active_items"][0]["status"] == "pending"
+    assert (
+        snapshot["change_pending_items"][0]["itinerary_id"]
+        == change_pending.itinerary_id
+    )
+    assert snapshot["change_pending_items"][0]["status"] == "change_pending"
     assert snapshot["cancelled_items"][0]["itinerary_id"] == cancelled.itinerary_id
     assert snapshot["cancelled_items"][0]["status"] == "cancelled"
     assert "G219" not in str(captured["backend_itinerary_context"])
@@ -1050,6 +1063,7 @@ def test_accept_auto_check_generates_pending_replan_then_accept_applies_changes(
         ),
     )
     db.add(check)
+    old.status = "change_pending"
     db.commit()
     db.refresh(check)
     calls = []
@@ -1088,8 +1102,8 @@ def test_accept_auto_check_generates_pending_replan_then_accept_applies_changes(
     assert json.loads(calls[0]["inputs"]["locked_itinerary_ids"]) == [old.itinerary_id]
     assert generated.parent_advice_id == check.advice_id
     assert generated.result == "pending"
-    assert check.result == "accepted"
-    assert old.status == "pending"
+    assert check.result == "pending"
+    assert old.status == "change_pending"
 
     accepted = accompany_service.act_on_advice(
         db, generated.advice_id, "accept", 1, ""
@@ -1098,6 +1112,8 @@ def test_accept_auto_check_generates_pending_replan_then_accept_applies_changes(
 
     assert accepted.result == "accepted"
     assert old.status == "cancelled"
+    db.refresh(check)
+    assert check.result == "accepted"
     assert (
         db.query(ItineraryItem).filter(ItineraryItem.status == "pending").one().title
         == "咖啡馆休息"
@@ -1151,3 +1167,72 @@ def test_revise_advice_uses_parent_chain_as_agent_context(
     assert captured["inputs"]["trigger_type"] == "user_accident"
     assert new.input_text == agent_input
     assert new.parent_advice_id == old.advice_id
+    db.refresh(root)
+    assert root.result == "pending"
+
+
+@pytest.mark.parametrize(
+    ("action", "root_result", "itinerary_status"),
+    [
+        ("keep_original", "kept", "pending"),
+        ("cancel_original", "cancelled_original", "cancelled"),
+    ],
+)
+def test_resolving_automatic_candidate_updates_root_and_original_itinerary(
+    db: Session,
+    action: str,
+    root_result: str,
+    itinerary_status: str,
+) -> None:
+    itinerary = accompany_service.create_itinerary(
+        db,
+        _item(
+            datetime(2026, 7, 20, 14),
+            datetime(2026, 7, 20, 15),
+            title="待确认变化的景点",
+        ),
+    )
+    itinerary.status = "change_pending"
+    root = AIAdvice(
+        trip_id=1,
+        advice_type="itinerary_replan",
+        reason_text="景点状态变化",
+        advice_text="是否调整行程？",
+        proposed_itinerary_json=json.dumps(
+            {"conflicting_itinerary_ids": [itinerary.itinerary_id]}
+        ),
+        result="pending",
+        audit_status="pass",
+    )
+    db.add(root)
+    db.flush()
+    candidate = AIAdvice(
+        trip_id=1,
+        advice_type="replan",
+        parent_advice_id=root.advice_id,
+        advice_text="建议改去咖啡馆",
+        proposed_itinerary_json=json.dumps(
+            {
+                "selected_itinerary_ids": [itinerary.itinerary_id],
+                "locked_itinerary_ids": [itinerary.itinerary_id],
+                "cancelled_itinerary_ids": [itinerary.itinerary_id],
+                "itinerary_items": [],
+            }
+        ),
+        result="pending",
+        audit_status="pass",
+    )
+    db.add(candidate)
+    db.commit()
+
+    result = accompany_service.act_on_advice(
+        db, candidate.advice_id, action, 1, ""
+    )
+
+    db.refresh(root)
+    db.refresh(candidate)
+    db.refresh(itinerary)
+    assert result.result == root_result
+    assert root.result == root_result
+    assert candidate.result == root_result
+    assert itinerary.status == itinerary_status

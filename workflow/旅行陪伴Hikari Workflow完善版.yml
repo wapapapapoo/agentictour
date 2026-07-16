@@ -808,7 +808,7 @@ workflow:
               4. 涉及行程、备忘录、旅行状态或其他数据库事实时，严格按照“数据库完整结构”和“数据库查询规范”调用 SQL查询 工具；只能使用列出的真实表名和字段名。旅行概要是当前
               trip_id 的安全元数据；backend_itinerary_context 是后端在本轮请求前读取的权威当前数据库状态，context 是 Workflow 随后查询的活动行程快照。最新 SELECT 与后端快照冲突时以同一 tour_id 的最新 SELECT 为准，二者都绝对高于 conversation_history。
 
-              4.1 backend_itinerary_context 中 active_items 才是当前或未来仍有效的日程；completed_items 只表示已完成记录；cancelled_items 只表示已取消记录，默认回答当前安排时不得把后二者写成待执行日程。absence_means_deleted=true 表示快照中完全缺席的历史日程已经删除或不属于当前旅行，不得从聊天历史恢复、推荐、默认保留或当成现有行程。用户明确询问历史变化时才可说明已完成或已取消状态。
+              4.1 backend_itinerary_context 中 active_items 是当前或未来仍正常执行的日程；change_pending_items 是系统发现变化后等待用户决定的日程，只能说明“变更待确认”，不得说成已取消、已替换或已采纳。completed_items 只表示已完成记录；cancelled_items 只表示已取消记录，默认回答当前安排时不得把后二者写成待执行日程。absence_means_deleted=true 表示快照中完全缺席的历史日程已经删除或不属于当前旅行，不得从聊天历史恢复、推荐、默认保留或当成现有行程。用户明确询问历史变化时才可说明已完成或已取消状态。
 
               5. 天气、附近地点、路线耗时分别优先调用对应专用工具，这些工具能回答时不要改用网页搜索。查询数据库只允许单条 SELECT；严禁 INSERT、UPDATE、DELETE、DROP、ALTER，并始终限制当前
               tour_id。工具失败时明确说明无法确认。
@@ -1576,7 +1576,7 @@ workflow:
 
               系统锁定的冲突日程 ID：{{#1782285385726.locked_itinerary_ids#}}
 
-              当前行程基准快照由 context 提供，backend_itinerary_context 是后端本轮权威状态；只有 active_items 可以作为当前待调整行程，completed_items、cancelled_items 和快照中缺席的历史日程不得恢复或替换。必要时用数据库工具核对最新状态。tour_id 已由后端确认，不得质疑或要求用户重新提供。请完成用户提出的调整任务，容忍错别字、近音字、简称和口语表达，返回一个最小、具体、可执行且包含结构化增量的候选方案，不要只分析问题或要求用户再次补充。'
+              当前行程基准快照由 context 提供，backend_itinerary_context 是后端本轮权威状态；active_items 可以作为普通待调整行程。change_pending_items 只有当其 ID 同时出现在系统锁定的冲突日程 ID 中时，才允许在本次候选方案中调整；这表示用户正在处理已有自动变化，并不表示日程已取消。completed_items、cancelled_items 和快照中缺席的历史日程不得恢复或替换。必要时用数据库工具核对最新状态。tour_id 已由后端确认，不得质疑或要求用户重新提供。请完成用户提出的调整任务，容忍错别字、近音字、简称和口语表达，返回一个最小、具体、可执行且包含结构化增量的候选方案，不要只分析问题或要求用户再次补充。'
           tools:
             type: constant
             value:
@@ -3607,7 +3607,7 @@ workflow:
 
               当前位置：{{#1782285385726.location_name#}}（{{#1782285385726.longitude#}},{{#1782285385726.latitude#}}）
 
-              请只检查 backend_itinerary_context.active_items 与上下文中的未来待执行行程；历史消息、completed_items、cancelled_items 以及快照中不存在的旧日程都不能触发提醒。只返回 reply、decision 和 conflicting_itinerary_ids。'
+              请只检查 backend_itinerary_context.active_items 与上下文中的未来待执行行程；change_pending_items 已经产生待用户处理的变化通知，不得再次触发、不得再次加入 conflicting_itinerary_ids，也不得以不同措辞重复通知。历史消息、completed_items、cancelled_items 以及快照中不存在的旧日程都不能触发提醒。只返回 reply、decision 和 conflicting_itinerary_ids。'
           tools:
             type: constant
             value:

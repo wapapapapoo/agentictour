@@ -65,7 +65,7 @@ const reminderDialogOpen = ref(false)
 const notificationBusy = ref(false)
 const reminderError = ref('')
 const memoFilter = ref<'all' | 'pending' | 'sent' | 'unscheduled'>('all')
-const itineraryFilter = ref<'all' | 'upcoming' | 'ongoing' | 'completed' | 'cancelled'>('all')
+const itineraryFilter = ref<'all' | 'upcoming' | 'ongoing' | 'change_pending' | 'completed' | 'cancelled'>('all')
 
 const memoEditingId = ref<number | null>(null)
 const memoDraft = ref({ memo_text: '', reminder_date: '', reminder_clock: '' })
@@ -128,6 +128,7 @@ const pendingManualAdvice = computed(() => replanAdvice.value.find((item) => (
   item.advice_type === 'replan'
   && ['pending', 'revising'].includes(item.result)
   && item.audit_status === 'pass'
+  && !automaticRootForAdvice(item)
 )))
 const latestReplanAdvice = computed(() => [...replanAdvice.value]
   .sort((left, right) => right.advice_id - left.advice_id)[0])
@@ -151,8 +152,8 @@ const nextItinerary = computed(() => itineraries.value
   .filter((item) => itineraryLifecycle(item, lifecycleClock.value) === 'upcoming')
   .sort((left, right) => left.start_time.localeCompare(right.start_time))[0])
 const adjustableItineraries = computed(() => itineraries.value.filter(
-  (item) => item.status === 'pending'
-    && ['upcoming', 'ongoing'].includes(itineraryLifecycle(item, lifecycleClock.value)),
+  (item) => ['pending', 'change_pending'].includes(item.status)
+    && ['upcoming', 'ongoing', 'change_pending'].includes(itineraryLifecycle(item, lifecycleClock.value)),
 ))
 const filteredMemos = computed(() => memos.value.filter((item) => ({
   all: true,
@@ -188,9 +189,58 @@ function automaticConflictIds(item: Advice | undefined) {
   return adviceItineraryIds(item, 'conflicting_itinerary_ids').filter((id) => eligible.has(id))
 }
 
+function automaticRootForAdvice(item: Advice | undefined) {
+  if (!item) return undefined
+  const byId = new Map(advice.value.map((row) => [row.advice_id, row]))
+  let current: Advice | undefined = item
+  const seen = new Set<number>()
+  while (current) {
+    if (seen.has(current.advice_id)) return undefined
+    seen.add(current.advice_id)
+    if (current.advice_type === 'itinerary_replan') return current
+    current = current.parent_advice_id ? byId.get(current.parent_advice_id) : undefined
+  }
+  return undefined
+}
+
+function latestAutomaticCandidate(root: Advice) {
+  return advice.value
+    .filter((item) => (
+      item.advice_type === 'replan'
+      && ['pending', 'revising'].includes(item.result)
+      && automaticRootForAdvice(item)?.advice_id === root.advice_id
+    ))
+    .sort((left, right) => right.advice_id - left.advice_id)[0]
+}
+
+function notificationAdvice(item: Notification) {
+  return item.advice_id
+    ? advice.value.find((row) => row.advice_id === item.advice_id)
+    : undefined
+}
+
+function notificationAdviceStatus(item: Notification) {
+  const row = notificationAdvice(item)
+  if (!row || item.category !== 'itinerary_replan') return ''
+  return ({
+    pending: '待处理',
+    accepted: '已采纳调整',
+    kept: '已保留原行程',
+    cancelled_original: '已取消原行程',
+    rejected: '已放弃',
+  } as Record<string, string>)[row.result] || adviceResult(row.result)
+}
+
+function notificationIsActionable(item: Notification) {
+  const row = notificationAdvice(item)
+  return item.category === 'itinerary_replan' && row?.result === 'pending'
+}
+
 function hydrateAdjustmentScope(item: Advice) {
   const eligible = new Set(adjustableItineraries.value.map((row) => row.itinerary_id))
-  const locked = adviceItineraryIds(item, 'locked_itinerary_ids').filter((id) => eligible.has(id))
+  const lockedSource = adviceItineraryIds(item, 'locked_itinerary_ids')
+  const locked = (lockedSource.length ? lockedSource : adviceItineraryIds(item, 'conflicting_itinerary_ids'))
+    .filter((id) => eligible.has(id))
   const selected = adviceItineraryIds(item, 'selected_itinerary_ids').filter((id) => eligible.has(id))
   adjustment.value.lockedItineraryIds = locked
   adjustment.value.selectedItineraryIds = [...new Set([...selected, ...locked])]
@@ -579,10 +629,39 @@ function openAdjustment() {
   adjustment.value = openManualAdjustment()
 }
 
-function closeAdjustment() {
-  if (adjustment.value.stage === 'auto-confirm') return
+async function closeAdjustment() {
+  if (loading.value) return
+  if (adjustment.value.mode === 'automatic' && adjustment.value.sourceAdviceId) {
+    promptedAutomaticAdviceId.value = adjustment.value.sourceAdviceId
+    await markAdviceNotificationRead(adjustment.value.sourceAdviceId)
+  }
   adjustment.value = closedAdjustment()
   adjustmentError.value = ''
+}
+
+function openAutomaticAdvice(item: Advice) {
+  const root = automaticRootForAdvice(item) || item
+  let next = openAutomaticAdjustment(
+    root.advice_id,
+    automaticNotice(root),
+    automaticConflictIds(root),
+  )
+  const candidate = latestAutomaticCandidate(root)
+  if (candidate) {
+    next = showAdjustmentCandidate(next, candidate.advice_id)
+  }
+  adjustment.value = next
+  hydrateAdjustmentScope(candidate || root)
+  promptedAutomaticAdviceId.value = root.advice_id
+  adjustmentError.value = ''
+}
+
+async function openNotificationAdjustment(item: Notification) {
+  const row = notificationAdvice(item)
+  if (!row) return
+  if (!item.read_at) await markRead(item)
+  reminderDialogOpen.value = false
+  openAutomaticAdvice(row)
 }
 
 function continueAutomaticAdjustment() {
@@ -597,19 +676,29 @@ async function markAdviceNotificationRead(adviceId: number) {
   if (notification) await markRead(notification)
 }
 
-async function rejectAutomaticAdjustment() {
-  const adviceId = adjustment.value.sourceAdviceId
+async function resolveAutomaticAdjustment(action: 'keep_original' | 'cancel_original') {
+  const adviceId = activeCandidate.value?.advice_id || adjustment.value.sourceAdviceId
   if (!adviceId) return
   loading.value = true
-  adjustmentOperation.value = '正在放弃这条自动提醒…'
+  adjustmentOperation.value = action === 'keep_original'
+    ? '正在保留原行程…'
+    : '正在取消原行程…'
   adjustmentError.value = ''
   try {
-    await api.actOnAdvice(adviceId, 'reject')
-    await markAdviceNotificationRead(adviceId)
+    await api.actOnAdvice(adviceId, action)
+    if (adjustment.value.sourceAdviceId) {
+      await markAdviceNotificationRead(adjustment.value.sourceAdviceId)
+    }
     adjustment.value = closedAdjustment()
-    if (tripId.value) advice.value = await api.listAdvice(tripId.value)
+    if (tripId.value) {
+      [advice.value, itineraries.value] = await Promise.all([
+        api.listAdvice(tripId.value),
+        api.listItineraries(tripId.value),
+      ])
+      await loadNotifications()
+    }
   } catch (cause) {
-    adjustmentError.value = errorMessage(cause, '暂时无法放弃这条自动提示。')
+    adjustmentError.value = errorMessage(cause, '暂时无法处理这条自动变化。')
   } finally {
     adjustmentOperation.value = ''
     loading.value = false
@@ -662,6 +751,7 @@ async function acceptCandidate() {
     await api.actOnAdvice(item.advice_id, 'accept')
     advice.value = await api.listAdvice(item.trip_id)
     itineraries.value = await api.listItineraries(item.trip_id)
+    await loadNotifications()
     adjustment.value = closedAdjustment()
   } catch (cause) {
     adjustmentError.value = errorMessage(cause, '暂时无法采纳这个方案。')
@@ -789,7 +879,7 @@ function useBrowserLocation() {
 }
 
 function adviceResult(result: string) {
-  return ({ pending: '待处理', accepted: '已采纳', rejected: '已忽略', revising: '修改中', delivered: '已送达', not_required: '无需处理' } as Record<string, string>)[result] || result
+  return ({ pending: '待处理', accepted: '已采纳', rejected: '已忽略', revising: '修改中', kept: '已保留原行程', cancelled_original: '已取消原行程', superseded: '已被新版本替代', delivered: '已送达', not_required: '无需处理' } as Record<string, string>)[result] || result
 }
 
 function adviceType(type: string) {
@@ -797,7 +887,7 @@ function adviceType(type: string) {
 }
 
 function notificationType(type: string) {
-  return ({ memo: '备忘提醒', memo_reminder: '备忘提醒', itinerary_reminder: '日程提醒', initial_start: '出发提醒', next_itinerary: '下一行程', itinerary_replan: '行程变化' } as Record<string, string>)[type] || type
+  return ({ memo: '备忘提醒', memo_reminder: '备忘提醒', itinerary_reminder: '日程提醒', initial_start: '出发提醒', next_itinerary: '下一行程', itinerary_replan: '行程变化', agent_audit_failed: '自动处理未通过审核' } as Record<string, string>)[type] || type
 }
 
 function featuredTripMarker(state: TripLifecycle | null) {
@@ -844,18 +934,16 @@ watch(tripId, () => {
   void loadWorkspace()
 })
 watch([pendingAutomaticAdvice, () => adjustment.value.open], ([item, modalOpen]) => {
+  const linkedNotification = item
+    ? notifications.value.find((notification) => notification.advice_id === item.advice_id)
+    : undefined
   if (
     !item
     || modalOpen
     || promptedAutomaticAdviceId.value === item.advice_id
+    || Boolean(linkedNotification?.read_at)
   ) return
-  promptedAutomaticAdviceId.value = item.advice_id
-  adjustment.value = openAutomaticAdjustment(
-    item.advice_id,
-    automaticNotice(item),
-    automaticConflictIds(item),
-  )
-  adjustmentError.value = ''
+  openAutomaticAdvice(item)
 })
 onMounted(async () => {
   await loadTrips()
@@ -958,7 +1046,7 @@ onUnmounted(() => {
           <div class="advice-entry">
             <p>在弹窗内说明变化、查看候选日程并完成采纳或修改。</p>
             <button class="primary" :disabled="loading || !tripId" @click="openAdjustment">{{ pendingManualAdvice ? '继续处理候选方案' : '调整行程' }}</button>
-            <span v-if="pendingAutomaticAdvice" class="pending-change">有一条自动变化等待确认</span>
+            <button v-if="pendingAutomaticAdvice" class="pending-change" type="button" @click="openAutomaticAdvice(pendingAutomaticAdvice)"><span>有一条自动变化等待确认</span><b>进入处理 →</b></button>
             <details v-if="legacyFailedAdvice" class="audit-failure-summary"><summary>最近一次调整未生成成功</summary><p class="audit-failure-only">{{ legacyFailedAdvice.audit_reason || stripThink(legacyFailedAdvice.advice_text) }}</p></details>
           </div>
         </section>
@@ -974,7 +1062,7 @@ onUnmounted(() => {
       </section>
 
       <section class="card tool itinerary-tool">
-        <header><div><p class="eyebrow">ITINERARY</p><h2>实时日程</h2></div><div class="header-tools"><label>筛选<select v-model="itineraryFilter"><option value="all">全部</option><option value="upcoming">待开始</option><option value="ongoing">进行中</option><option value="completed">已完成</option><option value="cancelled">已取消</option></select></label><button class="header-action" :disabled="!tripId" @click="openItineraryDialog">添加日程</button></div></header>
+        <header><div><p class="eyebrow">ITINERARY</p><h2>实时日程</h2></div><div class="header-tools"><label>筛选<select v-model="itineraryFilter"><option value="all">全部</option><option value="upcoming">待开始</option><option value="ongoing">进行中</option><option value="change_pending">变更待确认</option><option value="completed">已完成</option><option value="cancelled">已取消</option></select></label><button class="header-action" :disabled="!tripId" @click="openItineraryDialog">添加日程</button></div></header>
         <div v-for="item in filteredItineraries" :key="item.itinerary_id" class="data-row itinerary-row" :class="`state-${itineraryState(item)}`"><div><div class="tag-line"><span>{{ item.itinerary_type === 'transit' ? '交通' : '游玩' }}</span><i class="itinerary-status" :class="itineraryState(item)">{{ itineraryLifecycleLabel[itineraryState(item)] }}</i><em v-if="item.is_initial">当日首项</em></div><b>{{ item.title }} · {{ item.place_name }}</b><small>{{ formatDate(item.start_time) }} — {{ formatDate(item.end_time) }}<br>提醒：{{ formatDate(item.reminder_time) }}<i v-if="item.reminded_at"> · 已发送</i></small></div><div class="row-actions"><button class="quiet" @click="editItinerary(item)">编辑</button><button class="delete-button" @click="requestDelete('itinerary', item.itinerary_id, item.title)">删除</button></div></div>
         <p v-if="!filteredItineraries.length" class="muted">{{ itineraries.length ? '当前筛选下没有日程。' : '暂无实时日程。' }}</p>
       </section>
@@ -985,7 +1073,7 @@ onUnmounted(() => {
         <section class="adjustment-dialog" role="dialog" aria-modal="true" aria-labelledby="adjustment-title">
           <header class="dialog-header">
             <div><p class="eyebrow">ITINERARY ADJUSTMENT</p><h2 id="adjustment-title">{{ adjustment.mode === 'automatic' ? '处理自动变化' : '调整行程' }}</h2></div>
-            <button v-if="adjustment.stage !== 'auto-confirm'" class="dialog-close" aria-label="关闭调整弹窗" @click="closeAdjustment">×</button>
+            <button class="dialog-close" :disabled="loading" aria-label="关闭调整弹窗" @click="closeAdjustment">×</button>
           </header>
 
           <div class="dialog-body">
@@ -998,8 +1086,9 @@ onUnmounted(() => {
                 <div class="markdown-body compact" v-html="renderMarkdown(adjustment.systemNotice)"></div>
               </div>
               <p class="dialog-hint">是否根据这项变化重新生成一份待确认的行程方案？</p>
-              <div class="dialog-actions split-actions">
-                <button class="quiet" :disabled="loading" @click="rejectAutomaticAdjustment">放弃</button>
+              <div class="dialog-actions automatic-resolution-actions">
+                <button class="danger-soft" :disabled="loading" @click="resolveAutomaticAdjustment('cancel_original')">取消原行程</button>
+                <button class="quiet" :disabled="loading" @click="resolveAutomaticAdjustment('keep_original')">保留原行程</button>
                 <button class="primary" :disabled="loading" @click="continueAutomaticAdjustment">同意更改</button>
               </div>
             </template>
@@ -1038,7 +1127,11 @@ onUnmounted(() => {
               <p v-if="activeCandidate.audit_status === 'failed'" class="audit-failure-only">{{ activeCandidate.audit_reason || stripThink(activeCandidate.advice_text) }}</p>
               <div v-else class="candidate-content markdown-body" v-html="renderMarkdown(stripThink(activeCandidate.advice_text))"></div>
               <div class="dialog-actions candidate-actions">
-                <button class="quiet" :disabled="loading" @click="rejectCandidate">放弃方案</button>
+                <template v-if="adjustment.mode === 'automatic'">
+                  <button class="danger-soft" :disabled="loading" @click="resolveAutomaticAdjustment('cancel_original')">取消原行程</button>
+                  <button class="quiet" :disabled="loading" @click="resolveAutomaticAdjustment('keep_original')">保留原行程</button>
+                </template>
+                <button v-else class="quiet" :disabled="loading" @click="rejectCandidate">放弃方案</button>
                 <button class="quiet" :disabled="loading" @click="adjustment.stage = 'revision'">进一步修改</button>
                 <button class="primary" :disabled="loading || activeCandidate.audit_status !== 'pass'" @click="acceptCandidate">采纳并更新日程</button>
               </div>
@@ -1079,8 +1172,12 @@ onUnmounted(() => {
                 <div class="mail-meta"><b>{{ notificationType(item.category) }}</b><time>{{ formatDate(item.created_at) }}</time></div>
                 <div class="markdown-body compact" v-html="renderMarkdown(stripThink(item.content))"></div>
               </div>
-              <button v-if="!item.read_at" class="mail-read-action" @click="markRead(item)">标为已读</button>
-              <span v-else class="read-state">已读</span>
+              <div class="mail-row-actions">
+                <span v-if="notificationAdviceStatus(item)" class="advice-state" :class="{ pending: notificationIsActionable(item) }">{{ notificationAdviceStatus(item) }}</span>
+                <button v-if="notificationIsActionable(item)" class="mail-advice-action" @click="openNotificationAdjustment(item)">处理变化 →</button>
+                <button v-else-if="!item.read_at" class="mail-read-action" @click="markRead(item)">标为已读</button>
+                <span v-else class="read-state">已读</span>
+              </div>
             </article>
             <div v-if="!visibleNotifications.length" class="inbox-empty">
               <span>✓</span><b>{{ unreadOnly ? '没有未读提醒' : '还没有自动提醒' }}</b><small>{{ unreadOnly ? '所有消息都已处理。' : '系统产生提醒后会集中显示在这里。' }}</small>
@@ -1122,7 +1219,7 @@ onUnmounted(() => {
               <fieldset class="date-time-field"><legend>开始时间</legend><label class="date-picker-field">日期<DatePicker v-model="itineraryDraft.start_date" label="日程开始日期" :min="currentTrip?.start_date" :max="currentTrip?.end_date" /></label><label>时间<TimeSelect v-model="itineraryDraft.start_clock" label="日程开始" /></label></fieldset>
               <fieldset class="date-time-field"><legend>结束时间</legend><label class="date-picker-field">日期<DatePicker v-model="itineraryDraft.end_date" label="日程结束日期" :min="currentTrip?.start_date" :max="currentTrip?.end_date" /></label><label>时间<TimeSelect v-model="itineraryDraft.end_clock" label="日程结束" /></label></fieldset>
               <label>日程类型<select v-model="itineraryDraft.itinerary_type"><option value="play">游玩</option><option value="transit">交通</option></select></label>
-              <label>执行状态<select v-model="itineraryDraft.status"><option value="pending">待执行</option><option value="done">已完成</option><option value="cancelled">已取消</option></select></label>
+              <label>执行状态<select v-model="itineraryDraft.status"><option value="pending">待执行</option><option value="change_pending" disabled>变更待确认（系统）</option><option value="done">已完成</option><option value="cancelled">已取消</option></select></label>
               <fieldset class="date-time-field wide-field"><legend>提醒时间</legend><label class="date-picker-field">日期<DatePicker v-model="itineraryDraft.reminder_date" label="日程提醒日期" :min="currentTrip?.start_date" :max="currentTrip?.end_date" /></label><label>时间<TimeSelect v-model="itineraryDraft.reminder_clock" label="日程提醒" /></label><div class="time-shortcuts"><button class="quiet" type="button" @click="reminderSameAsStart">同开始时间</button><button class="quiet" type="button" @click="clearItineraryReminder">清空提醒</button></div><small>可以早于开始时间，例如 10:30 开始、09:30 提醒；不得晚于开始时间。</small></fieldset>
             </div>
             <div class="dialog-actions"><button class="quiet" type="button" @click="closeItineraryDialog">取消</button><button class="primary">{{ itineraryEditingId ? '保存修改' : '添加日程' }}</button></div>
@@ -1148,16 +1245,17 @@ onUnmounted(() => {
 <style scoped>
 .companion-page{max-width:1180px;margin:auto;padding:42px 26px 70px}.hero{display:flex;justify-content:space-between;align-items:center;gap:24px;margin-bottom:18px;padding:30px 35px;border:1px solid #dcebdd;border-radius:24px;background:radial-gradient(circle at 90% 35%,#d8f0df 0,transparent 24%),linear-gradient(115deg,#fff,#eef9f1)}.eyebrow{margin:0 0 7px;color:#579379;letter-spacing:.13em;font-size:11px;font-weight:700}.hero h1{margin:0;color:#254838;font:700 clamp(28px,4vw,40px)/1.3 'Noto Serif SC','Microsoft YaHei',serif}.hero p:last-child,.muted{color:#728178;font-size:13px;line-height:1.7}.hero-status{display:grid;min-width:130px;gap:4px;padding:16px;border-radius:18px;background:#fff9;color:#315745;text-align:center}.hero-status b{font-size:16px}.hero-status span{color:#7f9187;font-size:11px}.error{display:flex;justify-content:space-between;align-items:center;border:1px solid #f0d0cc;border-radius:10px;padding:10px 13px;background:#fff5f3;color:#ad4d4d;font-size:13px}.error button{border:0;background:transparent;color:inherit;cursor:pointer}.workspace-bar{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:17px}.workspace-bar label{display:flex;align-items:center;gap:10px;color:#52675c;font-size:13px;font-weight:700}.workspace-bar select{min-width:250px;border:1px solid #dce8df;border-radius:9px;padding:9px;background:#fff}.workspace-actions{display:flex;align-items:center;gap:8px}.notice-count{border-radius:999px;padding:5px 9px;background:#e5f4e9;color:#2d795a;font-size:11px;font-weight:700}.card{border:1px solid #e0e9e2;border-radius:18px;background:#fff;box-shadow:0 10px 28px rgba(39,91,66,.06)}.card header{display:flex;justify-content:space-between;align-items:center;padding:18px 20px;border-bottom:1px solid #edf2ee}.card h2{margin:0;color:#345344;font-size:17px}.card header small,.card header label{color:#849188;font-size:11px}.main-grid{display:grid;grid-template-columns:minmax(0,1fr) 365px;gap:18px}.chat{display:flex;min-height:560px;overflow:hidden;flex-direction:column}.messages{display:flex;min-height:360px;max-height:560px;flex:1;overflow:auto;flex-direction:column}.message{display:grid;max-width:88%;gap:6px;padding:11px 14px;border-radius:11px;font-size:14px;line-height:1.65}.message.agent{align-self:flex-start;background:#ecf7f0;color:#3e5e51}.message.user{align-self:flex-end;background:#2b8668;color:#fff}.message.typing{opacity:.7}.markdown-body{min-width:0;overflow-wrap:anywhere}.markdown-body :deep(> :first-child){margin-top:0}.markdown-body :deep(> :last-child){margin-bottom:0}.markdown-body :deep(p){margin:.45em 0}.markdown-body :deep(h1),.markdown-body :deep(h2),.markdown-body :deep(h3),.markdown-body :deep(h4){margin:.8em 0 .35em;color:#294f3d;line-height:1.35}.markdown-body :deep(h1){font-size:1.35em}.markdown-body :deep(h2){font-size:1.2em}.markdown-body :deep(h3){font-size:1.08em}.markdown-body :deep(ul),.markdown-body :deep(ol){margin:.45em 0;padding-left:1.5em}.markdown-body :deep(li){margin:.2em 0}.markdown-body :deep(strong){color:#244b39}.markdown-body :deep(blockquote){margin:.6em 0;padding:.2em .8em;border-left:3px solid #7eb397;background:#ffffff80}.markdown-body :deep(table){display:block;width:100%;overflow-x:auto;border-collapse:collapse;margin:.65em 0;background:#fff9}.markdown-body :deep(th),.markdown-body :deep(td){min-width:85px;border:1px solid #cfe1d5;padding:6px 8px;text-align:left;white-space:normal}.markdown-body :deep(th){background:#dff0e5;color:#2d5a44}.markdown-body :deep(code){border-radius:4px;padding:.1em .35em;background:#dcebe1;font-family:Consolas,monospace}.markdown-body.compact{font-size:13px;color:#52675d;line-height:1.65}.audit-mark{font-size:10px;font-style:normal}.audit-mark.pass{color:#4c8a6d}.audit-mark.failed{color:#b55b55}.audit-mark i{font-style:normal}.composer{display:flex;gap:8px;padding:12px;border-top:1px solid #edf2ee}.composer input,.advice-form input,.memo-form input,.schedule-form input,.schedule-form select,.revision-box input,.location-grid input{box-sizing:border-box;min-width:0;border:1px solid #dfe9e1;border-radius:8px;padding:9px;outline:none}.composer input{flex:1}.composer input:focus,.advice-form input:focus,.memo-form input:focus,.schedule-form input:focus,.location-grid input:focus{border-color:#72ae91;box-shadow:0 0 0 3px #eaf5ed}.composer button,.advice-form button,.memo-form button,.schedule-form button,.revision-box button,.primary{border:0;border-radius:8px;padding:9px 13px;background:#2f8063;color:#fff;font-weight:700;cursor:pointer}.composer button:disabled,.advice-form button:disabled{opacity:.55;cursor:wait}.secondary,.quiet,.icon{border:1px solid #dce8df;border-radius:8px;padding:8px 10px;background:#fff;color:#4f7563;cursor:pointer}.side-stack{display:grid;gap:18px;align-content:start}.advice-form{display:grid;gap:8px;padding:14px}.advice-item,.notification-item{padding:14px 16px;border-top:1px solid #edf2ee}.advice-item p,.notification-item p{margin:8px 0;color:#52675d;font-size:13px;line-height:1.65}.tag-line{display:flex;align-items:center;gap:6px}.tag-line span,.tag-line i,.tag-line em{border-radius:999px;padding:3px 7px;background:#eaf5ee;color:#4b8068;font-size:10px;font-style:normal}.tag-line i{background:#f3f5f2;color:#758279}.tag-line em.failed{background:#fff0ee;color:#b15c56}.audit-reason{display:block;margin-bottom:8px;color:#aa625d;line-height:1.5}.item-actions,.revision-box,.panel-actions,.schedule-actions{display:flex;gap:7px}.item-actions button{border:0;border-radius:7px;padding:7px 9px;background:#e6f3ea;color:#397458;cursor:pointer}.revision-box{margin-top:9px}.revision-box input{flex:1}.notifications-card header label{display:flex;align-items:center;gap:4px}.notification-item{display:flex;justify-content:space-between;gap:10px}.notification-item>div{min-width:0}.notification-item>div>span{color:#458064;font-size:10px;font-weight:700}.notification-item small{color:#929e97;font-size:10px}.notification-item button{align-self:center}.tool-grid{display:grid;grid-template-columns:1fr 1.3fr;gap:18px;margin-top:18px}.tool{padding-bottom:12px}.memo-form{display:grid;grid-template-columns:minmax(0,1fr) 190px auto auto;gap:8px;padding:14px}.schedule-form{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:14px}.schedule-form label{display:grid;gap:5px;color:#6f8077;font-size:11px}.schedule-actions{align-items:end}.data-row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 14px;padding:12px 2px;border-top:1px solid #edf2ee;color:#566b60;font-size:13px}.data-row>div:first-child{display:grid;gap:5px}.data-row small{color:#89958e;font-size:10px;line-height:1.55}.data-row small i{color:#4f876d;font-style:normal}.data-row .icon{margin-left:5px;border:0;color:#ae6262}.itinerary-row{align-items:start}.location-panel{margin-bottom:17px;padding:18px 20px}.location-panel h2{margin:0;color:#345344;font-size:17px}.location-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0}.panel-actions{justify-content:flex-end}.loading-line{color:#6e8679;font-size:12px;text-align:center}
 .active-trip-section{margin-bottom:17px}.active-trip-card,.active-trip-empty{box-sizing:border-box;width:100%;min-height:112px;border:1px solid #bedfca;border-radius:20px;padding:20px 24px;background:linear-gradient(120deg,#1f7456 0%,#2f8d69 55%,#65a982 100%);box-shadow:0 14px 34px rgba(31,116,86,.18);color:#fff}.active-trip-card{display:grid;grid-template-columns:160px minmax(0,1fr) auto;align-items:center;gap:24px;font:inherit;text-align:left;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease}.active-trip-card:hover{transform:translateY(-2px);box-shadow:0 18px 40px rgba(31,116,86,.24)}.active-trip-marker{display:flex;align-items:center;gap:8px;letter-spacing:.1em;font-size:10px;font-weight:800}.active-trip-marker i{width:8px;height:8px;border:3px solid #ffffff42;border-radius:50%;background:#b9ffd9;box-shadow:0 0 0 5px #ffffff12}.active-trip-main{display:grid;gap:5px}.active-trip-main small{color:#e2f3e8;font-size:11px}.active-trip-main strong{font-size:22px;line-height:1.3}.active-trip-main strong i{margin:0 7px;color:#bce6cc;font-style:normal}.active-trip-main>span{color:#d7eee0;font-size:11px}.active-trip-side{display:grid;justify-items:end;gap:12px}.active-trip-side b{border-radius:999px;padding:5px 10px;background:#fff;color:#267152;font-size:11px}.active-trip-side span{color:#eff9f2;font-size:12px;font-weight:700}.active-trip-empty{display:flex;align-items:center;gap:28px;border-color:#dce8df;background:#f7faf8;box-shadow:none;color:#536a5d}.active-trip-marker.idle{color:#728479}.active-trip-marker.idle i{border-color:#dfe9e2;background:#98aa9f;box-shadow:none}.active-trip-empty>div{display:grid;gap:5px}.active-trip-empty small{color:#8a9890}.notification-inbox-trigger{position:relative;display:flex;align-items:center;gap:7px;border:1px solid #cfe2d5;border-radius:10px;padding:8px 10px;background:#fff;color:#376650;font-weight:700;cursor:pointer}.notification-inbox-trigger.has-unread{border-color:#7fbaa0;background:#eff9f2;box-shadow:0 0 0 3px #e9f5ed}.notification-inbox-trigger small{color:#8d9992;font-size:10px;font-weight:500}.mail-icon{font-size:15px}.unread-badge{display:grid;min-width:19px;height:19px;box-sizing:border-box;place-items:center;border-radius:999px;padding:0 5px;background:#d85f55;color:#fff;font-size:10px}.notification-dialog{width:min(780px,100%)}.inbox-toolbar{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:14px 22px;border-bottom:1px solid #e8efea;background:#f8fbf9;color:#6d7d74;font-size:12px}.inbox-toolbar b{color:#2f684e;font-size:17px}.inbox-actions{display:flex;align-items:center;gap:12px}.inbox-actions label{display:flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer}.inbox-actions input{accent-color:#2f8063}.inbox-actions button:disabled{opacity:.45;cursor:not-allowed}.inbox-list{display:grid;overflow:auto;max-height:min(590px,calc(100vh - 190px));padding:0}.mail-row{display:grid;grid-template-columns:10px minmax(0,1fr) auto;align-items:start;gap:13px;padding:17px 22px;border-bottom:1px solid #edf2ee;background:#fff}.mail-row.unread{background:#f2faf5}.mail-state-dot{width:8px;height:8px;margin-top:7px;border-radius:50%;background:#c6d1ca}.mail-row.unread .mail-state-dot{background:#2f8b66;box-shadow:0 0 0 4px #dcefe4}.mail-content{display:grid;min-width:0;gap:7px}.mail-meta{display:flex;justify-content:space-between;gap:12px}.mail-meta b{color:#355a47;font-size:12px}.mail-row.unread .mail-meta b{color:#216c4d}.mail-meta time{color:#98a39d;font-size:10px}.mail-read-action{align-self:center;border:0;border-radius:8px;padding:7px 9px;background:#e3f2e8;color:#347256;font-size:11px;cursor:pointer}.read-state{align-self:center;color:#9aa49e;font-size:11px}.inbox-empty{display:grid;justify-items:center;gap:7px;padding:70px 20px;color:#536b5e}.inbox-empty>span{display:grid;width:42px;height:42px;place-items:center;border-radius:50%;background:#e6f3ea;color:#2e7b5c;font-size:19px}.inbox-empty small{color:#91a097}
-.advice-entry{display:grid;gap:10px;padding:16px}.advice-entry>p{margin:0;color:#728178;font-size:13px;line-height:1.65}.advice-entry .primary{justify-self:start}.pending-change{border-radius:999px;padding:5px 9px;background:#fff5dc;color:#8a682f;font-size:11px}.audit-failure-only{margin:0;border:1px solid #f1ceca;border-radius:9px;padding:10px 12px;background:#fff3f1!important;color:#b84f49!important;font-size:13px;line-height:1.65}.adjustment-overlay{position:fixed;z-index:1000;inset:0;display:grid;place-items:center;padding:22px;background:rgba(24,48,37,.48);backdrop-filter:blur(3px)}.adjustment-dialog{display:flex;width:min(720px,100%);max-height:min(760px,calc(100vh - 44px));overflow:hidden;flex-direction:column;border:1px solid #dce9df;border-radius:20px;background:#fff;box-shadow:0 24px 70px rgba(19,52,37,.24)}.dialog-header{display:flex;justify-content:space-between;align-items:center;padding:20px 22px;border-bottom:1px solid #eaf0ec}.dialog-header h2{margin:0;color:#2f513f;font-size:20px}.dialog-close{width:34px;height:34px;border:1px solid #dce8df;border-radius:50%;background:#fff;color:#577064;font-size:21px;cursor:pointer}.dialog-body{display:grid;gap:18px;overflow:auto;padding:22px}.system-change{border:1px solid #d8e9dd;border-radius:14px;padding:15px;background:#f2faf4}.system-change>span{display:inline-block;margin-bottom:8px;border-radius:999px;padding:4px 8px;background:#dff0e5;color:#347054;font-size:11px;font-weight:700}.dialog-hint{margin:0;color:#61736a;line-height:1.7}.dialog-actions{display:flex;justify-content:flex-end;gap:9px;padding-top:4px}.split-actions{justify-content:space-between}.dialog-actions button{min-width:96px}.request-fields{display:grid;grid-template-columns:1fr 1fr;gap:14px}.request-fields.single-field{grid-template-columns:1fr}.request-fields label,.revision-field{display:grid;gap:7px;color:#486556;font-size:12px;font-weight:700}.request-fields textarea,.revision-field textarea{box-sizing:border-box;min-height:120px;resize:vertical;border:1px solid #dce8df;border-radius:10px;padding:11px;background:#fff;color:#344c40;font:inherit;line-height:1.6;outline:none}.request-fields textarea:focus,.revision-field textarea:focus{border-color:#72ae91;box-shadow:0 0 0 3px #eaf5ed}.request-fields textarea[readonly]{background:#f5f7f5;color:#627269}.candidate-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}.candidate-heading small{color:#819087}.candidate-content,.candidate-summary{max-height:420px;overflow:auto;border:1px solid #e2ebe4;border-radius:12px;padding:16px;background:#fbfdfb;color:#41594d;line-height:1.7}.candidate-actions{flex-wrap:wrap}.revision-field textarea{margin-top:7px}
+.mail-row-actions{display:grid;justify-items:end;gap:7px;align-self:center}.advice-state{border-radius:999px;padding:4px 7px;background:#edf1ee;color:#68766e;font-size:10px}.advice-state.pending{background:#fff2d2;color:#826324}.mail-advice-action{border:0;border-radius:8px;padding:7px 9px;background:#2f8063;color:#fff;font-size:11px;font-weight:700;cursor:pointer}
+.advice-entry{display:grid;gap:10px;padding:16px}.advice-entry>p{margin:0;color:#728178;font-size:13px;line-height:1.65}.advice-entry .primary{justify-self:start}.pending-change{display:flex;justify-content:space-between;align-items:center;gap:12px;border:0;border-radius:12px;padding:9px 11px;background:#fff5dc;color:#806028;font-size:11px;text-align:left;cursor:pointer}.pending-change b{white-space:nowrap;color:#6f5120}.audit-failure-only{margin:0;border:1px solid #f1ceca;border-radius:9px;padding:10px 12px;background:#fff3f1!important;color:#b84f49!important;font-size:13px;line-height:1.65}.adjustment-overlay{position:fixed;z-index:1000;inset:0;display:grid;place-items:center;padding:22px;background:rgba(24,48,37,.48);backdrop-filter:blur(3px)}.adjustment-dialog{display:flex;width:min(720px,100%);max-height:min(760px,calc(100vh - 44px));overflow:hidden;flex-direction:column;border:1px solid #dce9df;border-radius:20px;background:#fff;box-shadow:0 24px 70px rgba(19,52,37,.24)}.dialog-header{display:flex;justify-content:space-between;align-items:center;padding:20px 22px;border-bottom:1px solid #eaf0ec}.dialog-header h2{margin:0;color:#2f513f;font-size:20px}.dialog-close{width:34px;height:34px;border:1px solid #dce8df;border-radius:50%;background:#fff;color:#577064;font-size:21px;cursor:pointer}.dialog-close:disabled{opacity:.45;cursor:wait}.dialog-body{display:grid;gap:18px;overflow:auto;padding:22px}.system-change{border:1px solid #d8e9dd;border-radius:14px;padding:15px;background:#f2faf4}.system-change>span{display:inline-block;margin-bottom:8px;border-radius:999px;padding:4px 8px;background:#dff0e5;color:#347054;font-size:11px;font-weight:700}.dialog-hint{margin:0;color:#61736a;line-height:1.7}.dialog-actions{display:flex;justify-content:flex-end;gap:9px;padding-top:4px}.dialog-actions button{min-width:96px}.automatic-resolution-actions{flex-wrap:wrap}.danger-soft{border:1px solid #efc7c2;border-radius:8px;padding:8px 10px;background:#fff5f3;color:#a9514b;cursor:pointer}.request-fields{display:grid;grid-template-columns:1fr 1fr;gap:14px}.request-fields.single-field{grid-template-columns:1fr}.request-fields label,.revision-field{display:grid;gap:7px;color:#486556;font-size:12px;font-weight:700}.request-fields textarea,.revision-field textarea{box-sizing:border-box;min-height:120px;resize:vertical;border:1px solid #dce8df;border-radius:10px;padding:11px;background:#fff;color:#344c40;font:inherit;line-height:1.6;outline:none}.request-fields textarea:focus,.revision-field textarea:focus{border-color:#72ae91;box-shadow:0 0 0 3px #eaf5ed}.request-fields textarea[readonly]{background:#f5f7f5;color:#627269}.candidate-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}.candidate-heading small{color:#819087}.candidate-content,.candidate-summary{max-height:420px;overflow:auto;border:1px solid #e2ebe4;border-radius:12px;padding:16px;background:#fbfdfb;color:#41594d;line-height:1.7}.candidate-actions{flex-wrap:wrap}.revision-field textarea{margin-top:7px}
 .adjustment-progress{display:flex;align-items:center;gap:12px;border:1px solid #cce4d5;border-radius:12px;padding:12px 14px;background:#eff9f2;color:#315e49}.adjustment-progress>span{width:18px;height:18px;flex:0 0 auto;border:3px solid #c4dfcf;border-top-color:#2f8063;border-radius:50%;animation:adjustment-spin .8s linear infinite}.adjustment-progress>div{display:grid;gap:3px}.adjustment-progress b{font-size:12px}.adjustment-progress small{color:#71857a;font-size:10px}@keyframes adjustment-spin{to{transform:rotate(360deg)}}.conflict-picker{display:grid;gap:10px;border:1px solid #dfe9e2;border-radius:13px;padding:14px;background:#fafcfb}.conflict-picker-head{display:flex;justify-content:space-between;align-items:start;gap:12px}.conflict-picker-head>div{display:grid;gap:4px}.conflict-picker-head b{color:#355b48;font-size:13px}.conflict-picker-head small{color:#829087;font-size:10px;font-weight:400}.conflict-picker-head>span{white-space:nowrap;border-radius:999px;padding:4px 8px;background:#e5f3e9;color:#397357;font-size:10px;font-weight:700}.conflict-list{display:grid;max-height:230px;overflow:auto;border:1px solid #e7eee9;border-radius:10px;background:#fff}.conflict-choice{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid #edf2ee;cursor:pointer}.conflict-choice:last-child{border-bottom:0}.conflict-choice:hover{background:#f5faf6}.conflict-choice.locked{background:#eef7f1;cursor:default}.conflict-choice input{width:16px;height:16px;accent-color:#2f8063}.conflict-choice>span{display:grid;gap:3px}.conflict-choice>span b{color:#3f5e4f;font-size:12px}.conflict-choice>span small{color:#87938c;font-size:10px}.conflict-choice em{white-space:nowrap;border-radius:999px;padding:4px 7px;background:#dcefe3;color:#337052;font-size:9px;font-style:normal;font-weight:700}.conflict-empty,.conflict-tip{margin:0;border-radius:8px;padding:9px 10px;background:#f1f5f2;color:#748178;font-size:10px;line-height:1.55}.conflict-tip{background:#fff8e9;color:#846d3f}
 .header-action{border:0;border-radius:8px;padding:8px 11px;background:#e6f3ea;color:#397458;font-weight:700;cursor:pointer}.header-action:disabled{opacity:.5;cursor:not-allowed}.row-actions{display:flex;gap:6px;align-items:center}.delete-button,.danger-button{border:1px solid #efcfcb;border-radius:8px;padding:8px 10px;background:#fff7f5;color:#b0524d;cursor:pointer}.danger-button{white-space:nowrap}.entry-dialog{width:min(620px,100%)}.modal-form label,.itinerary-form-grid label{display:grid;gap:7px;color:#486556;font-size:12px;font-weight:700}.modal-form input,.modal-form textarea,.modal-form select{box-sizing:border-box;width:100%;min-width:0;border:1px solid #dce8df;border-radius:10px;padding:10px;background:#fff;color:#344c40;font:inherit;outline:none}.modal-form textarea{min-height:120px;resize:vertical;line-height:1.6}.modal-form input:focus,.modal-form textarea:focus,.modal-form select:focus{border-color:#72ae91;box-shadow:0 0 0 3px #eaf5ed}.itinerary-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.itinerary-form-grid .wide-field{grid-column:1/-1}.itinerary-form-grid small{color:#849188;font-weight:400;line-height:1.5}.confirm-dialog{width:min(440px,100%)}.delete-confirmation{text-align:center}.delete-confirmation h2{margin:0;color:#733b38}.delete-confirmation>p{margin:0;color:#6d7771;line-height:1.7}.danger-symbol{display:grid;width:46px;height:46px;place-items:center;justify-self:center;border-radius:50%;background:#fff0ee;color:#b84f49;font-size:24px;font-weight:800}.danger-primary{border:0;border-radius:8px;padding:9px 13px;background:#b95750;color:#fff;font-weight:700;cursor:pointer}.danger-primary:disabled{opacity:.55}
 .message-sources{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:3px;padding-top:8px;border-top:1px solid #d5e9dc}.message-sources span{color:#71877b;font-size:10px;font-weight:700;letter-spacing:.08em}.message-sources a{max-width:210px;overflow:hidden;border:1px solid #cfe2d6;border-radius:999px;padding:3px 8px;background:#fff;color:#327358;font-size:11px;text-decoration:none;text-overflow:ellipsis;white-space:nowrap}.message-sources a:hover{border-color:#75aa91;background:#f7fcf8}
-.active-trip-card.state-upcoming{border-color:#c6dce7;background:linear-gradient(120deg,#476f82 0%,#5e8898 58%,#87aeba 100%)}.active-trip-card.state-completed{border-color:#d7ded9;background:linear-gradient(120deg,#68776f 0%,#7f8e86 58%,#a7b2ac 100%);box-shadow:0 12px 30px rgba(55,72,63,.14)}.active-trip-card.state-cancelled{border-color:#e5c9c6;background:linear-gradient(120deg,#875b58 0%,#a06f6a 58%,#bb918c 100%);box-shadow:0 12px 30px rgba(104,60,57,.14)}.itinerary-status.upcoming{background:#eef3f0;color:#687a70}.itinerary-status.ongoing{background:#dcf2e4;color:#277052}.itinerary-status.completed{background:#e7ece9;color:#647169}.itinerary-status.cancelled{background:#fff0ee;color:#ad5751}.itinerary-row.state-completed{background:#fafbfa}.itinerary-row.state-cancelled{opacity:.68}.itinerary-row.state-cancelled b{text-decoration:line-through}
+.active-trip-card.state-upcoming{border-color:#c6dce7;background:linear-gradient(120deg,#476f82 0%,#5e8898 58%,#87aeba 100%)}.active-trip-card.state-completed{border-color:#d7ded9;background:linear-gradient(120deg,#68776f 0%,#7f8e86 58%,#a7b2ac 100%);box-shadow:0 12px 30px rgba(55,72,63,.14)}.active-trip-card.state-cancelled{border-color:#e5c9c6;background:linear-gradient(120deg,#875b58 0%,#a06f6a 58%,#bb918c 100%);box-shadow:0 12px 30px rgba(104,60,57,.14)}.itinerary-status.upcoming{background:#eef3f0;color:#687a70}.itinerary-status.ongoing{background:#dcf2e4;color:#277052}.itinerary-status.change_pending{background:#fff2ce;color:#876523}.itinerary-status.completed{background:#e7ece9;color:#647169}.itinerary-status.cancelled{background:#fff0ee;color:#ad5751}.itinerary-row.state-change_pending{background:#fffdf7}.itinerary-row.state-completed{background:#fafbfa}.itinerary-row.state-cancelled{opacity:.68}.itinerary-row.state-cancelled b{text-decoration:line-through}
 .trip-overview{display:grid;grid-template-columns:minmax(210px,.8fr) 2fr;align-items:center;gap:24px;margin-bottom:18px;padding:18px 20px}.trip-overview-title{position:relative;min-width:0;padding-right:72px}.trip-overview-title h2{overflow:hidden;margin:0;color:#315342;font-size:18px;text-overflow:ellipsis;white-space:nowrap}.trip-overview-title>span{position:absolute;top:0;right:0;border-radius:999px;padding:4px 8px;background:#e5f3e9;color:#39755a;font-size:10px;font-weight:700}.trip-overview-title>span.state-upcoming{background:#eef4f7;color:#527586}.trip-overview-title>span.state-completed{background:#edf0ee;color:#69766f}.trip-overview-title>span.state-cancelled{background:#fff0ee;color:#a85a55}.trip-overview dl{display:grid;grid-template-columns:1fr 1.15fr .8fr 1.4fr;gap:10px;margin:0}.trip-overview dl>div{min-width:0;border-left:1px solid #e6ede8;padding-left:12px}.trip-overview dt{margin-bottom:5px;color:#8a9890;font-size:10px}.trip-overview dd{overflow:hidden;margin:0;color:#476052;font-size:12px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}.message.typing{display:flex;align-items:center;gap:8px}.message.typing i{width:8px;height:8px;border-radius:50%;background:#4b9875;box-shadow:12px 0 #79b397,24px 0 #a9cdb9;animation:typing-pulse 1.1s infinite ease-in-out}.message.typing span{margin-left:24px}@keyframes typing-pulse{0%,100%{opacity:.35;transform:translateY(0)}50%{opacity:1;transform:translateY(-2px)}}
 .audit-failure-summary{border-top:1px solid #edf2ee;padding-top:9px}.audit-failure-summary summary{color:#a05e59;font-size:11px;cursor:pointer}.audit-failure-summary .audit-failure-only{margin-top:8px}
 .message-row{display:flex;align-items:flex-start;gap:9px;margin:10px 14px}.message-row.user{flex-direction:row-reverse}.message-row .message{margin:0}.chat-avatar{display:grid;width:32px;height:32px;box-sizing:border-box;flex:0 0 auto;place-items:center;border:1px solid #cce3d5;border-radius:11px;background:linear-gradient(145deg,#e8f6ed,#cfeadb);box-shadow:0 4px 12px rgba(39,91,66,.1);color:#246a4e;font-size:12px;font-weight:800}.message-row.user .chat-avatar{border-color:#2c8266;background:#2b8668;color:#fff}.header-tools{display:flex;align-items:center;gap:8px}.header-tools label{display:flex;align-items:center;gap:6px}.header-tools select{border:1px solid #dce8df;border-radius:8px;padding:7px 28px 7px 8px;background:#fff;color:#4f6d5e;font:inherit}.tool>.muted{margin:0;padding:22px;text-align:center}.date-time-field{display:grid;grid-template-columns:minmax(170px,.9fr) minmax(190px,1.1fr);gap:10px;min-width:0;margin:0;border:1px solid #dfe9e2;border-radius:12px;padding:12px;background:#f9fcfa}.date-time-field legend{padding:0 5px;color:#486556;font-size:12px;font-weight:700}.date-time-field label{display:grid;align-content:start;gap:6px;font-size:10px}.date-picker-field input{cursor:pointer}.date-time-field .time-shortcuts{display:flex;align-items:center;gap:7px}.date-time-field>small{grid-column:1/-1}.time-shortcuts .quiet{padding:7px 9px;font-size:11px}.form-error{margin:0;border:1px solid #f0c8c2;border-radius:10px;padding:9px 11px;background:#fff2ef;color:#aa5048;font-size:11px;line-height:1.5}
 @media(max-width:920px){.main-grid,.tool-grid{grid-template-columns:1fr}.chat{min-height:480px}.side-stack{grid-template-columns:1fr}.location-grid{grid-template-columns:1fr 1fr}.active-trip-card{grid-template-columns:135px minmax(0,1fr) auto;gap:16px}.trip-overview{grid-template-columns:1fr}.trip-overview dl{grid-template-columns:1fr 1fr}}
-@media(max-width:680px){.companion-page{padding:26px 16px 55px}.hero{display:block;padding:25px 22px}.hero-status{display:none}.active-trip-card{grid-template-columns:1fr;gap:13px;padding:19px}.active-trip-side{grid-template-columns:auto 1fr;align-items:center;justify-items:start}.active-trip-side span{justify-self:end}.active-trip-empty{align-items:flex-start;flex-direction:column;gap:15px;padding:19px}.workspace-bar,.workspace-bar label{align-items:stretch;flex-direction:column}.workspace-bar select{width:100%;min-width:0}.workspace-actions{display:grid;grid-template-columns:1fr 1fr}.notification-inbox-trigger{justify-content:center}.danger-button{grid-column:1/-1}.trip-overview{padding:16px}.trip-overview dl{grid-template-columns:1fr}.trip-overview dl>div{border-left:0;border-top:1px solid #edf2ee;padding:9px 0 0}.inbox-toolbar{align-items:flex-start;flex-direction:column}.inbox-actions{width:100%;justify-content:space-between}.mail-row{grid-template-columns:10px minmax(0,1fr);padding:15px}.mail-read-action,.read-state{grid-column:2;justify-self:start}.mail-meta{align-items:flex-start;flex-direction:column;gap:4px}.conflict-picker-head{align-items:stretch;flex-direction:column}.conflict-choice{grid-template-columns:auto minmax(0,1fr)}.conflict-choice em{grid-column:2;justify-self:start}.memo-form,.schedule-form,.location-grid,.request-fields,.itinerary-form-grid,.date-time-field{grid-template-columns:1fr}.itinerary-form-grid .wide-field{grid-column:auto}.date-time-field>small{grid-column:auto}.message{max-width:92%}.message-row{margin:9px 10px}.chat-avatar{width:29px;height:29px;border-radius:9px}.card header{padding:15px}.tool header{align-items:flex-start;gap:10px}.header-tools{align-items:stretch;flex-direction:column}.notification-item{align-items:flex-start}.schedule-actions{align-items:center}.adjustment-overlay{align-items:end;padding:0}.adjustment-dialog{width:100%;max-height:92vh;border-radius:20px 20px 0 0}.dialog-body{padding:18px}.dialog-actions button{min-width:0}.candidate-actions{display:grid;grid-template-columns:1fr 1fr}.candidate-actions .primary{grid-column:1/-1}.row-actions{align-items:stretch;flex-direction:column}}
+@media(max-width:680px){.companion-page{padding:26px 16px 55px}.hero{display:block;padding:25px 22px}.hero-status{display:none}.active-trip-card{grid-template-columns:1fr;gap:13px;padding:19px}.active-trip-side{grid-template-columns:auto 1fr;align-items:center;justify-items:start}.active-trip-side span{justify-self:end}.active-trip-empty{align-items:flex-start;flex-direction:column;gap:15px;padding:19px}.workspace-bar,.workspace-bar label{align-items:stretch;flex-direction:column}.workspace-bar select{width:100%;min-width:0}.workspace-actions{display:grid;grid-template-columns:1fr 1fr}.notification-inbox-trigger{justify-content:center}.danger-button{grid-column:1/-1}.trip-overview{padding:16px}.trip-overview dl{grid-template-columns:1fr}.trip-overview dl>div{border-left:0;border-top:1px solid #edf2ee;padding:9px 0 0}.inbox-toolbar{align-items:flex-start;flex-direction:column}.inbox-actions{width:100%;justify-content:space-between}.mail-row{grid-template-columns:10px minmax(0,1fr);padding:15px}.mail-row-actions{grid-column:2;justify-items:start}.mail-meta{align-items:flex-start;flex-direction:column;gap:4px}.conflict-picker-head{align-items:stretch;flex-direction:column}.conflict-choice{grid-template-columns:auto minmax(0,1fr)}.conflict-choice em{grid-column:2;justify-self:start}.memo-form,.schedule-form,.location-grid,.request-fields,.itinerary-form-grid,.date-time-field{grid-template-columns:1fr}.itinerary-form-grid .wide-field{grid-column:auto}.date-time-field>small{grid-column:auto}.message{max-width:92%}.message-row{margin:9px 10px}.chat-avatar{width:29px;height:29px;border-radius:9px}.card header{padding:15px}.tool header{align-items:flex-start;gap:10px}.header-tools{align-items:stretch;flex-direction:column}.notification-item{align-items:flex-start}.schedule-actions{align-items:center}.adjustment-overlay{align-items:end;padding:0}.adjustment-dialog{width:100%;max-height:92vh;border-radius:20px 20px 0 0}.dialog-body{padding:18px}.dialog-actions button{min-width:0}.candidate-actions{display:grid;grid-template-columns:1fr 1fr}.candidate-actions .primary{grid-column:1/-1}.row-actions{align-items:stretch;flex-direction:column}}
 .itinerary-dialog{width:min(880px,100%)}
 @media(min-width:681px){.wide-field :deep(.date-picker-popover),.wide-field :deep(.time-picker-popover){top:auto;bottom:calc(100% + 8px)}}
 </style>

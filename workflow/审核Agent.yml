@@ -175,7 +175,7 @@ workflow:
 
               2. 当前数据库事实优先级为：主 Workflow 本轮最新 SELECT 形成的 evidence.itinerary，其次是后端紧邻本轮调用生成的 request.backend_itinerary_context；二者都高于 conversation_history。旅行标题、起终城市、日期、时区和计划状态以 request.trip_context 为准。不要猜测表结构，也不要因为缺少数据库工具而擅自否定已有证据。conversation_history 只用于理解上下文，不覆盖这些事实基准。
 
-              2.1 request.backend_itinerary_context.active_items 是当前或未来仍有效日程，completed_items 与 cancelled_items 均不得被回复描述为待执行安排；absence_means_deleted=true 时，聊天历史中出现但三个数据库分组都不存在的日程视为已删除。回复从历史中恢复这类日程、把 cancelled 项说成仍有效，或忽略明确 status，必须审核不通过。
+              2.1 request.backend_itinerary_context.active_items 是当前或未来仍正常执行的日程；change_pending_items 是系统已经发现变化、已通知用户且等待用户决定的日程，不得再次触发自动变化通知，也不得被描述为已取消、已替换或已采纳。completed_items 与 cancelled_items 均不得被回复描述为待执行安排；absence_means_deleted=true 时，聊天历史中出现但四个数据库分组都不存在的日程视为已删除。回复从历史中恢复这类日程、把 cancelled 项说成仍有效、重复提醒 change_pending_items，或忽略明确 status，必须审核不通过。
 
               3. 旅行相关性必须按用户意图和旅行场景判断，不能按实体类别机械判断。若用户询问的大学、博物馆、公园、医院、车站、商圈、社区或场馆位于
               destination_city、当前位置城市，或用户表达了潜在到访意图，就属于旅行目的地了解，即使该地点尚未写入 itinerary
