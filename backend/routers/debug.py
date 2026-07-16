@@ -19,30 +19,30 @@ DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 router = APIRouter(prefix="/debug", tags=["Debug"])
 
 
-def _scan_log_users(date_str: str | None = None) -> list[int]:
-    """扫描日志目录，返回指定日期下有日志的所有 user_id."""
-    if date_str is None:
-        date_str = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d")
+def _scan_log_users(date_str: str) -> tuple[list[int], list[str]]:
+    """扫描日志目录，返回 (user_ids, all_txt_files)."""
     if not LOG_DIR.exists():
-        return []
+        return [], []
     user_ids: set[int] = set()
-    for path in LOG_DIR.iterdir():
+    all_files: list[str] = []
+    for path in sorted(LOG_DIR.iterdir()):
         if not path.is_file():
             continue
-        name = path.name  # e.g. "1_2026-07-16.txt"
+        name = path.name
         if not name.endswith(".txt"):
             continue
-        stem = name[:-4]  # "1_2026-07-16"
+        all_files.append(name)
+        stem = name[:-4]
         parts = stem.rsplit("_", 3)
         if len(parts) < 4:
             continue
-        file_date = "-".join(parts[1:4])  # "2026-07-16"
+        file_date = "-".join(parts[1:4])
         if file_date == date_str:
             try:
                 user_ids.add(int(parts[0]))
             except ValueError:
                 continue
-    return sorted(user_ids)
+    return sorted(user_ids), all_files
 
 
 @router.get("/analyze-preferences")
@@ -56,12 +56,19 @@ def analyze_preferences(
 
     date_str = date or datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d")
 
+    user_ids, all_files = _scan_log_users(date_str)
+
     if user_id is not None:
         user_ids = [user_id]
-    else:
-        user_ids = _scan_log_users(date_str)
-        if not user_ids:
-            return {"message": f"no log files found for {date_str}", "prototypes": 0}
+
+    if not user_ids:
+        return {
+            "message": f"no log files found for {date_str}",
+            "prototypes": 0,
+            "log_dir": str(LOG_DIR),
+            "log_dir_exists": LOG_DIR.exists(),
+            "files_in_dir": all_files,
+        }
 
     results: list[dict] = []
     for uid in user_ids:
