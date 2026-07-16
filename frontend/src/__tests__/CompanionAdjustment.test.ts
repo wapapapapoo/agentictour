@@ -138,7 +138,7 @@ describe('Companion adjustment dialog', () => {
     wrapper.unmount()
   })
 
-  it('renders upcoming trip and time-driven itinerary lifecycle labels', async () => {
+  it('renders an upcoming trip without leaking itinerary rows from another date', async () => {
     const current = Date.now()
     const itinerary = (id: number, start: number, end: number, status = 'pending') => ({
       itinerary_id: id,
@@ -165,12 +165,8 @@ describe('Companion adjustment dialog', () => {
     )
 
     expect(wrapper.text()).toContain('UPCOMING · 尚未开始')
-    expect(wrapper.findAll('.itinerary-status').map((item) => item.text())).toEqual([
-      '待开始',
-      '进行中',
-      '已完成',
-      '已取消',
-    ])
+    expect(wrapper.findAll('.itinerary-status')).toHaveLength(0)
+    expect(wrapper.text()).toContain('当天没有符合条件的日程')
     wrapper.unmount()
   })
 

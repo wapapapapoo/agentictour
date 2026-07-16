@@ -157,8 +157,9 @@ class LocationResponse(BaseModel):
     user_id: int
     latitude: float
     longitude: float
-    city_adcode: str = Field(default="", validation_alias="city")
-    place_name: str = ""
+    city_adcode: str | None = Field(default=None, validation_alias="city")
+    place_name: str | None = None
+    location_context: str | None = None
     updated_at: datetime
     model_config = {"from_attributes": True}
 

@@ -770,6 +770,7 @@ workflow:
               - 旅行概要：{{#1782285385726.trip_context#}}
 
               - 城市编码：{{#1782285385726.city_adcode#}}
+              - 当位置名称或城市编码为空但经纬度存在时，先调用 amap_reverse_geocode（coordinate_system=gps）补全；不得要求用户手填 adcode。
 
               - 当前坐标：经度 {{#1782285385726.longitude#}}，纬度 {{#1782285385726.latitude#}}
 
@@ -875,6 +876,26 @@ workflow:
               tool_label: 获取当前时间
               tool_name: current_time
               type: builtin
+            - enabled: true
+              extra:
+                description: 仅凭经纬度获取高德地址、城市、区县和 adcode；浏览器坐标使用 gps。
+              parameters:
+                coordinate_system:
+                  auto: 1
+                  value: null
+                latitude:
+                  auto: 1
+                  value: null
+                longitude:
+                  auto: 1
+                  value: null
+              provider_name: travel-mcp
+              provider_show_name: AI旅游MCP
+              settings: {}
+              tool_description: 仅凭经纬度获取当前位置的高德地址、城市、区县和 adcode。
+              tool_label: amap_reverse_geocode
+              tool_name: amap_reverse_geocode
+              type: mcp
             - enabled: true
               extra:
                 description: '查询指定城市或区县的天气。
@@ -1572,6 +1593,8 @@ workflow:
 
               城市编码：{{#1782285385726.city_adcode#}}
 
+              当位置名称或城市编码为空但经纬度存在时，先调用 amap_reverse_geocode（coordinate_system=gps）补全；不得要求用户手填 adcode。
+
               用户允许调整的日程 ID：{{#1782285385726.selected_itinerary_ids#}}
 
               系统锁定的冲突日程 ID：{{#1782285385726.locked_itinerary_ids#}}
@@ -1580,6 +1603,26 @@ workflow:
           tools:
             type: constant
             value:
+            - enabled: true
+              extra:
+                description: 仅凭经纬度获取高德地址、城市、区县和 adcode；浏览器坐标使用 gps。
+              parameters:
+                coordinate_system:
+                  auto: 1
+                  value: null
+                latitude:
+                  auto: 1
+                  value: null
+                longitude:
+                  auto: 1
+                  value: null
+              provider_name: travel-mcp
+              provider_show_name: AI旅游MCP
+              settings: {}
+              tool_description: 仅凭经纬度获取当前位置的高德地址、城市、区县和 adcode。
+              tool_label: amap_reverse_geocode
+              tool_name: amap_reverse_geocode
+              type: mcp
             - enabled: true
               extra:
                 description: '查询指定城市或区县的天气。
@@ -3605,6 +3648,8 @@ workflow:
 
               城市编码：{{#1782285385726.city_adcode#}}
 
+              当位置名称或城市编码为空但经纬度存在时，先调用 amap_reverse_geocode（coordinate_system=gps）补全；不得要求用户手填 adcode。
+
               当前位置：{{#1782285385726.location_name#}}（{{#1782285385726.longitude#}},{{#1782285385726.latitude#}}）
 
               请只检查 backend_itinerary_context.active_items 与上下文中的未来待执行行程；change_pending_items 已经产生待用户处理的变化通知，不得再次触发、不得再次加入 conflicting_itinerary_ids，也不得以不同措辞重复通知。历史消息、completed_items、cancelled_items 以及快照中不存在的旧日程都不能触发提醒。只返回 reply、decision 和 conflicting_itinerary_ids。'
@@ -3630,6 +3675,26 @@ workflow:
               tool_label: 获取当前时间
               tool_name: current_time
               type: builtin
+            - enabled: true
+              extra:
+                description: 仅凭经纬度获取高德地址、城市、区县和 adcode；浏览器坐标使用 gps。
+              parameters:
+                coordinate_system:
+                  auto: 1
+                  value: null
+                latitude:
+                  auto: 1
+                  value: null
+                longitude:
+                  auto: 1
+                  value: null
+              provider_name: travel-mcp
+              provider_show_name: AI旅游MCP
+              settings: {}
+              tool_description: 仅凭经纬度获取当前位置的高德地址、城市、区县和 adcode。
+              tool_label: amap_reverse_geocode
+              tool_name: amap_reverse_geocode
+              type: mcp
             - enabled: true
               extra:
                 description: '查询指定城市或区县的天气。

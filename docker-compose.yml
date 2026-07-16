@@ -4,6 +4,7 @@ services:
     container_name: app-backend
     env_file:
       - ./backend/.env
+      - ./mcp/.env
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -25,6 +26,8 @@ services:
   mcp:
     build: ./mcp
     container_name: app-mcp
+    env_file:
+      - ./mcp/.env
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:

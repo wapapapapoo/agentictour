@@ -17,6 +17,7 @@ from schemas.trip_plan import (
     TripPlanListItem,
     TripPlanResponse,
     TripPlanReviseRequest,
+    TripPlanUpdateRequest,
 )
 from services import trip_plan_service
 from utils.dify_client import DifyError
@@ -83,6 +84,24 @@ def get_trip_plan(
     return trip_plan_service.to_response(plan)
 
 
+@router.patch("/{plan_id}", response_model=TripPlanResponse)
+def update_trip_plan_information(
+    plan_id: int,
+    data: TripPlanUpdateRequest,
+    current_user_id: int = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Any:
+    try:
+        plan = trip_plan_service.update_plan_information(
+            db, plan_id, data, current_user_id
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return trip_plan_service.to_response(plan)
+
+
 @router.post(
     "/{plan_id}/itineraries/sync", response_model=TripPlanItinerarySyncResponse
 )
@@ -91,6 +110,7 @@ def sync_trip_plan_itineraries(
     current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
+    plan = trip_plan_service.get_plan(db, plan_id)
     try:
         items, created_count = trip_plan_service.sync_plan_itineraries(
             db, plan_id, current_user_id
@@ -101,6 +121,7 @@ def sync_trip_plan_itineraries(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return {
         "created_count": created_count,
+        "trip_id": plan.trip_id if plan is not None else 0,
         "itinerary_items": items,
     }
 

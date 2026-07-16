@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from datetime import UTC, datetime, time, timedelta, timezone, tzinfo
@@ -32,6 +33,8 @@ from schemas.accompany import (
 )
 from services.ai_gateway import AuditRejectedError, run_hikari_once_audited
 from utils.trip_time import trip_local_iso, trip_route_context, trip_time_context
+
+logger = logging.getLogger(__name__)
 
 CHAT_HISTORY_MAX_MESSAGES_DEFAULT = 20
 CHAT_HISTORY_MAX_CHARS_DEFAULT = 12000
@@ -107,20 +110,34 @@ def authoritative_itinerary_context(db: Session, trip_id: int) -> str:
             item for item in items if item["status"] == CHANGE_PENDING_STATUS
         ],
         "completed_items": [item for item in items if item["status"] == "done"],
-        "cancelled_items": [
-            item for item in items if item["status"] == "cancelled"
-        ],
+        "cancelled_items": [item for item in items if item["status"] == "cancelled"],
     }
     return json.dumps(payload, ensure_ascii=False)
 
 
 def upsert_location(db: Session, data: LocationUpdate) -> UserLocation:
+    resolved: dict[str, Any] = {}
+    try:
+        from services.amap_location_service import resolve_browser_location
+
+        resolved = resolve_browser_location(data.latitude, data.longitude)
+    except Exception as exc:
+        logger.warning("location enrichment failed for user %s: %s", data.user_id, exc)
     row = db.query(UserLocation).filter(UserLocation.user_id == data.user_id).first()
     values = {
-        "latitude": data.latitude,
-        "longitude": data.longitude,
-        "city": data.city_adcode or None,
-        "place_name": data.place_name or None,
+        "latitude": resolved.get("latitude", data.latitude),
+        "longitude": resolved.get("longitude", data.longitude),
+        "city": resolved.get("city_adcode") or data.city_adcode or None,
+        "place_name": resolved.get("place_name") or data.place_name or None,
+        "location_context": json.dumps(
+            resolved.get("location_context")
+            or {
+                "provider": "browser",
+                "coordinate_system": "wgs84",
+                "resolution_status": "unavailable",
+            },
+            ensure_ascii=False,
+        ),
         "updated_at": datetime.now(UTC).replace(tzinfo=None),
     }
     if row is None:
@@ -131,6 +148,10 @@ def upsert_location(db: Session, data: LocationUpdate) -> UserLocation:
     db.commit()
     db.refresh(row)
     return row
+
+
+def get_location(db: Session, user_id: int) -> UserLocation | None:
+    return db.query(UserLocation).filter(UserLocation.user_id == user_id).first()
 
 
 def _save_request_location(db: Session, data: Any) -> None:
@@ -356,9 +377,7 @@ def create_itinerary(
         values["reminder_time"] is not None
         and values["reminder_time"] > data.start_time
     ):
-        raise ValueError(
-            "reminder_time must not be later than itinerary start_time"
-        )
+        raise ValueError("reminder_time must not be later than itinerary start_time")
     _validate_itinerary_in_trip(db, data.trip_id, data.start_time, data.end_time)
     _validate_reminder_in_trip(db, data.trip_id, values["reminder_time"])
     row = crud.create(db, ItineraryItem, values)
@@ -731,13 +750,18 @@ def _validate_cross_city_candidate(
                 f"{trip.destination_city}。"
             )
     user_at_origin = _city_key(trip.origin_city) in _city_key(location_name)
-    if user_at_origin and any(
-        isinstance(item, dict) and item.get("itinerary_type") == "play"
-        for item in items
-    ) and not any(
-        isinstance(item, dict) and item.get("itinerary_type") == "transit"
-        for item in items
-    ) and not has_pending_transit:
+    if (
+        user_at_origin
+        and any(
+            isinstance(item, dict) and item.get("itinerary_type") == "play"
+            for item in items
+        )
+        and not any(
+            isinstance(item, dict) and item.get("itinerary_type") == "transit"
+            for item in items
+        )
+        and not has_pending_transit
+    ):
         raise AuditRejectedError(
             "用户仍在出发城市，跨城候选方案必须先提供到旅游目的地的交通日程。"
         )
@@ -779,9 +803,7 @@ def _generate_replan(
             "trigger_type": trigger_type,
             "tour_id": trip_id,
             "trip_context": _trip_context(db, trip_id),
-            "backend_itinerary_context": authoritative_itinerary_context(
-                db, trip_id
-            ),
+            "backend_itinerary_context": authoritative_itinerary_context(db, trip_id),
             "selected_itinerary_ids": json.dumps(selected_ids),
             "locked_itinerary_ids": json.dumps(locked_ids),
             **location_inputs,

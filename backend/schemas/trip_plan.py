@@ -38,6 +38,15 @@ class TripPlanReviseRequest(BaseModel):
     revision_request: str
 
 
+class TripPlanUpdateRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=100)
+    origin_city: str = Field(min_length=1, max_length=100)
+    destination_city: str = Field(min_length=1, max_length=100)
+    start_date: str = Field(max_length=20)
+    end_date: str = Field(max_length=20)
+    status: str = Field(default="planned", pattern="^(planned|cancelled)$")
+
+
 class TripPlanVersionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -50,6 +59,7 @@ class TripPlanVersionResponse(BaseModel):
     task_id: Optional[str]
     plan_json: Any
     created_at: datetime
+
 
 class TripPlanResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -73,6 +83,7 @@ class TripPlanResponse(BaseModel):
     updated_at: Optional[datetime]
     latest_version: Optional[TripPlanVersionResponse]
 
+
 class TripPlanListItem(BaseModel):
     id: int
     trip_id: int
@@ -91,4 +102,5 @@ class TripPlanItinerarySyncResponse(BaseModel):
     """Result of importing a generated plan into the companion itinerary."""
 
     created_count: int
+    trip_id: int
     itinerary_items: list[ItineraryResponse]
