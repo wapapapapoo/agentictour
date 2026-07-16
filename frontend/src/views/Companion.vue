@@ -113,6 +113,17 @@ const locationResolutionError = computed(() => (
     ? String(locationContext.value.resolution_error || '高德地址解析失败')
     : ''
 ))
+const locationResolutionHint = computed(() => {
+  const detail = locationResolutionError.value
+  if (!detail) return ''
+  if (detail.includes('No module named')) {
+    return '后端运行依赖不完整，请重新构建并部署后端容器。'
+  }
+  if (detail.includes('AMAP_KEY')) {
+    return '请确认 backend/.env 中已配置高德 Web 服务 Key，并重新创建后端容器。'
+  }
+  return '请检查高德 Web 服务 Key、接口权限及服务器网络，然后点击“刷新”重试。'
+})
 const locationCoordinateLabel = computed(() => (
   locationContext.value.coordinate_system === 'gcj02' ? '高德坐标' : '浏览器坐标'
 ))
@@ -1114,7 +1125,7 @@ onUnmounted(() => {
         <div><dt>{{ locationCoordinateLabel }}</dt><dd>{{ location.longitude.toFixed(6) }}, {{ location.latitude.toFixed(6) }}</dd></div>
         <div><dt>更新时间</dt><dd>{{ formatDate(location.updated_at) }}</dd></div>
       </dl>
-      <p v-if="locationResolutionError" class="location-resolution-error">{{ locationResolutionError }}。请确认后端容器中的 AMAP_KEY 是高德 Web 服务 Key，然后点击“刷新”重试。</p>
+      <p v-if="locationResolutionError" class="location-resolution-error">{{ locationResolutionError }}。{{ locationResolutionHint }}</p>
       <p v-if="!location" class="location-empty">尚未获取位置。点击右上方“刷新”并允许浏览器定位即可自动补全。</p>
     </section>
 
