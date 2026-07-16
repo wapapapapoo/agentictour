@@ -300,7 +300,10 @@ def test_failed_audit_auto_check_is_not_persisted(
 
     assert advice is None
     assert db.query(AIAdvice).count() == 0
-    assert db.query(Notification).count() == 0
+    notification = db.query(Notification).one()
+    assert notification.advice_id is None
+    assert notification.category == "agent_audit_failed"
+    assert "审核" in notification.content
     assert db.query(ChatMessage).count() == 0
 
 
@@ -439,3 +442,40 @@ def test_auto_replan_persists_pending_conflict_ids(db: Session, monkeypatch) -> 
 
     proposed = json.loads(advice.proposed_itinerary_json)
     assert proposed["conflicting_itinerary_ids"] == [itinerary.itinerary_id]
+    db.refresh(itinerary)
+    db.refresh(completed)
+    assert itinerary.status == "change_pending"
+    assert completed.status == "done"
+
+
+def test_change_pending_itinerary_is_not_sent_to_periodic_agent_again(
+    db: Session, monkeypatch
+) -> None:
+    trip = _trip()
+    db.add(trip)
+    db.flush()
+    db.add(
+        ItineraryItem(
+            trip_id=trip.id,
+            title="等待用户确认的行程",
+            place_name="河畔",
+            start_time=datetime(2026, 7, 20, 20),
+            end_time=datetime(2026, 7, 20, 22),
+            itinerary_type="play",
+            status="change_pending",
+        )
+    )
+    db.commit()
+    monkeypatch.setattr(
+        reminder_service,
+        "run_hikari_once_audited",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            AssertionError("change_pending itinerary must not be sent to Dify")
+        ),
+    )
+
+    executed = reminder_service.run_periodic_agent_jobs(
+        db, now=datetime(2026, 7, 20, 10)
+    )
+
+    assert executed == 0

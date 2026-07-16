@@ -35,5 +35,6 @@ describe('travel lifecycle', () => {
     expect(itineraryLifecycle({ ...base, start_time: '2026-07-15T11:00:00Z', end_time: '2026-07-15T13:00:00Z' }, now)).toBe('ongoing')
     expect(itineraryLifecycle({ ...base, start_time: '2026-07-15T10:00:00Z', end_time: '2026-07-15T11:00:00Z' }, now)).toBe('completed')
     expect(itineraryLifecycle({ ...base, start_time: '2026-07-15T13:00:00Z', end_time: '2026-07-15T14:00:00Z', status: 'cancelled' }, now)).toBe('cancelled')
+    expect(itineraryLifecycle({ ...base, start_time: '2026-07-15T13:00:00Z', end_time: '2026-07-15T14:00:00Z', status: 'change_pending' }, now)).toBe('change_pending')
   })
 })

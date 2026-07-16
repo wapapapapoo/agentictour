@@ -21,11 +21,44 @@ from services.accompany_service import (
     authoritative_itinerary_context,
     sync_itinerary_statuses,
 )
-from services.ai_gateway import AuditRejectedError, run_hikari_once_audited
+from services.ai_gateway import run_hikari_once_audited
 from services.trip_service import sync_trip_statuses
 from utils.trip_time import trip_local_iso, trip_route_context, trip_time_context
 
 logger = logging.getLogger(__name__)
+
+
+def _audit_failure_notification(
+    db: Session, trip: Trip, reason: str | None
+) -> Notification:
+    content = (
+        "Hikari 的自动处理结果在第二次审核后仍未通过，因此没有保存或执行"
+        f"任何建议。审核说明：{reason or '输出未满足审核要求'}"
+    )
+    existing = (
+        db.query(Notification)
+        .filter(
+            Notification.trip_id == trip.id,
+            Notification.user_id == trip.user_id,
+            Notification.category == "agent_audit_failed",
+            Notification.read_at.is_(None),
+        )
+        .order_by(Notification.created_at.desc())
+        .first()
+    )
+    if existing is not None:
+        existing.content = content
+        return existing
+    return create(
+        db,
+        Notification,
+        {
+            "trip_id": trip.id,
+            "user_id": trip.user_id,
+            "category": "agent_audit_failed",
+            "content": content,
+        },
+    )
 
 
 def _trip_context(trip: Trip | None) -> str:
@@ -96,7 +129,7 @@ def _emit(
         },
     )
     if not audited.passed:
-        raise AuditRejectedError(audited.reason)
+        return _audit_failure_notification(db, trip, audited.reason)
     return create(
         db,
         Notification,
@@ -154,6 +187,7 @@ def _agent_check(
             trigger_type,
             audited.reason,
         )
+        _audit_failure_notification(db, trip, audited.reason)
         return None
     decision = (
         "chat_recommendation"
@@ -174,6 +208,19 @@ def _agent_check(
         if decision == "itinerary_replan"
         else []
     )
+    if decision == "itinerary_replan" and conflict_ids:
+        (
+            db.query(ItineraryItem)
+            .filter(
+                ItineraryItem.trip_id == trip.id,
+                ItineraryItem.itinerary_id.in_(conflict_ids),
+                ItineraryItem.status == "pending",
+            )
+            .update(
+                {ItineraryItem.status: "change_pending"},
+                synchronize_session=False,
+            )
+        )
     advice = create(
         db,
         AIAdvice,

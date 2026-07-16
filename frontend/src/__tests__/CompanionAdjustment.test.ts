@@ -178,7 +178,8 @@ describe('Companion adjustment dialog', () => {
     const wrapper = await mountCompanion([advice()])
 
     expect(document.body.textContent).toContain('是否根据这项变化重新生成')
-    expect(document.body.textContent).toContain('放弃')
+    expect(document.body.textContent).toContain('保留原行程')
+    expect(document.body.textContent).toContain('取消原行程')
     const agree = Array.from(document.body.querySelectorAll('button')).find(
       (button) => button.textContent?.trim() === '同意更改',
     )
@@ -190,6 +191,91 @@ describe('Companion adjustment dialog', () => {
     expect(textareas).toHaveLength(2)
     expect(document.body.textContent).toContain('系统自动提示')
     expect(document.body.textContent).toContain('用户补充')
+    wrapper.unmount()
+  })
+
+  it('closes an automatic prompt without resolving it and can reopen from the banner', async () => {
+    const notification = {
+      notification_id: 41,
+      trip_id: 1,
+      advice_id: 17,
+      content: '景点临时闭馆，将影响下午行程。',
+      category: 'itinerary_replan',
+      read_at: null,
+      created_at: '2026-07-15T08:00:00',
+    }
+    apiMock.markNotificationRead.mockResolvedValue({
+      ...notification,
+      read_at: '2026-07-15T08:01:00',
+    })
+    const wrapper = await mountCompanion([advice()], [], [], [notification])
+
+    const close = document.body.querySelector<HTMLButtonElement>(
+      '.adjustment-dialog .dialog-close',
+    )!
+    expect(close).toBeTruthy()
+    close.click()
+    await flushPromises()
+
+    expect(document.body.querySelector('.adjustment-dialog')).toBeNull()
+    expect(apiMock.actOnAdvice).not.toHaveBeenCalled()
+    const resume = wrapper.find('.pending-change')
+    expect(resume.text()).toContain('进入处理')
+    await resume.trigger('click')
+    expect(document.body.textContent).toContain('是否根据这项变化重新生成')
+    wrapper.unmount()
+  })
+
+  it.each([
+    ['保留原行程', 'keep_original'],
+    ['取消原行程', 'cancel_original'],
+  ])('resolves an automatic change with %s', async (label, action) => {
+    apiMock.actOnAdvice.mockResolvedValue(advice({ result: action === 'keep_original' ? 'kept' : 'cancelled_original' }))
+    apiMock.listItineraries.mockResolvedValue([])
+    const wrapper = await mountCompanion([advice()])
+    const button = Array.from(document.body.querySelectorAll('button')).find(
+      (item) => item.textContent?.trim() === label,
+    )!
+    button.click()
+    await flushPromises()
+
+    expect(apiMock.actOnAdvice).toHaveBeenCalledWith(17, action)
+    wrapper.unmount()
+  })
+
+  it('keeps an automatic adjustment pending when revision is opened and closed', async () => {
+    const root = advice()
+    const candidate = advice({
+      advice_id: 18,
+      advice_type: 'replan',
+      parent_advice_id: 17,
+      advice_text: '建议改去咖啡馆休息。',
+      proposed_itinerary: {
+        selected_itinerary_ids: [8],
+        locked_itinerary_ids: [8],
+      },
+    })
+    const wrapper = await mountCompanion([candidate, root], [], [{
+      itinerary_id: 8,
+      trip_id: 1,
+      title: '待确认的原行程',
+      place_name: '景点',
+      start_time: '2026-07-16T12:00:00',
+      end_time: '2026-07-16T14:00:00',
+      itinerary_type: 'play',
+      status: 'change_pending',
+    }])
+
+    const revise = Array.from(document.body.querySelectorAll('button')).find(
+      (item) => item.textContent?.trim() === '进一步修改',
+    )!
+    revise.click()
+    await flushPromises()
+    document.body.querySelector<HTMLButtonElement>('.adjustment-dialog .dialog-close')!.click()
+    await flushPromises()
+
+    expect(apiMock.actOnAdvice).not.toHaveBeenCalled()
+    expect(wrapper.find('.pending-change').exists()).toBe(true)
     wrapper.unmount()
   })
 
@@ -400,6 +486,45 @@ describe('Companion adjustment dialog', () => {
     wrapper.unmount()
   })
 
+  it('keeps an unresolved replan actionable in the inbox after it is read', async () => {
+    const wrapper = await mountCompanion([advice()], [], [], [{
+      notification_id: 33,
+      trip_id: 1,
+      advice_id: 17,
+      content: '景点临时闭馆，将影响下午行程。',
+      category: 'itinerary_replan',
+      read_at: '2026-07-15T09:00:00',
+      created_at: '2026-07-15T08:30:00',
+    }])
+
+    await wrapper.find('.notification-inbox-trigger').trigger('click')
+    const action = document.body.querySelector<HTMLButtonElement>('.mail-advice-action')!
+    expect(action.textContent).toContain('处理变化')
+    expect(document.body.textContent).toContain('待处理')
+    action.click()
+    await flushPromises()
+
+    expect(document.body.textContent).toContain('处理自动变化')
+    wrapper.unmount()
+  })
+
+  it('shows a handled automatic recommendation result in the inbox', async () => {
+    const wrapper = await mountCompanion([advice({ result: 'kept' })], [], [], [{
+      notification_id: 34,
+      trip_id: 1,
+      advice_id: 17,
+      content: '景点临时闭馆，将影响下午行程。',
+      category: 'itinerary_replan',
+      read_at: '2026-07-15T09:00:00',
+      created_at: '2026-07-15T08:30:00',
+    }])
+
+    await wrapper.find('.notification-inbox-trigger').trigger('click')
+    expect(document.body.textContent).toContain('已保留原行程')
+    expect(document.body.querySelector('.mail-advice-action')).toBeNull()
+    wrapper.unmount()
+  })
+
   it('lets users select pending conflict items and excludes completed items', async () => {
     const wrapper = await mountCompanion([], [], [
       {
@@ -444,7 +569,7 @@ describe('Companion adjustment dialog', () => {
         start_time: '2026-07-16T12:00:00',
         end_time: '2026-07-16T14:00:00',
         itinerary_type: 'play',
-        status: 'pending',
+        status: 'change_pending',
       },
       {
         itinerary_id: 9,
@@ -484,7 +609,7 @@ describe('Companion adjustment dialog', () => {
         start_time: new Date(now - 30 * 60_000).toISOString(),
         end_time: new Date(now + 30 * 60_000).toISOString(),
         itinerary_type: 'play',
-        status: 'pending',
+        status: 'change_pending',
       },
     ])
 
@@ -497,7 +622,7 @@ describe('Companion adjustment dialog', () => {
     const choice = document.body.querySelector('.conflict-choice')!
     const checkbox = choice.querySelector<HTMLInputElement>('input')!
     expect(choice.textContent).toContain('正在进行的午餐')
-    expect(choice.textContent).toContain('进行中')
+    expect(choice.textContent).toContain('变更待确认')
     expect(checkbox.checked).toBe(true)
     expect(checkbox.disabled).toBe(true)
     wrapper.unmount()

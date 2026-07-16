@@ -35,6 +35,7 @@ from utils.trip_time import trip_local_iso, trip_route_context, trip_time_contex
 
 CHAT_HISTORY_MAX_MESSAGES_DEFAULT = 20
 CHAT_HISTORY_MAX_CHARS_DEFAULT = 12000
+CHANGE_PENDING_STATUS = "change_pending"
 THINK_BLOCK_RE = re.compile(r"<think\b[^>]*>.*?</think\s*>", re.IGNORECASE | re.DOTALL)
 
 
@@ -71,6 +72,8 @@ def authoritative_itinerary_context(db: Session, trip_id: int) -> str:
             lifecycle = "cancelled"
         elif row.status == "done":
             lifecycle = "completed"
+        elif row.status == CHANGE_PENDING_STATUS:
+            lifecycle = CHANGE_PENDING_STATUS
         elif row.start_time <= now < row.end_time:
             lifecycle = "ongoing"
         else:
@@ -100,6 +103,9 @@ def authoritative_itinerary_context(db: Session, trip_id: int) -> str:
         "generated_at": trip_time_context(trip.timezone)["current_time_local"],
         "absence_means_deleted": True,
         "active_items": [item for item in items if item["status"] == "pending"],
+        "change_pending_items": [
+            item for item in items if item["status"] == CHANGE_PENDING_STATUS
+        ],
         "completed_items": [item for item in items if item["status"] == "done"],
         "cancelled_items": [
             item for item in items if item["status"] == "cancelled"
@@ -551,6 +557,15 @@ def _replan_payload(audited: Any) -> dict[str, Any] | None:
 def _pending_scope_ids(
     db: Session, trip_id: int, requested_ids: list[int] | None
 ) -> list[int]:
+    return _scope_ids(db, trip_id, requested_ids, ("pending",))
+
+
+def _scope_ids(
+    db: Session,
+    trip_id: int,
+    requested_ids: list[int] | None,
+    statuses: tuple[str, ...],
+) -> list[int]:
     selected = sorted(
         {
             value
@@ -565,7 +580,7 @@ def _pending_scope_ids(
         for row in db.query(ItineraryItem.itinerary_id)
         .filter(
             ItineraryItem.trip_id == trip_id,
-            ItineraryItem.status == "pending",
+            ItineraryItem.status.in_(statuses),
             ItineraryItem.itinerary_id.in_(selected),
         )
         .all()
@@ -573,16 +588,35 @@ def _pending_scope_ids(
 
 
 def _eligible_selected_ids(
-    db: Session, trip_id: int, requested_ids: list[int] | None
+    db: Session,
+    trip_id: int,
+    requested_ids: list[int] | None,
+    *,
+    change_pending_ids: list[int] | None = None,
 ) -> list[int]:
     raw = requested_ids or []
     if any(not isinstance(value, int) or isinstance(value, bool) for value in raw):
         raise ValueError("selected itinerary ids must be integers")
     requested = sorted(set(raw))
-    eligible = _pending_scope_ids(db, trip_id, requested)
+    allowed_change = set(change_pending_ids or [])
+    rows = (
+        db.query(ItineraryItem.itinerary_id, ItineraryItem.status)
+        .filter(
+            ItineraryItem.trip_id == trip_id,
+            ItineraryItem.itinerary_id.in_(requested),
+        )
+        .all()
+    )
+    eligible = sorted(
+        itinerary_id
+        for itinerary_id, status in rows
+        if status == "pending"
+        or (status == CHANGE_PENDING_STATUS and itinerary_id in allowed_change)
+    )
     if eligible != requested:
         raise ValueError(
-            "selected itineraries must be pending items from the current trip"
+            "selected itineraries must be pending items from the current trip; "
+            "only system-locked items may be change_pending"
         )
     return eligible
 
@@ -709,11 +743,18 @@ def _generate_replan(
     commit: bool = True,
 ) -> AIAdvice:
     sync_itinerary_statuses(db, trip_id=trip_id, commit=False)
-    locked_ids = _eligible_selected_ids(db, trip_id, locked_itinerary_ids)
+    locked_request = sorted(set(locked_itinerary_ids or []))
+    locked_ids = _eligible_selected_ids(
+        db,
+        trip_id,
+        locked_request,
+        change_pending_ids=locked_request,
+    )
     selected_ids = _eligible_selected_ids(
         db,
         trip_id,
         sorted(set(selected_itinerary_ids or []) | set(locked_ids)),
+        change_pending_ids=locked_ids,
     )
     audited = run_hikari_once_audited(
         user=_get_username(db, user_id),
@@ -845,8 +886,11 @@ def _apply_replan(db: Session, row: AIAdvice) -> None:
         if len(rows) != len(normalized_ids):
             raise ValueError("some cancelled itineraries do not belong to this trip")
         for itinerary in rows:
-            if itinerary.status != "pending":
-                raise ValueError("only pending itineraries can be cancelled by replan")
+            if itinerary.status not in ("pending", CHANGE_PENDING_STATUS):
+                raise ValueError(
+                    "only pending or change_pending itineraries can be "
+                    "cancelled by replan"
+                )
             itinerary.status = "cancelled"
             cancelled_days.append(itinerary.start_time)
         db.flush()
@@ -862,6 +906,120 @@ def _apply_replan(db: Session, row: AIAdvice) -> None:
         _recalculate_day(db, row.trip_id, day)
 
 
+def _automatic_root(db: Session, row: AIAdvice) -> AIAdvice | None:
+    current = row
+    seen: set[int] = set()
+    while True:
+        if current.advice_id in seen:
+            return None
+        seen.add(current.advice_id)
+        if current.advice_type == "itinerary_replan":
+            return current
+        if current.parent_advice_id is None:
+            return None
+        parent = crud.get_or_none(db, AIAdvice, "advice_id", current.parent_advice_id)
+        if parent is None:
+            return None
+        current = parent
+
+
+def _automatic_chain(db: Session, root: AIAdvice) -> list[AIAdvice]:
+    rows = db.query(AIAdvice).filter(AIAdvice.trip_id == root.trip_id).all()
+    by_id = {item.advice_id: item for item in rows}
+
+    def belongs(item: AIAdvice) -> bool:
+        current = item
+        seen: set[int] = set()
+        while current.parent_advice_id is not None:
+            if current.advice_id in seen:
+                return False
+            seen.add(current.advice_id)
+            if current.parent_advice_id == root.advice_id:
+                return True
+            parent = by_id.get(current.parent_advice_id)
+            if parent is None:
+                return False
+            current = parent
+        return item.advice_id == root.advice_id
+
+    return [item for item in rows if belongs(item)]
+
+
+def _automatic_conflict_ids(root: AIAdvice) -> list[int]:
+    proposed = _json_or_none(root.proposed_itinerary_json or "")
+    if not isinstance(proposed, dict):
+        return []
+    values = proposed.get("conflicting_itinerary_ids", [])
+    if not isinstance(values, list):
+        return []
+    return sorted(
+        {
+            value
+            for value in values
+            if isinstance(value, int) and not isinstance(value, bool)
+        }
+    )
+
+
+def _resolve_automatic_adjustment(
+    db: Session,
+    row: AIAdvice,
+    *,
+    result: str,
+    itinerary_status: str,
+) -> AIAdvice:
+    root = _automatic_root(db, row)
+    if root is None:
+        raise ValueError("this advice is not part of an automatic adjustment")
+    conflict_ids = _automatic_conflict_ids(root)
+    affected = []
+    if conflict_ids:
+        affected = (
+            db.query(ItineraryItem)
+            .filter(
+                ItineraryItem.trip_id == root.trip_id,
+                ItineraryItem.itinerary_id.in_(conflict_ids),
+                ItineraryItem.status == CHANGE_PENDING_STATUS,
+            )
+            .all()
+        )
+        for itinerary in affected:
+            itinerary.status = itinerary_status
+    for item in _automatic_chain(db, root):
+        item.result = result
+        item.generation_stopped = True
+    if itinerary_status == "cancelled":
+        for day in {item.start_time for item in affected}:
+            _recalculate_day(db, root.trip_id, day)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def _finish_automatic_acceptance(db: Session, row: AIAdvice) -> None:
+    root = _automatic_root(db, row)
+    if root is None:
+        return
+    conflict_ids = _automatic_conflict_ids(root)
+    if conflict_ids:
+        (
+            db.query(ItineraryItem)
+            .filter(
+                ItineraryItem.trip_id == root.trip_id,
+                ItineraryItem.itinerary_id.in_(conflict_ids),
+                ItineraryItem.status == CHANGE_PENDING_STATUS,
+            )
+            .update({ItineraryItem.status: "pending"}, synchronize_session=False)
+        )
+    for item in _automatic_chain(db, root):
+        item.result = (
+            "accepted"
+            if item.advice_id in (root.advice_id, row.advice_id)
+            else "superseded"
+        )
+        item.generation_stopped = True
+
+
 def act_on_advice(
     db: Session,
     advice_id: int,
@@ -873,6 +1031,17 @@ def act_on_advice(
     row = crud.get_or_none(db, AIAdvice, "advice_id", advice_id)
     if row is None:
         raise LookupError("advice not found")
+    automatic_root = _automatic_root(db, row)
+    if action == "reject" and automatic_root is not None:
+        action = "keep_original"
+    if action == "keep_original":
+        return _resolve_automatic_adjustment(
+            db, row, result="kept", itinerary_status="pending"
+        )
+    if action == "cancel_original":
+        return _resolve_automatic_adjustment(
+            db, row, result="cancelled_original", itinerary_status="cancelled"
+        )
     if row.generation_stopped and action == "revise":
         raise ValueError("advice generation has been stopped")
     if action == "accept":
@@ -880,10 +1049,18 @@ def act_on_advice(
             if row.advice_type == "itinerary_replan":
                 incident = row.reason_text or row.advice_text
                 stored_selected, locked_ids = _advice_scope_ids(row)
-                stored_selected = _pending_scope_ids(
-                    db, row.trip_id, stored_selected
+                stored_selected = _scope_ids(
+                    db,
+                    row.trip_id,
+                    stored_selected,
+                    ("pending", CHANGE_PENDING_STATUS),
                 )
-                locked_ids = _pending_scope_ids(db, row.trip_id, locked_ids)
+                locked_ids = _scope_ids(
+                    db,
+                    row.trip_id,
+                    locked_ids,
+                    ("pending", CHANGE_PENDING_STATUS),
+                )
                 selected_ids = sorted(
                     set(stored_selected)
                     | set(selected_itinerary_ids or [])
@@ -912,11 +1089,11 @@ def act_on_advice(
                     parent_advice_id=row.advice_id,
                     commit=False,
                 )
-                row.result = "accepted"
                 db.commit()
                 db.refresh(generated)
                 return generated
             _apply_replan(db, row)
+            _finish_automatic_acceptance(db, row)
         except Exception:
             db.rollback()
             raise
@@ -926,8 +1103,13 @@ def act_on_advice(
     else:
         row.result = "revising"
         stored_selected, locked_ids = _advice_scope_ids(row)
-        stored_selected = _pending_scope_ids(db, row.trip_id, stored_selected)
-        locked_ids = _pending_scope_ids(db, row.trip_id, locked_ids)
+        statuses = (
+            ("pending", CHANGE_PENDING_STATUS)
+            if automatic_root is not None
+            else ("pending",)
+        )
+        stored_selected = _scope_ids(db, row.trip_id, stored_selected, statuses)
+        locked_ids = _scope_ids(db, row.trip_id, locked_ids, statuses)
         selected_ids = sorted(
             set(stored_selected) | set(selected_itinerary_ids or []) | set(locked_ids)
         )
