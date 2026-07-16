@@ -1089,7 +1089,7 @@ onUnmounted(() => {
         v-for="trip in trips"
         :key="trip.id"
         :value="trip.id"
-      >{{ trip.destination_city }} · {{ trip.title }}</option></select></label>
+      >{{ trip.origin_city }} → {{ trip.destination_city }}旅行</option></select></label>
       <div class="workspace-actions">
         <button
           class="notification-inbox-trigger"
@@ -2079,6 +2079,11 @@ onUnmounted(() => {
 </style>
 
 <style scoped>
+.active-trip-section,
+.plan-binding {
+  display: none;
+}
+
 .main-grid {
   align-items: stretch;
 }
