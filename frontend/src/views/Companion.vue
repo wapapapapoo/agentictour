@@ -443,10 +443,11 @@ async function send() {
   if (!text || !tripId.value || chatLoading.value) return
   loading.value = true
   chatLoading.value = true
-  messages.value.push({ role: 'user', text })
-  message.value = ''
   error.value = ''
   try {
+    await refreshLocationForAi()
+    messages.value.push({ role: 'user', text })
+    message.value = ''
     const reply = await api.sendChatMessage({ trip_id: tripId.value, message: text, ...locationPayload() })
     messages.value.push({
       role: 'agent',
@@ -774,6 +775,7 @@ async function submitAdjustmentRequest() {
   adjustmentOperation.value = 'Hikari 正在生成候选方案，请稍候…'
   adjustmentError.value = ''
   try {
+    await refreshLocationForAi()
     let generated: Advice
     if (adjustment.value.mode === 'automatic') {
       if (!adjustment.value.sourceAdviceId) return
@@ -848,6 +850,7 @@ async function reviseCandidate() {
   adjustmentOperation.value = 'Hikari 正在根据新要求重新生成…'
   adjustmentError.value = ''
   try {
+    await refreshLocationForAi()
     const generated = await api.actOnAdvice(
       item.advice_id,
       'revise',
@@ -914,6 +917,25 @@ function useBrowserLocation() {
   })
 }
 
+let aiLocationRefreshPromise: Promise<Location> | null = null
+async function refreshLocationForAi(): Promise<Location> {
+  if (!aiLocationRefreshPromise) {
+    const task = (async () => {
+      const coordinates = await useBrowserLocation()
+      browserCoordinates.value = { ...browserCoordinates.value, ...coordinates }
+      const refreshed = await api.updateLocation(coordinates)
+      location.value = refreshed
+      return refreshed
+    })()
+    aiLocationRefreshPromise = task
+    const clearTask = () => {
+      if (aiLocationRefreshPromise === task) aiLocationRefreshPromise = null
+    }
+    void task.then(clearTask, clearTask)
+  }
+  return aiLocationRefreshPromise
+}
+
 async function loadSavedLocation() {
   const getter = (api as { getLocation?: () => Promise<Location> }).getLocation
   if (typeof getter !== 'function') return
@@ -929,9 +951,7 @@ async function refreshAll() {
   let locationError = ''
   try {
     try {
-      const coordinates = await useBrowserLocation()
-      browserCoordinates.value = { ...browserCoordinates.value, ...coordinates }
-      location.value = await api.updateLocation(coordinates)
+      await refreshLocationForAi()
     } catch (cause) {
       locationError = errorMessage(cause, '定位刷新失败，其他数据已继续刷新。')
     }
@@ -984,6 +1004,22 @@ function itineraryState(item: Itinerary) {
 
 let notificationTimer: number | undefined
 let lifecycleTimer: number | undefined
+let locationSyncTimer: number | undefined
+const LOCATION_SYNC_INTERVAL_MS = 5 * 60_000
+
+async function syncLocationSilently() {
+  if (document.visibilityState !== 'visible') return
+  try {
+    await refreshLocationForAi()
+  } catch {
+    // Background location refresh must not interrupt the current user action.
+  }
+}
+
+function syncLocationWhenVisible() {
+  if (document.visibilityState === 'visible') void syncLocationSilently()
+}
+
 watch(tripId, () => {
   workspaceRequestId += 1
   memos.value = []
@@ -1015,12 +1051,17 @@ watch([pendingAutomaticAdvice, () => adjustment.value.open], ([item, modalOpen])
 })
 onMounted(async () => {
   await Promise.all([loadTrips(), loadSavedLocation()])
+  void syncLocationSilently()
   notificationTimer = globalThis.setInterval(() => { void loadNotifications() }, 30_000)
   lifecycleTimer = globalThis.setInterval(() => { lifecycleClock.value = new Date() }, 30_000)
+  locationSyncTimer = globalThis.setInterval(() => { void syncLocationSilently() }, LOCATION_SYNC_INTERVAL_MS)
+  document.addEventListener('visibilitychange', syncLocationWhenVisible)
 })
 onUnmounted(() => {
   globalThis.clearInterval(notificationTimer)
   globalThis.clearInterval(lifecycleTimer)
+  globalThis.clearInterval(locationSyncTimer)
+  document.removeEventListener('visibilitychange', syncLocationWhenVisible)
 })
 </script>
 
