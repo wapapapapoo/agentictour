@@ -17,6 +17,7 @@ const { apiMock } = vi.hoisted(() => ({
     markNotificationRead: vi.fn(),
     deleteTrip: vi.fn(),
     generateAdvice: vi.fn(),
+    updateLocation: vi.fn(),
   },
 }))
 
@@ -80,6 +81,22 @@ describe('Companion adjustment dialog', () => {
     vi.clearAllMocks()
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-07-16T04:00:00.000Z'))
+    Object.defineProperty(globalThis.navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition: vi.fn((success: PositionCallback) => success({
+          coords: { latitude: 39.063329, longitude: 117.101224 },
+        } as GeolocationPosition)),
+      },
+    })
+    apiMock.updateLocation.mockResolvedValue({
+      user_id: 1,
+      latitude: 39.063329,
+      longitude: 117.101224,
+      city_adcode: '120000',
+      place_name: '天津市',
+      updated_at: '2026-07-16T04:00:00.000Z',
+    })
   })
 
   afterEach(() => {
@@ -115,7 +132,17 @@ describe('Companion adjustment dialog', () => {
     void wrapper.find('.composer').trigger('submit')
     await flushPromises()
 
+    expect(apiMock.updateLocation).toHaveBeenCalledWith({
+      latitude: 39.063329,
+      longitude: 117.101224,
+    })
     expect(apiMock.sendChatMessage).toHaveBeenCalledTimes(1)
+    expect(apiMock.sendChatMessage).toHaveBeenCalledWith(expect.objectContaining({
+      city_adcode: '120000',
+      latitude: 39.063329,
+      longitude: 117.101224,
+      location_name: '天津市',
+    }))
     expect(wrapper.findAll('.message.user')).toHaveLength(1)
     expect(wrapper.find('.composer button').text()).toBe('等待回复…')
     expect(wrapper.find('.messages').attributes('aria-busy')).toBe('true')
