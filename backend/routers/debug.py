@@ -32,14 +32,14 @@ def _scan_log_users(date_str: str) -> tuple[list[int], list[str]]:
         if not name.endswith(".txt"):
             continue
         all_files.append(name)
-        stem = name[:-4]
-        parts = stem.rsplit("_", 3)
-        if len(parts) < 4:
+        stem = name[:-4]  # "115_2026-07-16"
+        idx = stem.rfind("_")
+        if idx < 0:
             continue
-        file_date = "-".join(parts[1:4])
+        file_date = stem[idx + 1:]  # "2026-07-16"
         if file_date == date_str:
             try:
-                user_ids.add(int(parts[0]))
+                user_ids.add(int(stem[:idx]))
             except ValueError:
                 continue
     return sorted(user_ids), all_files
