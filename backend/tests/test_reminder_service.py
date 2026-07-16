@@ -367,6 +367,36 @@ def test_system_auto_check_routes_action_to_chat_or_notification(
         assert notification.category == category
 
 
+def test_system_auto_check_reuses_open_adjustment_without_duplicate_notification(
+    db: Session, monkeypatch
+) -> None:
+    trip = _trip()
+    db.add(trip)
+    db.commit()
+    calls = 0
+
+    def run_agent(**_kwargs):
+        nonlocal calls
+        calls += 1
+        return _agent_decision_output("itinerary_replan")
+
+    monkeypatch.setattr(reminder_service, "run_hikari_once_audited", run_agent)
+
+    first = reminder_service._agent_check(
+        db, trip, "system_auto_check", "due reminder check"
+    )
+    second = reminder_service._agent_check(
+        db, trip, "system_auto_check", "hourly check"
+    )
+    db.commit()
+
+    assert first is not None
+    assert second is not None
+    assert second.advice_id == first.advice_id
+    assert calls == 1
+    assert db.query(Notification).count() == 1
+
+
 def test_auto_replan_persists_pending_conflict_ids(db: Session, monkeypatch) -> None:
     trip = _trip()
     db.add(trip)

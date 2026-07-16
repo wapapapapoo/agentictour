@@ -190,6 +190,8 @@ workflow:
               4. 天气、附近地点或路线事实只有在回复确实包含相关声明且 audit_context 证据不足时才调用对应专用工具；其他公开网页事实确有必要时才调用
               Tavily Search 核对。不要为了普通稳定事实进行深度研究、抓取或全站爬取；参数不足或工具失败时不得伪造核验结果。
 
+              4.1 具体火车车次号、出发到达时间、历时和余票属于高风险实时事实，必须以 train_ticket_query（Joooook/12306-mcp）本轮返回为准；Tavily、模型记忆和旧聊天不能替代 12306 查询。回复给出具体车次但 evidence 中没有成功的 12306 工具结果，或与工具结果不一致，必须审核不通过。
+
               5. 回复若包含近期公告、开放状态、政策、精确地址等可能变化的公开事实，或正文表明使用了联网搜索，应在末尾提供 1 至 4 条真实、相关、可访问的
               http/https 来源，且关键结论能由来源支持。优先官方页面；虚构链接、链接与结论无关或只有搜索结果页时不通过。不要仅因链接排版不是你偏好的样式否决；回复明确说明无法确认且没有断言事实时，不强求来源。
 
@@ -423,6 +425,41 @@ workflow:
                 - isindoor: 是否室内算路，0 不需要，1 需要'
               tool_label: amap_walking_route
               tool_name: amap_walking_route
+              type: mcp
+            - enabled: true
+              extra:
+                description: 通过 Joooook/12306-mcp 查询 12306 实时车次与余票。任何具体车次号、出发到达时间和历时都必须先调用本工具核实。
+              parameters:
+                date:
+                  auto: 1
+                  value: null
+                earliest_start_time:
+                  auto: 1
+                  value: null
+                from_station:
+                  auto: 1
+                  value: null
+                latest_start_time:
+                  auto: 1
+                  value: null
+                limited_num:
+                  auto: 1
+                  value: null
+                sort_flag:
+                  auto: 1
+                  value: null
+                to_station:
+                  auto: 1
+                  value: null
+                train_filter_flags:
+                  auto: 1
+                  value: null
+              provider_name: travel-mcp
+              provider_show_name: AI旅游MCP
+              settings: {}
+              tool_description: 通过 Joooook/12306-mcp 查询 12306 实时车次与余票。日期使用 yyyy-MM-dd；出发地和到达地使用中文城市或车站名。
+              tool_label: train_ticket_query
+              tool_name: train_ticket_query
               type: mcp
             - enabled: true
               extra:

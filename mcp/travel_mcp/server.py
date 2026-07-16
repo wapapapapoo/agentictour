@@ -12,13 +12,14 @@ from travel_mcp.tools.knowledge_search import (
 from travel_mcp.tools.knowledge_search import (
     search_knowledge as search_knowledge_func,
 )
+from travel_mcp.tools.train_ticket import train_ticket_query as train_ticket_query_func
 
 check_settings()
 
 mcp = FastMCP("ai-travel-amap-mcp")
 
 
-@mcp.tool  # type: ignore[untyped-decorator]
+@mcp.tool
 async def amap_weather(adcode: str, extensions: str = "base") -> Dict[str, Any]:
     """
     查询指定城市或区县的天气。
@@ -36,7 +37,7 @@ async def amap_weather(adcode: str, extensions: str = "base") -> Dict[str, Any]:
     return await amap_weather_func(adcode=adcode, extensions=extensions)
 
 
-@mcp.tool  # type: ignore[untyped-decorator]
+@mcp.tool
 async def amap_nearby_search(
     location: str,
     keywords: str = "",
@@ -72,7 +73,7 @@ async def amap_nearby_search(
     )
 
 
-@mcp.tool  # type: ignore[untyped-decorator]
+@mcp.tool
 async def amap_walking_route(
     origin: str,
     destination: str,
@@ -99,7 +100,7 @@ async def amap_walking_route(
     )
 
 
-@mcp.tool  # type: ignore[untyped-decorator]
+@mcp.tool
 async def list_knowledge_bases() -> Dict[str, Any]:
     """
     列出 Dify 中所有可用的知识库，返回每个知识库的 ID、名称、描述和文档数。
@@ -110,7 +111,7 @@ async def list_knowledge_bases() -> Dict[str, Any]:
     return await list_knowledge_bases_func()
 
 
-@mcp.tool  # type: ignore[untyped-decorator]
+@mcp.tool
 async def search_knowledge(dataset_id: str, query: str) -> Dict[str, Any]:
     """
     在指定的 Dify 知识库中检索文档片段。
@@ -124,6 +125,35 @@ async def search_knowledge(dataset_id: str, query: str) -> Dict[str, Any]:
     - query: 搜索关键词或问题
     """
     return await search_knowledge_func(dataset_id=dataset_id, query=query)
+
+
+@mcp.tool
+async def train_ticket_query(
+    date: str,
+    from_station: str,
+    to_station: str,
+    train_filter_flags: str = "",
+    earliest_start_time: int = 0,
+    latest_start_time: int = 24,
+    sort_flag: str = "startTime",
+    limited_num: int = 10,
+) -> Dict[str, Any]:
+    """
+    通过 Joooook/12306-mcp 查询 12306 实时车次与余票。
+
+    任何具体火车车次号、出发到达时间和历时都必须先调用本工具核实，
+    不得根据记忆或普通网页搜索编造。日期使用 yyyy-MM-dd。
+    """
+    return await train_ticket_query_func(
+        date=date,
+        from_station=from_station,
+        to_station=to_station,
+        train_filter_flags=train_filter_flags,
+        earliest_start_time=earliest_start_time,
+        latest_start_time=latest_start_time,
+        sort_flag=sort_flag,
+        limited_num=limited_num,
+    )
 
 
 if __name__ == "__main__":

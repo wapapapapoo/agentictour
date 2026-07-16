@@ -237,7 +237,12 @@ def _recalculate_day(db: Session, trip_id: int, day: datetime) -> None:
         was_initial = bool(item.is_initial)
         item.is_initial = index == 0
         if index == 0:
-            item.reminder_time = item.start_time
+            if item.reminder_time is None:
+                item.reminder_time = item.start_time
+            if item.reminder_time > item.start_time:
+                raise ValueError(
+                    "reminder_time must not be later than itinerary start_time"
+                )
             _validate_reminder_in_trip(db, trip_id, item.reminder_time)
             continue
         previous = items[index - 1]
@@ -274,7 +279,8 @@ def create_itinerary(
     )
     if data.is_initial or not day_has_item:
         values["is_initial"] = True
-        values["reminder_time"] = data.start_time
+        if values["reminder_time"] is None:
+            values["reminder_time"] = data.start_time
     elif data.itinerary_type == "play" and data.reminder_time is None:
         values["reminder_time"] = _default_play_reminder(db, data)
     if (
@@ -300,6 +306,7 @@ def update_itinerary(
     if row is None:
         raise LookupError("itinerary not found")
     values = data.model_dump(exclude_unset=True)
+    reminder_was_supplied = "reminder_time" in values
     for field in ("start_time", "end_time", "reminder_time"):
         if values.get(field) is not None:
             values[field] = _utc_naive(values[field])
@@ -313,10 +320,19 @@ def update_itinerary(
     initial = values.get("is_initial", row.is_initial)
     if end <= start:
         raise ValueError("end_time must be later than start_time")
-    if initial:
+    if initial and reminder is None:
         values["reminder_time"] = start
+        reminder = start
     elif kind == "transit" and reminder is None:
         raise ValueError("transit itinerary requires reminder_time")
+    if reminder is not None and reminder > start:
+        if "start_time" in values and not reminder_was_supplied:
+            values["reminder_time"] = start
+            reminder = start
+        else:
+            raise ValueError(
+                "reminder_time must not be later than itinerary start_time"
+            )
     _validate_reminder_in_trip(
         db, row.trip_id, values.get("reminder_time", row.reminder_time)
     )

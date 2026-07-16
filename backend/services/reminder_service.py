@@ -109,6 +109,24 @@ def _agent_check(
     trigger_type: str,
     detail: str,
 ) -> AIAdvice | None:
+    if trigger_type == "system_auto_check":
+        # Due-reminder checks and the hourly job can run at almost the same time.
+        # Serialize them per trip and reuse the open adjustment instead of sending
+        # two notifications for the same unresolved incident.
+        db.query(Trip.id).filter(Trip.id == trip.id).with_for_update().one()
+        open_adjustment = (
+            db.query(AIAdvice)
+            .filter(
+                AIAdvice.trip_id == trip.id,
+                AIAdvice.advice_type.in_(("itinerary_replan", "replan")),
+                AIAdvice.result.in_(("pending", "revising")),
+                AIAdvice.audit_status == "pass",
+            )
+            .order_by(AIAdvice.created_at.desc(), AIAdvice.advice_id.desc())
+            .first()
+        )
+        if open_adjustment is not None:
+            return open_adjustment
     audited = run_hikari_once_audited(
         user=str(trip.user_id),
         original_input=detail,

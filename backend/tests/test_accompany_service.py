@@ -20,6 +20,7 @@ from schemas.accompany import (
     AdviceGenerateRequest,
     ChatRequest,
     ItineraryCreate,
+    ItineraryUpdate,
     LocationResponse,
     LocationUpdate,
     MemoCreate,
@@ -379,6 +380,27 @@ def test_first_item_each_day_is_initial_and_reminds_at_start(db: Session) -> Non
     assert first.reminder_time == first.start_time
     assert next_day.is_initial is True
     assert next_day.reminder_time == next_day.start_time
+
+
+def test_first_item_preserves_custom_reminder_before_start(db: Session) -> None:
+    first = accompany_service.create_itinerary(
+        db,
+        _item(
+            datetime(2026, 7, 20, 10, 30),
+            datetime(2026, 7, 20, 12),
+            reminder_time=datetime(2026, 7, 20, 9, 30),
+        ),
+    )
+
+    assert first.is_initial is True
+    assert first.reminder_time == datetime(2026, 7, 20, 9, 30)
+
+    updated = accompany_service.update_itinerary(
+        db,
+        first.itinerary_id,
+        ItineraryUpdate(reminder_time=datetime(2026, 7, 20, 9)),
+    )
+    assert updated.reminder_time == datetime(2026, 7, 20, 9)
 
 
 def test_play_reminder_uses_previous_end_minus_twenty_minutes(db: Session) -> None:
@@ -847,7 +869,6 @@ def test_update_reorders_initial_and_validates_reminder(db: Session) -> None:
     second = accompany_service.create_itinerary(
         db, _item(datetime(2026, 7, 20, 10), datetime(2026, 7, 20, 11))
     )
-    from schemas.accompany import ItineraryUpdate
 
     accompany_service.update_itinerary(
         db,
