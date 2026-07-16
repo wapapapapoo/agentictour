@@ -263,7 +263,11 @@ def search_knowledge(
             "plan_id": plan_id,
             "version_id": version_id,
             "plan_title": title,
+            "position": segment.get("position", 0),
         })
+
+    # 按文档内 position 排序后再合并，保证日程顺序不乱
+    raw.sort(key=lambda r: (r["document_id"], r.get("position", 0)))
 
     # 按 plan_id 合并同一行程的所有 chunk
     groups: dict[int, dict[str, Any]] = {}
