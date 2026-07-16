@@ -76,9 +76,14 @@ async function mountCompanion(
 }
 
 describe('Companion adjustment dialog', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-07-16T04:00:00.000Z'))
+  })
 
   afterEach(() => {
+    vi.useRealTimers()
     document.body.innerHTML = ''
   })
 

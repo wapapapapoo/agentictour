@@ -321,12 +321,21 @@ def _generated_itinerary_payloads(
 def sync_plan_itineraries(
     db: Session, plan_id: int, user_id: int
 ) -> tuple[list[ItineraryItem], int]:
-    request = get_plan(db, plan_id)
+    # Serialize imports of the same plan. A plain "read existing, then insert"
+    # check is not enough: two fast requests can both observe an empty table.
+    request = (
+        db.query(TripPlanRequest)
+        .filter(TripPlanRequest.id == plan_id)
+        .with_for_update()
+        .first()
+    )
     if request is None or request.user_id != user_id:
         raise LookupError("trip plan not found")
     existing = (
         db.query(ItineraryItem).filter(ItineraryItem.trip_id == request.trip_id).all()
     )
+    if request.action == "imported":
+        return accompany_service.list_itineraries(db, request.trip_id), 0
     latest_version = get_latest_version(db, plan_id)
     if latest_version is None:
         raise LookupError("trip plan version not found")
