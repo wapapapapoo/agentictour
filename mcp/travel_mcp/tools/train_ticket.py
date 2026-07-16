@@ -1,8 +1,16 @@
 from typing import Any
 
 from fastmcp import Client
+from fastmcp.client.transports import StdioTransport
 
 from travel_mcp.configs import settings
+
+_train_transport = StdioTransport(
+    command=settings.TRAIN_MCP_COMMAND,
+    args=[],
+    keep_alive=True,
+)
+_train_client = Client(_train_transport, timeout=settings.HTTP_TIMEOUT)
 
 
 async def train_ticket_query(
@@ -29,8 +37,8 @@ async def train_ticket_query(
         "format": "text",
     }
     try:
-        async with Client(settings.TRAIN_MCP_URL) as client:
-            result = await client.call_tool(
+        async with _train_client:
+            result = await _train_client.call_tool(
                 "get-tickets",
                 arguments,
                 timeout=settings.HTTP_TIMEOUT,

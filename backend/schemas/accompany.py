@@ -58,10 +58,26 @@ class ItineraryUpdate(BaseModel):
     status: Literal["pending", "done", "cancelled"] | None = None
 
 
-class ItineraryResponse(ItineraryCreate):
+class ItineraryResponse(BaseModel):
+    """Read model for persisted itinerary rows.
+
+    Creation constraints intentionally do not run here.  Older rows can predate
+    the current reminder rules; rejecting those rows during response
+    serialization turns an otherwise valid list request into HTTP 500.
+    """
+
+    trip_id: int
+    title: str
+    place_name: str
+    start_time: datetime
+    end_time: datetime
+    itinerary_type: str
+    reminder_time: datetime | None
+    is_initial: bool
+    status: str
     itinerary_id: int
     reminded_at: datetime | None
-    created_at: datetime
+    created_at: datetime | None
     updated_at: datetime | None
     model_config = {"from_attributes": True}
 

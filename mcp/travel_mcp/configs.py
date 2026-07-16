@@ -19,9 +19,7 @@ class Settings:
     MCP_PATH: str = os.getenv("MCP_PATH", "/mcp")
 
     HTTP_TIMEOUT: int = int(os.getenv("HTTP_TIMEOUT", "10"))
-    TRAIN_MCP_URL: str = os.getenv(
-        "TRAIN_MCP_URL", "http://127.0.0.1:8080/mcp"
-    )
+    TRAIN_MCP_COMMAND: str = os.getenv("TRAIN_MCP_COMMAND", "12306-mcp")
 
     DIFY_KNOWLEDGE_URL: str = os.getenv(
         "DIFY_KNOWLEDGE_URL", "http://host.docker.internal:3000/v1"

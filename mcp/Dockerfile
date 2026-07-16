@@ -14,5 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# The 12306 package is started on demand through stdio by travel_mcp.
+# Only the unified FastMCP endpoint below listens on a network port.
 EXPOSE 8001
-CMD ["sh", "-c", "12306-mcp --host 127.0.0.1 --port 8080 & exec python -m travel_mcp.server"]
+CMD ["python", "-m", "travel_mcp.server"]
