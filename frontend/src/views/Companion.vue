@@ -1008,7 +1008,7 @@ let locationSyncTimer: number | undefined
 const LOCATION_SYNC_INTERVAL_MS = 5 * 60_000
 
 async function syncLocationSilently() {
-  if (document.visibilityState !== 'visible') return
+  if (globalThis.document.visibilityState !== 'visible') return
   try {
     await refreshLocationForAi()
   } catch {
@@ -1017,7 +1017,7 @@ async function syncLocationSilently() {
 }
 
 function syncLocationWhenVisible() {
-  if (document.visibilityState === 'visible') void syncLocationSilently()
+  if (globalThis.document.visibilityState === 'visible') void syncLocationSilently()
 }
 
 watch(tripId, () => {
@@ -1055,13 +1055,13 @@ onMounted(async () => {
   notificationTimer = globalThis.setInterval(() => { void loadNotifications() }, 30_000)
   lifecycleTimer = globalThis.setInterval(() => { lifecycleClock.value = new Date() }, 30_000)
   locationSyncTimer = globalThis.setInterval(() => { void syncLocationSilently() }, LOCATION_SYNC_INTERVAL_MS)
-  document.addEventListener('visibilitychange', syncLocationWhenVisible)
+  globalThis.document.addEventListener('visibilitychange', syncLocationWhenVisible)
 })
 onUnmounted(() => {
   globalThis.clearInterval(notificationTimer)
   globalThis.clearInterval(lifecycleTimer)
   globalThis.clearInterval(locationSyncTimer)
-  document.removeEventListener('visibilitychange', syncLocationWhenVisible)
+  globalThis.document.removeEventListener('visibilitychange', syncLocationWhenVisible)
 })
 </script>
 
