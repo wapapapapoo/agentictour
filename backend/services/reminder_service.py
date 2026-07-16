@@ -17,7 +17,10 @@ from models.accompany import (
     UserLocation,
 )
 from models.trip import Trip
-from services.accompany_service import sync_itinerary_statuses
+from services.accompany_service import (
+    authoritative_itinerary_context,
+    sync_itinerary_statuses,
+)
 from services.ai_gateway import AuditRejectedError, run_hikari_once_audited
 from services.trip_service import sync_trip_statuses
 from utils.trip_time import trip_local_iso, trip_route_context, trip_time_context
@@ -86,6 +89,9 @@ def _emit(
             "trigger_type": "system_auto_remind",
             "tour_id": trip_id,
             "trip_context": _trip_context(trip),
+            "backend_itinerary_context": authoritative_itinerary_context(
+                db, trip_id
+            ),
             **_location_inputs(db, user_id),
         },
     )
@@ -135,6 +141,9 @@ def _agent_check(
             "trigger_type": trigger_type,
             "tour_id": trip.id,
             "trip_context": _trip_context(trip),
+            "backend_itinerary_context": authoritative_itinerary_context(
+                db, trip.id
+            ),
             **_location_inputs(db, trip.user_id),
         },
     )

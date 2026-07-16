@@ -31,7 +31,7 @@ from schemas.accompany import (
     MemoUpdate,
 )
 from services.ai_gateway import AuditRejectedError, run_hikari_once_audited
-from utils.trip_time import trip_route_context, trip_time_context
+from utils.trip_time import trip_local_iso, trip_route_context, trip_time_context
 
 CHAT_HISTORY_MAX_MESSAGES_DEFAULT = 20
 CHAT_HISTORY_MAX_CHARS_DEFAULT = 12000
@@ -56,6 +56,56 @@ def _trip_context(db: Session, trip_id: int) -> str:
         },
         ensure_ascii=False,
     )
+
+
+def authoritative_itinerary_context(db: Session, trip_id: int) -> str:
+    """Serialize the current DB state separately from conversational history."""
+    sync_itinerary_statuses(db, trip_id=trip_id, commit=False)
+    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+    if trip is None:
+        return "{}"
+    now = datetime.now(UTC).replace(tzinfo=None)
+
+    def serialize(row: ItineraryItem) -> dict[str, Any]:
+        if row.status == "cancelled":
+            lifecycle = "cancelled"
+        elif row.status == "done":
+            lifecycle = "completed"
+        elif row.start_time <= now < row.end_time:
+            lifecycle = "ongoing"
+        else:
+            lifecycle = "upcoming"
+        return {
+            "itinerary_id": row.itinerary_id,
+            "title": row.title,
+            "place_name": row.place_name,
+            "start_time": trip_local_iso(row.start_time, trip.timezone),
+            "end_time": trip_local_iso(row.end_time, trip.timezone),
+            "itinerary_type": row.itinerary_type,
+            "reminder_time": trip_local_iso(row.reminder_time, trip.timezone)
+            if row.reminder_time
+            else None,
+            "is_initial": row.is_initial,
+            "status": row.status,
+            "lifecycle_status": lifecycle,
+        }
+
+    rows = crud.list_itineraries(db, trip_id)
+    items = [serialize(row) for row in rows]
+    payload = {
+        "source": "agentictour_backend_database",
+        "authority": "current_database_state",
+        "trip_id": trip_id,
+        "timezone": trip.timezone,
+        "generated_at": trip_time_context(trip.timezone)["current_time_local"],
+        "absence_means_deleted": True,
+        "active_items": [item for item in items if item["status"] == "pending"],
+        "completed_items": [item for item in items if item["status"] == "done"],
+        "cancelled_items": [
+            item for item in items if item["status"] == "cancelled"
+        ],
+    }
+    return json.dumps(payload, ensure_ascii=False)
 
 
 def upsert_location(db: Session, data: LocationUpdate) -> UserLocation:
@@ -658,6 +708,7 @@ def _generate_replan(
     parent_advice_id: int | None = None,
     commit: bool = True,
 ) -> AIAdvice:
+    sync_itinerary_statuses(db, trip_id=trip_id, commit=False)
     locked_ids = _eligible_selected_ids(db, trip_id, locked_itinerary_ids)
     selected_ids = _eligible_selected_ids(
         db,
@@ -672,6 +723,9 @@ def _generate_replan(
             "trigger_type": trigger_type,
             "tour_id": trip_id,
             "trip_context": _trip_context(db, trip_id),
+            "backend_itinerary_context": authoritative_itinerary_context(
+                db, trip_id
+            ),
             "selected_itinerary_ids": json.dumps(selected_ids),
             "locked_itinerary_ids": json.dumps(locked_ids),
             **location_inputs,
@@ -959,6 +1013,9 @@ def chat(db: Session, data: ChatRequest) -> dict[str, Any]:
             "trigger_type": "user_input",
             "tour_id": data.trip_id,
             "trip_context": _trip_context(db, data.trip_id),
+            "backend_itinerary_context": authoritative_itinerary_context(
+                db, data.trip_id
+            ),
             "conversation_history": json.dumps(history, ensure_ascii=False),
             "city_adcode": data.city_adcode,
             "latitude": data.latitude if data.latitude is not None else "",

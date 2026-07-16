@@ -190,6 +190,7 @@ def test_user_flows_send_only_agent_owned_context(monkeypatch, db: Session) -> N
     )
 
     advice_keys = {
+        "backend_itinerary_context",
         "user_query",
         "trigger_type",
         "tour_id",
@@ -217,6 +218,56 @@ def test_user_flows_send_only_agent_owned_context(monkeypatch, db: Session) -> N
     stored = db.query(UserLocation).filter(UserLocation.user_id == 1).one()
     assert stored.city == "310115"
     assert LocationResponse.model_validate(stored).city_adcode == "310115"
+
+
+def test_chat_sends_authoritative_current_itinerary_state_instead_of_history(
+    monkeypatch, db: Session
+) -> None:
+    captured: dict[str, object] = {}
+    session = _stored_history(
+        db,
+        ("user", "之前计划坐 G219，之后去故宫"),
+        ("ai", "记住了 G219 和故宫"),
+    )
+    active = accompany_service.create_itinerary(
+        db,
+        _item(
+            datetime(2026, 7, 20, 10),
+            datetime(2026, 7, 20, 11),
+            title="当前有效行程",
+        ),
+    )
+    cancelled = accompany_service.create_itinerary(
+        db,
+        _item(
+            datetime(2026, 7, 21, 10),
+            datetime(2026, 7, 21, 11),
+            title="故宫",
+            status="cancelled",
+        ),
+    )
+
+    def fake_hikari(**kwargs):
+        captured.update(kwargs["inputs"])
+        return _audited_output("当前安排已更新")
+
+    monkeypatch.setattr(accompany_service, "run_hikari_once_audited", fake_hikari)
+
+    accompany_service.chat(
+        db,
+        ChatRequest(trip_id=1, user_id=1, message="现在还有什么安排？"),
+    )
+
+    assert db.query(ChatSession).one().session_id == session.session_id
+    snapshot = json.loads(str(captured["backend_itinerary_context"]))
+    assert snapshot["authority"] == "current_database_state"
+    assert snapshot["absence_means_deleted"] is True
+    assert snapshot["active_items"][0]["itinerary_id"] == active.itinerary_id
+    assert snapshot["active_items"][0]["status"] == "pending"
+    assert snapshot["cancelled_items"][0]["itinerary_id"] == cancelled.itinerary_id
+    assert snapshot["cancelled_items"][0]["status"] == "cancelled"
+    assert "G219" not in str(captured["backend_itinerary_context"])
+    assert "G219" in str(captured["conversation_history"])
 
 
 def test_chat_uses_session_id_and_database_history(monkeypatch, db: Session) -> None:
@@ -820,12 +871,14 @@ def test_gateway_passes_safe_request_and_tool_evidence_to_audit(monkeypatch) -> 
             "longitude": 121.5,
             "location_name": "上海",
             "conversation_history": '[{"role":"user","content":"你好"}]',
+            "backend_itinerary_context": '{"active_items":[]}',
             "db_password": "must-not-leak",
         },
     )
 
     context = json.loads(str(captured["audit_context"]))
     assert context["request"] == {
+        "backend_itinerary_context": '{"active_items":[]}',
         "trigger_type": "user_input",
         "tour_id": 109,
         "trip_context": '{"destination_city":"天津","title":"天津旅行"}',

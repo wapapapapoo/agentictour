@@ -11,6 +11,7 @@ AUDIT_REQUEST_KEYS = (
     "trigger_type",
     "tour_id",
     "trip_context",
+    "backend_itinerary_context",
     "city_adcode",
     "latitude",
     "longitude",

@@ -145,6 +145,9 @@ def test_due_reminder_uses_trip_as_context_and_keeps_dify_tour_key(
     assert trip_context["database_timezone"] == "UTC"
     assert trip_context["current_time_local"].endswith("+08:00")
     assert calls[0]["inputs"]["city_adcode"] == "310115"
+    snapshot = json.loads(calls[0]["inputs"]["backend_itinerary_context"])
+    assert snapshot["authority"] == "current_database_state"
+    assert snapshot["trip_id"] == trip.id
     assert "city" not in calls[0]["inputs"]
     assert "location_context" not in calls[0]["inputs"]
     assert db.query(AIAdvice).count() == 0

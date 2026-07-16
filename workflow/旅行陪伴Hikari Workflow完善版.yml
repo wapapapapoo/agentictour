@@ -669,6 +669,15 @@ workflow:
           required: false
           type: paragraph
           variable: trip_context
+        - default: '{}'
+          hide: false
+          hint: 后端在本轮调用前直接从 itinerary_items 生成的权威状态快照；包含 active、completed、cancelled 分组和每项 status
+          label: backend_itinerary_context
+          options: []
+          placeholder: '{"authority":"current_database_state","active_items":[]}'
+          required: false
+          type: paragraph
+          variable: backend_itinerary_context
       height: 368
       id: '1782285385726'
       position:
@@ -768,6 +777,8 @@ workflow:
 
               - 本地历史消息：{{#1782285385726.conversation_history#}}
 
+              - 后端当前数据库快照：{{#1782285385726.backend_itinerary_context#}}
+
               - 基准行程快照：由 Workflow 开头按 tour_id 固定查询并通过 context 提供
 
               - 数据库完整结构：{{#env.DB_SCHEMA_CONTEXT#}}
@@ -792,10 +803,12 @@ workflow:
               2. 只有用户明确要求脱离旅行场景的学术推导、技术教程、论文写作、考试解题或大段代码时，才使用“非旅行知识简答”边界：先直接回答核心概念，通常控制在
               150 个汉字或 3 个短要点；不要擅自把地点介绍、地方历史、文化背景和交通教育机构介绍归入此类。意图有歧义时优先采用对当前旅行有帮助的解释，必要时在回答结尾提出一个简短确认问题，不得直接判定无关。
 
-              3. 回答必须结合后端传入的本地历史消息，但不得声称 Dify 保存了会话；不要重复问候、复述用户问题或把同一段正文输出两次。
+              3. 回答必须结合后端传入的本地历史消息，但历史只用于理解旧对话和用户意图，历史消息不能证明日程仍然存在，也不能覆盖当前数据库状态。不得声称 Dify 保存了会话；不要重复问候、复述用户问题或把同一段正文输出两次。
 
               4. 涉及行程、备忘录、旅行状态或其他数据库事实时，严格按照“数据库完整结构”和“数据库查询规范”调用 SQL查询 工具；只能使用列出的真实表名和字段名。旅行概要是当前
-              trip_id 的安全元数据，context 是基准日程快照；最新 SELECT 与快照冲突时以同一 tour_id 的最新查询结果为准。
+              trip_id 的安全元数据；backend_itinerary_context 是后端在本轮请求前读取的权威当前数据库状态，context 是 Workflow 随后查询的活动行程快照。最新 SELECT 与后端快照冲突时以同一 tour_id 的最新 SELECT 为准，二者都绝对高于 conversation_history。
+
+              4.1 backend_itinerary_context 中 active_items 才是当前或未来仍有效的日程；completed_items 只表示已完成记录；cancelled_items 只表示已取消记录，默认回答当前安排时不得把后二者写成待执行日程。absence_means_deleted=true 表示快照中完全缺席的历史日程已经删除或不属于当前旅行，不得从聊天历史恢复、推荐、默认保留或当成现有行程。用户明确询问历史变化时才可说明已完成或已取消状态。
 
               5. 天气、附近地点、路线耗时分别优先调用对应专用工具，这些工具能回答时不要改用网页搜索。查询数据库只允许单条 SELECT；严禁 INSERT、UPDATE、DELETE、DROP、ALTER，并始终限制当前
               tour_id。工具失败时明确说明无法确认。
@@ -1553,6 +1566,8 @@ workflow:
 
               旅行概要（起点、旅游目的地、日期和路线角色）：{{#1782285385726.trip_context#}}
 
+              后端当前数据库快照：{{#1782285385726.backend_itinerary_context#}}
+
               当前位置：{{#1782285385726.location_name#}}（{{#1782285385726.longitude#}},{{#1782285385726.latitude#}}）
 
               城市编码：{{#1782285385726.city_adcode#}}
@@ -1561,7 +1576,7 @@ workflow:
 
               系统锁定的冲突日程 ID：{{#1782285385726.locked_itinerary_ids#}}
 
-              当前行程基准快照由 context 提供；必要时用数据库工具核对最新状态。tour_id 已由后端确认，不得质疑或要求用户重新提供。请完成用户提出的调整任务，容忍错别字、近音字、简称和口语表达，返回一个最小、具体、可执行且包含结构化增量的候选方案，不要只分析问题或要求用户再次补充。'
+              当前行程基准快照由 context 提供，backend_itinerary_context 是后端本轮权威状态；只有 active_items 可以作为当前待调整行程，completed_items、cancelled_items 和快照中缺席的历史日程不得恢复或替换。必要时用数据库工具核对最新状态。tour_id 已由后端确认，不得质疑或要求用户重新提供。请完成用户提出的调整任务，容忍错别字、近音字、简称和口语表达，返回一个最小、具体、可执行且包含结构化增量的候选方案，不要只分析问题或要求用户再次补充。'
           tools:
             type: constant
             value:
@@ -2912,7 +2927,7 @@ workflow:
               INTERVAL 8 HOUR), '%Y-%m-%d %H:%i:%s') AS end_time, itinerary_type,
               DATE_FORMAT(DATE_ADD(reminder_time, INTERVAL 8 HOUR), '%Y-%m-%d %H:%i:%s')
               AS reminder_time, is_initial, status FROM {{#env.TABLE_ITINERARY_ITEMS#}}
-              WHERE trip_id = {{#1782285385726.tour_id#}} ORDER BY start_time ASC;
+              WHERE trip_id = {{#1782285385726.tour_id#}} AND status = 'pending' ORDER BY start_time ASC;
         type: tool
       height: 87
       id: '1782441291535'
@@ -3586,11 +3601,13 @@ workflow:
 
               旅行概要：{{#1782285385726.trip_context#}}
 
+              后端当前数据库快照：{{#1782285385726.backend_itinerary_context#}}
+
               城市编码：{{#1782285385726.city_adcode#}}
 
               当前位置：{{#1782285385726.location_name#}}（{{#1782285385726.longitude#}},{{#1782285385726.latitude#}}）
 
-              请检查上下文中的未来待执行行程，只返回 reply、decision 和 conflicting_itinerary_ids。'
+              请只检查 backend_itinerary_context.active_items 与上下文中的未来待执行行程；历史消息、completed_items、cancelled_items 以及快照中不存在的旧日程都不能触发提醒。只返回 reply、decision 和 conflicting_itinerary_ids。'
           tools:
             type: constant
             value:
