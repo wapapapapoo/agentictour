@@ -228,6 +228,19 @@ def _validate_reminder_in_trip(
         raise ValueError("reminder_time must be within the trip date range")
 
 
+def _validate_itinerary_in_trip(
+    db: Session, trip_id: int, start_time: datetime, end_time: datetime
+) -> None:
+    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+    if trip is None:
+        raise ValueError("trip not found")
+    trip_start, trip_end = _trip_utc_window(trip)
+    start = _utc_naive(start_time)
+    end = _utc_naive(end_time)
+    if start < trip_start or end > trip_end:
+        raise ValueError("itinerary time must be within the trip date range")
+
+
 def sync_itinerary_statuses(
     db: Session,
     *,
@@ -346,6 +359,7 @@ def create_itinerary(
         raise ValueError(
             "reminder_time must not be later than itinerary start_time"
         )
+    _validate_itinerary_in_trip(db, data.trip_id, data.start_time, data.end_time)
     _validate_reminder_in_trip(db, data.trip_id, values["reminder_time"])
     row = crud.create(db, ItineraryItem, values)
     _recalculate_day(db, data.trip_id, data.start_time)
@@ -389,6 +403,7 @@ def update_itinerary(
             raise ValueError(
                 "reminder_time must not be later than itinerary start_time"
             )
+    _validate_itinerary_in_trip(db, row.trip_id, start, end)
     _validate_reminder_in_trip(
         db, row.trip_id, values.get("reminder_time", row.reminder_time)
     )

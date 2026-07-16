@@ -4,18 +4,21 @@ import json
 import logging
 import os
 import re
-from datetime import date
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
 from sqlalchemy.orm import Session
 
+from models.accompany import ItineraryItem
 from models.trip import Trip
 from models.trip_plan import TripPlanRequest, TripPlanVersion
 from models.user import User
+from schemas.accompany import ItineraryCreate
 from schemas.trip_plan import (
     TripPlanGenerateRequest,
     TripPlanReviseRequest,
 )
+from services import accompany_service
 from services.trip_service import ensure_trip_dates_available
 from utils import dify_knowledge_client
 from utils.dify_client import DifyClient, DifyError, DifyResponseError
@@ -170,6 +173,147 @@ def get_latest_version(db: Session, plan_id: int) -> TripPlanVersion | None:
         .order_by(TripPlanVersion.version_no.desc())
         .first()
     )
+
+
+_CHINA_TIMEZONE = timezone(timedelta(hours=8))
+_TIME_RANGE_RE = re.compile(
+    r"(?P<start>\d{1,2}:\d{2})(?:\s*[-~至到—–]\s*)(?P<end>\d{1,2}:\d{2})"
+)
+
+
+def _as_text(value: Any) -> str:
+    return value.strip() if isinstance(value, str) else ""
+
+
+def _day_date(value: Any, fallback: date) -> date:
+    text = _as_text(value)
+    if text:
+        match = re.search(r"\d{4}-\d{1,2}-\d{1,2}", text)
+        if match:
+            try:
+                return date.fromisoformat(match.group(0))
+            except ValueError:
+                pass
+    return fallback
+
+
+def _clock(value: Any, fallback: time) -> time:
+    text = _as_text(value)
+    match = re.search(r"(?<!\d)(\d{1,2}):(\d{2})(?!\d)", text)
+    if not match:
+        return fallback
+    hour, minute = map(int, match.groups())
+    return time(hour, minute) if hour < 24 and minute < 60 else fallback
+
+
+def _day_entries(day: dict[str, Any]) -> list[Any]:
+    for key in (
+        "itinerary_items",
+        "itinerary",
+        "activities",
+        "schedule",
+        "items",
+        "arrangements",
+    ):
+        value = day.get(key)
+        if isinstance(value, list):
+            return value
+    return []
+
+
+def _generated_itinerary_payloads(
+    request: TripPlanRequest, plan_json: Any
+) -> list[ItineraryCreate]:
+    if not isinstance(plan_json, dict) or not isinstance(plan_json.get("days"), list):
+        return []
+    try:
+        trip_start = date.fromisoformat(request.start_date)
+    except ValueError as exc:
+        raise ValueError("trip plan has invalid start_date") from exc
+
+    payloads: list[ItineraryCreate] = []
+    for day_index, raw_day in enumerate(plan_json["days"]):
+        day = raw_day if isinstance(raw_day, dict) else {"items": raw_day}
+        planned_date = _day_date(
+            day.get("date") or day.get("day_date") or day.get("travel_date"),
+            trip_start + timedelta(days=day_index),
+        )
+        for item_index, raw_item in enumerate(_day_entries(day)):
+            if isinstance(raw_item, str):
+                item: dict[str, Any] = {"title": raw_item}
+            elif isinstance(raw_item, dict):
+                item = raw_item
+            else:
+                continue
+            title = _as_text(
+                item.get("title") or item.get("activity") or item.get("name")
+                or item.get("content") or item.get("description")
+            )
+            if not title:
+                continue
+            place_name = _as_text(
+                item.get("place_name") or item.get("location") or item.get("place")
+                or item.get("address") or item.get("poi")
+            ) or request.destination_city
+            fallback_start = time(min(9 + item_index * 2, 22), 0)
+            start_clock = _clock(
+                item.get("start_time") or item.get("start") or item.get("time"),
+                fallback_start,
+            )
+            default_end = (
+                datetime.combine(planned_date, start_clock) + timedelta(hours=1)
+            ).time()
+            end_clock = _clock(item.get("end_time") or item.get("end"), default_end)
+            range_match = _TIME_RANGE_RE.search(_as_text(item.get("time")))
+            if range_match:
+                start_clock = _clock(range_match.group("start"), start_clock)
+                end_clock = _clock(range_match.group("end"), end_clock)
+            start_at = datetime.combine(planned_date, start_clock, _CHINA_TIMEZONE)
+            end_at = datetime.combine(planned_date, end_clock, _CHINA_TIMEZONE)
+            if end_at <= start_at:
+                end_at = start_at + timedelta(hours=1)
+            payloads.append(ItineraryCreate(
+                trip_id=request.trip_id,
+                title=title[:100],
+                place_name=place_name[:100],
+                start_time=start_at,
+                end_time=end_at,
+                itinerary_type=(
+                    "transit"
+                    if _as_text(
+                        item.get("itinerary_type") or item.get("type")
+                    ).lower()
+                    in {"transit", "transport", "交通", "出行"}
+                    else "play"
+                ),
+                reminder_time=start_at,
+            ))
+    return payloads
+
+
+def sync_plan_itineraries(
+    db: Session, plan_id: int, user_id: int
+) -> tuple[list[ItineraryItem], int]:
+    request = get_plan(db, plan_id)
+    if request is None or request.user_id != user_id:
+        raise LookupError("trip plan not found")
+    existing = (
+        db.query(ItineraryItem)
+        .filter(ItineraryItem.trip_id == request.trip_id)
+        .all()
+    )
+    if existing:
+        return accompany_service.list_itineraries(db, request.trip_id), 0
+    latest_version = get_latest_version(db, plan_id)
+    if latest_version is None:
+        raise LookupError("trip plan version not found")
+    payloads = _generated_itinerary_payloads(
+        request, _loads_json(latest_version.plan_json)
+    )
+    for payload in payloads:
+        accompany_service.create_itinerary(db, payload, commit=False)
+    db.commit()
+    return accompany_service.list_itineraries(db, request.trip_id), len(payloads)
 
 
 def list_plans(db: Session, user_id: int | None = None) -> list[dict[str, Any]]:

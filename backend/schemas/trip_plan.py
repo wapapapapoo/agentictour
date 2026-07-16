@@ -3,6 +3,8 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from schemas.accompany import ItineraryResponse
+
 
 class TripPlanGenerateRequest(BaseModel):
     trip_id: int = Field(default=0, ge=0)
@@ -83,3 +85,10 @@ class TripPlanListItem(BaseModel):
     title: Optional[str]
     created_at: datetime
     updated_at: Optional[datetime]
+
+
+class TripPlanItinerarySyncResponse(BaseModel):
+    """Result of importing a generated plan into the companion itinerary."""
+
+    created_count: int
+    itinerary_items: list[ItineraryResponse]

@@ -82,6 +82,36 @@ def test_extract_plan_json_wraps_plain_text_answer() -> None:
     assert plan_json["days"] == []
 
 
+def test_generated_plan_items_are_converted_to_editable_itineraries() -> None:
+    request = TripPlanRequest(
+        trip_id=42,
+        user_id=1,
+        origin_city="上海",
+        destination_city="杭州",
+        start_date="2026-07-23",
+        end_date="2026-07-24",
+    )
+    plan_json = {
+        "days": [{
+            "date": "2026-07-23",
+            "items": [{
+                "time": "09:00-10:30",
+                "type": "transport",
+                "name": "前往西湖",
+            }],
+        }],
+    }
+
+    rows = trip_plan_service._generated_itinerary_payloads(request, plan_json)
+
+    assert len(rows) == 1
+    assert rows[0].title == "前往西湖"
+    assert rows[0].itinerary_type == "transit"
+    assert rows[0].start_time.hour == 9
+    assert rows[0].end_time.hour == 10
+    assert rows[0].end_time.minute == 30
+
+
 def test_revise_plan_keeps_existing_trip_association(monkeypatch) -> None:
     request = TripPlanRequest(
         id=7,

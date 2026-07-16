@@ -13,6 +13,7 @@ from schemas.trip_plan import (
     PlanHumanizeRequest,
     PlanHumanizeResponse,
     TripPlanGenerateRequest,
+    TripPlanItinerarySyncResponse,
     TripPlanListItem,
     TripPlanResponse,
     TripPlanReviseRequest,
@@ -37,7 +38,11 @@ def generate_trip_plan(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except DifyError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
-    write_log(current_user_id, "生成", f"目的地:{data.destination_city} 兴趣:{data.interests}")
+    write_log(
+        current_user_id,
+        "生成",
+        f"目的地:{data.destination_city} 兴趣:{data.interests}",
+    )
     return trip_plan_service.to_response(plan)
 
 
@@ -76,6 +81,28 @@ def get_trip_plan(
     if plan is None:
         raise HTTPException(status_code=404, detail="trip plan not found")
     return trip_plan_service.to_response(plan)
+
+
+@router.post(
+    "/{plan_id}/itineraries/sync", response_model=TripPlanItinerarySyncResponse
+)
+def sync_trip_plan_itineraries(
+    plan_id: int,
+    current_user_id: int = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Any:
+    try:
+        items, created_count = trip_plan_service.sync_plan_itineraries(
+            db, plan_id, current_user_id
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {
+        "created_count": created_count,
+        "itinerary_items": items,
+    }
 
 
 @router.delete("/{plan_id}")
