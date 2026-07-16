@@ -2,6 +2,7 @@ import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+TRIP_PLAN_WORKFLOW = REPO_ROOT / "workflow" / "AgenticTour 行前旅行计划生成.yml"
 HIKARI_WORKFLOW = REPO_ROOT / "workflow" / "旅行陪伴Hikari Workflow完善版.yml"
 AUDIT_WORKFLOW = REPO_ROOT / "workflow" / "审核Agent.yml"
 
@@ -63,6 +64,20 @@ def test_workflows_treat_backend_itinerary_snapshot_as_current_authority() -> No
     assert "backend_itinerary_context" in audit
     assert "当前数据库状态" in audit
     assert "change_pending_items" in audit
+
+
+def test_trip_plan_workflow_limits_optional_and_empty_tool_calls() -> None:
+    trip_plan = _workflow_text(TRIP_PLAN_WORKFLOW)
+
+    assert "必须调用" in trip_plan
+    assert "按需调用" in trip_plan
+    assert "默认不调用" in trip_plan
+    assert "知识库严格限次" in trip_plan
+    assert "空结果立即停止" in trip_plan
+    assert "list_knowledge_bases 最多一次" in trip_plan
+    assert "search_knowledge 为空时不得继续搜索其他库" in trip_plan
+    assert "全部工具调用原则上不超过 5 次" in trip_plan
+    assert _maximum_iterations(TRIP_PLAN_WORKFLOW) == [40]
 
 
 def test_user_iteration_counts_remain_unchanged() -> None:
