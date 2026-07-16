@@ -50,6 +50,18 @@ def test_workflows_require_12306_tool_for_specific_train_facts() -> None:
         assert "不得" in text
 
 
+def test_workflows_treat_backend_itinerary_snapshot_as_current_authority() -> None:
+    hikari = _workflow_text(HIKARI_WORKFLOW)
+    audit = _workflow_text(AUDIT_WORKFLOW)
+
+    assert "backend_itinerary_context" in hikari
+    assert "absence_means_deleted" in hikari
+    assert "历史消息不能证明日程仍然存在" in hikari
+    assert "status = 'pending'" in hikari
+    assert "backend_itinerary_context" in audit
+    assert "当前数据库状态" in audit
+
+
 def test_user_iteration_counts_remain_unchanged() -> None:
     assert _maximum_iterations(AUDIT_WORKFLOW) == [45]
     assert _maximum_iterations(HIKARI_WORKFLOW) == [48, 41, 41]

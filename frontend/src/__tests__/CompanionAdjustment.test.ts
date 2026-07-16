@@ -237,8 +237,9 @@ describe('Companion adjustment dialog', () => {
     expect(document.body.textContent).toContain('新增旅途备忘')
     expect(document.body.querySelector('.memo-dialog')).toBeTruthy()
     expect(document.body.querySelector('.memo-dialog input[type="datetime-local"]')).toBeNull()
-    expect(document.body.querySelector('.memo-dialog input[type="date"]')).toBeTruthy()
-    expect(document.body.querySelectorAll('.memo-dialog .time-select select')).toHaveLength(2)
+    expect(document.body.querySelectorAll('.memo-dialog .date-picker')).toHaveLength(1)
+    expect(document.body.querySelectorAll('.memo-dialog input[type="date"]')).toHaveLength(0)
+    expect(document.body.querySelectorAll('.memo-dialog .time-picker-input')).toHaveLength(1)
     document.body.querySelector<HTMLButtonElement>('.memo-dialog .dialog-close')!.click()
     await flushPromises()
 
@@ -248,8 +249,9 @@ describe('Companion adjustment dialog', () => {
     expect(document.body.textContent).toContain('新增实时日程')
     expect(document.body.querySelector('.itinerary-dialog')).toBeTruthy()
     expect(document.body.querySelector('.itinerary-dialog input[type="datetime-local"]')).toBeNull()
-    expect(document.body.querySelectorAll('.itinerary-dialog input[type="date"]')).toHaveLength(3)
-    expect(document.body.querySelectorAll('.itinerary-dialog .time-select select')).toHaveLength(6)
+    expect(document.body.querySelectorAll('.itinerary-dialog .date-picker')).toHaveLength(3)
+    expect(document.body.querySelectorAll('.itinerary-dialog input[type="date"]')).toHaveLength(0)
+    expect(document.body.querySelectorAll('.itinerary-dialog .time-picker-input')).toHaveLength(3)
     wrapper.unmount()
   })
 
