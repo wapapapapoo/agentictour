@@ -232,7 +232,20 @@ def update_location(
     current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
-    return service.upsert_location(db, data)
+    return service.upsert_location(
+        db, data.model_copy(update={"user_id": current_user_id})
+    )
+
+
+@router.get("/locations", response_model=LocationResponse)
+def current_location(
+    current_user_id: int = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Any:
+    row = service.get_location(db, current_user_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="location not found")
+    return row
 
 
 @router.get("/notifications", response_model=list[NotificationResponse])

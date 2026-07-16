@@ -24,7 +24,7 @@ export interface Memo { memo_id: number; trip_id: number; memo_text: string; rem
 export interface Itinerary { itinerary_id: number; trip_id: number; title: string; place_name: string; start_time: string; end_time: string; itinerary_type: 'transit' | 'play'; status: 'pending' | 'change_pending' | 'done' | 'cancelled'; reminder_time?: string | null; is_initial?: boolean; reminded_at?: string | null; created_at?: string; updated_at?: string | null }
 export interface Advice { advice_id: number; trip_id: number; advice_type: string; parent_advice_id?: number | null; input_text?: string | null; reason_text?: string | null; advice_text: string; proposed_itinerary?: unknown; result: string; audit_status: string; audit_reason?: string | null; generation_stopped?: boolean; created_at: string }
 export interface Notification { notification_id: number; trip_id: number; advice_id?: number | null; content: string; category: string; read_at?: string | null; created_at: string }
-export interface Location { user_id: number; latitude: number; longitude: number; city_adcode?: string; place_name?: string; updated_at: string }
+export interface Location { user_id: number; latitude: number; longitude: number; city_adcode?: string; place_name?: string; location_context?: string | null; updated_at: string }
 export interface KnowledgeSearchResult { chunk_content: string; score: number; document_id: string; plan_id?: number | null; plan_title?: string | null; like_count: number; is_liked: boolean }
 export interface KnowledgeSearchResponse { results: KnowledgeSearchResult[] }
 export interface PlanLikeResponse { id: number; user_id: number; plan_id: number; chunk_ids: string[]; created_at: string }
@@ -70,7 +70,8 @@ export const api = {
   revisePlan: (id: number, revision_request: string) => request<Plan>(`/trip-plans/${id}/revise`, { method: 'POST', body: JSON.stringify({ user_id: requireUserId(), revision_request }) }),
   listPlans: () => request<Plan[]>(`/trip-plans?user_id=${requireUserId()}`),
   getPlan: (id: number) => request<Plan>(`/trip-plans/${id}`),
-  syncPlanItineraries: (id: number) => request<{ created_count: number; itinerary_items: Itinerary[] }>(`/trip-plans/${id}/itineraries/sync`, { method: 'POST' }),
+  syncPlanItineraries: (id: number) => request<{ created_count: number; trip_id: number; itinerary_items: Itinerary[] }>(`/trip-plans/${id}/itineraries/sync`, { method: 'POST' }),
+  updatePlan: (id: number, payload: { title: string; origin_city: string; destination_city: string; start_date: string; end_date: string; status: string }) => request<Plan>(`/trip-plans/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   deletePlan: (id: number) => request<void>(`/trip-plans/${id}`, { method: 'DELETE' }),
   humanizePlan: (id: number) => request<{ natural_language: string }>(`/trip-plans/${id}/humanize`, { method: 'POST', body: JSON.stringify({ user_id: requireUserId() }) }),
   createMaterial: (payload: Record<string, unknown>) => request<BlogMaterial>('/blog/materials', { method: 'POST', body: JSON.stringify({ ...payload, start_date: optionalDate(payload.start_date), end_date: optionalDate(payload.end_date), user_id: requireUserId() }) }),
@@ -101,4 +102,5 @@ export const api = {
   getTripChat: (tripId: number) => request<ChatHistory>(`/trips/${tripId}/chat`),
   sendChatMessage: (payload: { trip_id: number; message: string; city_adcode?: string; latitude?: number; longitude?: number; location_name?: string }) => request<ChatReply>('/chat/messages', { method: 'POST', body: JSON.stringify({ ...payload, user_id: requireUserId() }) }),
   updateLocation: (payload: { latitude: number; longitude: number; city_adcode?: string; place_name?: string }) => request<Location>('/locations', { method: 'PUT', body: JSON.stringify({ ...payload, user_id: requireUserId() }) }),
+  getLocation: () => request<Location>('/locations'),
 }

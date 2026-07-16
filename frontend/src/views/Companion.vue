@@ -7,12 +7,12 @@ import {
   api,
   type Advice,
   type Itinerary,
+  type Location,
   type Memo,
   type Notification,
   type Plan,
   type Trip,
 } from '@/services/api'
-import TripPlanBinding from '@/components/TripPlanBinding.vue'
 import MemoPanel from '@/components/MemoPanel.vue'
 import { extractReferenceSources, renderMarkdown, stripReferenceSection } from '@/utils/markdown'
 import { formatTripDate, tripInputFromUtc, tripInputToUtc } from '@/utils/tripTime'
@@ -72,8 +72,6 @@ const reminderError = ref('')
 const memoFilter = ref<'all' | 'pending' | 'sent' | 'unscheduled'>('all')
 const itineraryFilter = ref<'all' | 'upcoming' | 'ongoing' | 'change_pending' | 'completed' | 'cancelled'>('all')
 const selectedItineraryDate = ref('')
-const syncingPlanItineraries = ref(false)
-const planSyncMessage = ref('')
 
 const memoEditingId = ref<number | null>(null)
 const memoDraft = ref({ memo_text: '', reminder_date: '', reminder_clock: '' })
@@ -98,16 +96,16 @@ const deleteTarget = ref<DeleteTarget | null>(null)
 const adjustment = ref(closedAdjustment())
 const adjustmentError = ref('')
 const promptedAutomaticAdviceId = ref<number | null>(null)
-const location = ref({
+const location = ref<Location | null>(null)
+const locationRefreshing = ref(false)
+const browserCoordinates = ref({
   city_adcode: '',
   place_name: '',
   latitude: null as number | null,
   longitude: null as number | null,
 })
-const locationOpen = ref(false)
 
 const currentTrip = computed(() => trips.value.find((trip) => trip.id === tripId.value))
-const currentPlan = computed(() => plans.value.find((plan) => plan.trip_id === tripId.value))
 const ongoingTrip = computed(() => trips.value.find(
   (trip) => tripLifecycle(trip, lifecycleClock.value) === 'ongoing',
 ))
@@ -121,12 +119,6 @@ const featuredTripState = computed<TripLifecycle | null>(() => (
 const currentTripState = computed<TripLifecycle | null>(() => (
   currentTrip.value ? tripLifecycle(currentTrip.value, lifecycleClock.value) : null
 ))
-const heroCopy = computed(() => ({
-  upcoming: ['旅程尚未开始，准备可以从容一些。', '行程开始前，可以先完善日程、备忘与提醒。'],
-  ongoing: ['旅行计划进行中，当前安排一目了然。', '对话、提醒、位置与调整建议，会围绕正在执行的旅行协同工作。'],
-  completed: ['这趟旅行已经结束。', '仍可回看日程、消息与旅途记录。'],
-  cancelled: ['这趟旅行已取消。', '取消的计划会保留记录，但不会再触发执行状态。'],
-}[currentTripState.value || 'upcoming']))
 const replanAdvice = computed(() => advice.value.filter((item) => ['replan', 'itinerary_replan'].includes(item.advice_type)))
 const pendingAutomaticAdvice = computed(() => replanAdvice.value.find((item) => (
   item.advice_type === 'itinerary_replan'
@@ -178,12 +170,8 @@ const itineraryDates = computed(() => tripDateRange(
   currentTrip.value?.start_date,
   currentTrip.value?.end_date,
 ))
-const hasSelectedItineraryDate = computed(() => itineraries.value.some((item) => (
-  itineraryDate(item.start_time) === selectedItineraryDate.value
-)))
 const displayedItineraries = computed(() => filteredItineraries.value.filter((item) => (
   !selectedItineraryDate.value
-  || !hasSelectedItineraryDate.value
   || itineraryDate(item.start_time) === selectedItineraryDate.value
 )))
 
@@ -332,10 +320,10 @@ function dateWithinCurrentTrip(value: string) {
 
 function locationPayload() {
   return {
-    city_adcode: location.value.city_adcode,
-    latitude: location.value.latitude ?? undefined,
-    longitude: location.value.longitude ?? undefined,
-    location_name: location.value.place_name,
+    city_adcode: location.value?.city_adcode || '',
+    latitude: location.value?.latitude ?? undefined,
+    longitude: location.value?.longitude ?? undefined,
+    location_name: location.value?.place_name || '',
   }
 }
 
@@ -343,17 +331,16 @@ async function loadNotifications() {
   notifications.value = await api.listNotifications(false)
 }
 
-async function loadChat() {
-  if (!tripId.value) return
+async function loadChat(targetTripId: number): Promise<UiMessage[]> {
   try {
-    const history = await api.getTripChat(tripId.value)
+    const history = await api.getTripChat(targetTripId)
     const restored: UiMessage[] = history.messages.map((item) => ({
       role: item.sender_type === 'user' ? 'user' : 'agent',
       text: stripThink(item.content),
       auditStatus: item.sender_type === 'ai' ? item.audit_status : undefined,
       auditReason: item.audit_reason,
     }))
-    messages.value = restored.filter((item, index) => {
+    const rows = restored.filter((item, index) => {
       const previous = restored[index - 1]
       return !(
         item.role === 'user'
@@ -361,40 +348,44 @@ async function loadChat() {
         && item.text.trim() === previous.text.trim()
       )
     })
-    if (!messages.value.length) messages.value = [{ ...welcomeMessage }]
+    return rows.length ? rows : [{ ...welcomeMessage }]
   } catch (cause) {
     if (cause instanceof ApiError && cause.status === 404) {
-      messages.value = [{ ...welcomeMessage }]
-      return
+      return [{ ...welcomeMessage }]
     }
     throw cause
   }
 }
 
+let workspaceRequestId = 0
 async function loadWorkspace() {
-  if (!tripId.value) return
+  const targetTripId = tripId.value
+  if (!targetTripId) return
+  const requestId = ++workspaceRequestId
   workspaceLoading.value = true
   error.value = ''
   try {
-    const [memoRows, itineraryRows, adviceRows] = await Promise.all([
-      api.listMemos(tripId.value),
-      api.listItineraries(tripId.value),
-      api.listAdvice(tripId.value),
+    const [memoRows, itineraryRows, adviceRows, , chatRows] = await Promise.all([
+      api.listMemos(targetTripId),
+      api.listItineraries(targetTripId),
+      api.listAdvice(targetTripId),
       loadNotifications(),
-      loadChat(),
+      loadChat(targetTripId),
     ])
+    if (requestId !== workspaceRequestId || tripId.value !== targetTripId) return
     memos.value = memoRows
     itineraries.value = itineraryRows
     advice.value = adviceRows
-    if (!itineraryRows.length) await syncGeneratedItineraries()
+    messages.value = chatRows
   } catch (cause) {
     error.value = errorMessage(cause, '无法读取旅途中数据。')
   } finally {
-    workspaceLoading.value = false
+    if (requestId === workspaceRequestId) workspaceLoading.value = false
   }
 }
 
-async function loadTrips() {
+async function loadTrips(preserveSelection = false) {
+  const selectedTripId = tripId.value
   try {
     const tripRows = await api.listTrips()
     const fetchPlans = (api as { listPlans?: () => Promise<Plan[]> }).listPlans
@@ -416,7 +407,9 @@ async function loadTrips() {
     const upcoming = trips.value
       .filter((trip) => tripLifecycle(trip, lifecycleClock.value) === 'upcoming')
       .sort((left, right) => left.start_date.localeCompare(right.start_date))[0]
-    tripId.value = active?.id || upcoming?.id || trips.value[0]?.id || null
+    tripId.value = preserveSelection && trips.value.some((trip) => trip.id === selectedTripId)
+      ? selectedTripId
+      : active?.id || upcoming?.id || trips.value[0]?.id || null
   } catch (cause) {
     error.value = errorMessage(cause, '无法读取行程。')
   }
@@ -549,23 +542,6 @@ function resetItinerary() {
   const defaultDate = selectedItineraryDate.value || currentTrip.value?.start_date || ''
   itineraryDraft.value = {
     title: '', place_name: '', start_date: defaultDate, start_clock: '09:00', end_date: defaultDate, end_clock: '10:00', itinerary_type: 'play', reminder_date: '', reminder_clock: '', status: 'pending',
-  }
-}
-
-async function syncGeneratedItineraries() {
-  const plan = currentPlan.value
-  const sync = (api as { syncPlanItineraries?: (id: number) => Promise<{ created_count: number; itinerary_items: Itinerary[] }> }).syncPlanItineraries
-  if (!plan || !tripId.value || syncingPlanItineraries.value || typeof sync !== 'function') return
-  syncingPlanItineraries.value = true
-  planSyncMessage.value = ''
-  try {
-    const result = await sync(plan.id)
-    itineraries.value = result.itinerary_items
-    if (result.created_count) planSyncMessage.value = `已从旅行规划导入 ${result.created_count} 项日程，可继续编辑。`
-  } catch (cause) {
-    planSyncMessage.value = errorMessage(cause, '暂时无法导入旅行规划日程。')
-  } finally {
-    syncingPlanItineraries.value = false
   }
 }
 
@@ -901,47 +877,74 @@ async function markAllNotificationsRead() {
   }
 }
 
-function focusFeaturedTrip() {
-  if (featuredTrip.value) tripId.value = featuredTrip.value.id
-}
-
-async function saveLocation() {
-  if (location.value.latitude === null || location.value.longitude === null) {
-    error.value = '请先填写或获取经纬度。'
-    return
-  }
-  try {
-    const saved = await api.updateLocation({
-      latitude: location.value.latitude,
-      longitude: location.value.longitude,
-      city_adcode: location.value.city_adcode,
-      place_name: location.value.place_name,
-    })
-    location.value.city_adcode = saved.city_adcode || location.value.city_adcode
-    location.value.place_name = saved.place_name || location.value.place_name
-    locationOpen.value = false
-  } catch (cause) {
-    error.value = errorMessage(cause, '位置保存失败。')
-  }
-}
-
 function useBrowserLocation() {
-  if (!globalThis.navigator.geolocation) {
-    error.value = '当前浏览器不支持定位。'
-    return
+  return new Promise<{ latitude: number; longitude: number }>((resolve, reject) => {
+    if (!globalThis.navigator.geolocation) {
+      reject(new Error('当前浏览器不支持定位。'))
+      return
+    }
+    globalThis.navigator.geolocation.getCurrentPosition(
+      (position) => resolve({ latitude: position.coords.latitude, longitude: position.coords.longitude }),
+      () => reject(new Error('无法获取浏览器定位，请检查定位权限。')),
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
+    )
+  })
+}
+
+async function loadSavedLocation() {
+  const getter = (api as { getLocation?: () => Promise<Location> }).getLocation
+  if (typeof getter !== 'function') return
+  try { location.value = await getter() } catch (cause) {
+    if (!(cause instanceof ApiError && cause.status === 404)) throw cause
   }
-  globalThis.navigator.geolocation.getCurrentPosition(
-    (position) => {
-      location.value.latitude = position.coords.latitude
-      location.value.longitude = position.coords.longitude
-    },
-    () => { error.value = '无法获取浏览器定位，请检查定位权限。' },
-    { enableHighAccuracy: true, timeout: 10_000 },
-  )
+}
+
+async function refreshAll() {
+  if (locationRefreshing.value) return
+  locationRefreshing.value = true
+  error.value = ''
+  let locationError = ''
+  try {
+    try {
+      const coordinates = await useBrowserLocation()
+      browserCoordinates.value = { ...browserCoordinates.value, ...coordinates }
+      location.value = await api.updateLocation(coordinates)
+    } catch (cause) {
+      locationError = errorMessage(cause, '定位刷新失败，其他数据已继续刷新。')
+    }
+    await loadTrips(true)
+    if (tripId.value) await loadWorkspace()
+    if (locationError) error.value = `${locationError} 其他数据已完成刷新。`
+  } catch (cause) {
+    error.value = errorMessage(cause, '刷新失败，请稍后重试。')
+  } finally {
+    locationRefreshing.value = false
+  }
 }
 
 function adviceResult(result: string) {
   return ({ pending: '待处理', accepted: '已采纳', rejected: '已忽略', revising: '修改中', kept: '已保留原行程', cancelled_original: '已取消原行程', superseded: '已被新版本替代', delivered: '已送达', not_required: '无需处理' } as Record<string, string>)[result] || result
+}
+
+function featuredTripMarker(state: TripLifecycle | null) {
+  return ({ upcoming: 'UPCOMING · 尚未开始', ongoing: 'TRIP · 计划进行中', completed: 'ARCHIVE · 已结束', cancelled: 'CANCELLED · 已取消' } as Record<string, string>)[state || ''] || 'TRIP STATUS'
+}
+
+function featuredTripSummary(state: TripLifecycle | null) {
+  if (state === 'ongoing') {
+    if (ongoingItinerary.value) return `正在进行：${ongoingItinerary.value.title}`
+    if (nextItinerary.value) return `下一项：${nextItinerary.value.title}`
+    return '当前暂无执行中的日程'
+  }
+  return state === 'upcoming' ? '计划尚未开始' : state === 'completed' ? '查看已结束日程' : state === 'cancelled' ? '查看取消记录' : ''
+}
+
+function focusFeaturedTrip() {
+  if (featuredTrip.value) tripId.value = featuredTrip.value.id
+}
+
+function shortTripDate(value: string) {
+  return value.slice(5).replace('-', '.')
 }
 
 function adviceType(type: string) {
@@ -952,38 +955,17 @@ function notificationType(type: string) {
   return ({ memo: '备忘提醒', memo_reminder: '备忘提醒', itinerary_reminder: '日程提醒', initial_start: '出发提醒', next_itinerary: '下一行程', itinerary_replan: '行程变化', agent_audit_failed: '自动处理未通过审核' } as Record<string, string>)[type] || type
 }
 
-function featuredTripMarker(state: TripLifecycle | null) {
-  return ({
-    upcoming: 'UPCOMING · 尚未开始',
-    ongoing: 'TRIP · 计划进行中',
-    completed: 'ARCHIVE · 已结束',
-    cancelled: 'CANCELLED · 已取消',
-  } as Record<string, string>)[state || ''] || 'TRIP STATUS'
-}
-
-function featuredTripSummary(state: TripLifecycle | null) {
-  if (state === 'ongoing') {
-    if (ongoingItinerary.value) return `正在进行：${ongoingItinerary.value.title}`
-    if (nextItinerary.value) return `下一项：${nextItinerary.value.title}`
-    return '当前暂无执行中的日程'
-  }
-  if (state === 'upcoming') return '计划尚未开始'
-  if (state === 'completed') return '查看已结束日程'
-  if (state === 'cancelled') return '查看取消记录'
-  return ''
-}
-
 function itineraryState(item: Itinerary) {
   return itineraryLifecycle(item, lifecycleClock.value)
-}
-
-function shortTripDate(value: string) {
-  return value.slice(5).replace('-', '.')
 }
 
 let notificationTimer: number | undefined
 let lifecycleTimer: number | undefined
 watch(tripId, () => {
+  workspaceRequestId += 1
+  memos.value = []
+  itineraries.value = []
+  advice.value = []
   resetMemo()
   resetItinerary()
   memoDialogOpen.value = false
@@ -993,9 +975,8 @@ watch(tripId, () => {
   adjustmentError.value = ''
   promptedAutomaticAdviceId.value = null
   selectedItineraryDate.value = preferredItineraryDate(itineraryDates.value)
-  planSyncMessage.value = ''
   messages.value = [{ ...welcomeMessage }]
-  void loadWorkspace()
+  if (tripId.value) void loadWorkspace()
 })
 watch([pendingAutomaticAdvice, () => adjustment.value.open], ([item, modalOpen]) => {
   const linkedNotification = item
@@ -1010,7 +991,7 @@ watch([pendingAutomaticAdvice, () => adjustment.value.open], ([item, modalOpen])
   openAutomaticAdvice(item)
 })
 onMounted(async () => {
-  await loadTrips()
+  await Promise.all([loadTrips(), loadSavedLocation()])
   notificationTimer = globalThis.setInterval(() => { void loadNotifications() }, 30_000)
   lifecycleTimer = globalThis.setInterval(() => { lifecycleClock.value = new Date() }, 30_000)
 })
@@ -1022,16 +1003,8 @@ onUnmounted(() => {
 
 <template>
   <div class="page companion-page">
-    <section
-      class="active-trip-section"
-      aria-label="旅行计划状态"
-    >
-      <button
-        v-if="featuredTrip"
-        :class="['active-trip-card', `state-${featuredTripState}`]"
-        type="button"
-        @click="focusFeaturedTrip"
-      >
+    <section class="active-trip-section" aria-label="旅行计划状态">
+      <button v-if="featuredTrip" :class="['active-trip-card', `state-${featuredTripState}`]" type="button" @click="focusFeaturedTrip">
         <span class="active-trip-marker"><i />{{ featuredTripMarker(featuredTripState) }}</span>
         <span class="active-trip-main">
           <small>{{ featuredTrip.title }}</small>
@@ -1044,37 +1017,13 @@ onUnmounted(() => {
             <span>{{ shortTripDate(featuredTrip.start_date) }} — {{ shortTripDate(featuredTrip.end_date) }}</span>
           </template>
         </span>
-        <span class="active-trip-side">
-          <b>{{ featuredTripState ? tripLifecycleLabel[featuredTripState] : '' }}</b>
-          <span>{{ currentTrip?.id === featuredTrip.id ? featuredTripSummary(featuredTripState) : '进入计划' }}</span>
-        </span>
+        <span class="active-trip-side"><b>{{ featuredTripState ? tripLifecycleLabel[featuredTripState] : '' }}</b><span>{{ currentTrip?.id === featuredTrip.id ? featuredTripSummary(featuredTripState) : '进入计划' }}</span></span>
       </button>
-      <div
-        v-else
-        class="active-trip-empty"
-      >
+      <div v-else class="active-trip-empty">
         <span class="active-trip-marker idle"><i />TRIP STATUS</span>
         <div><b>目前还没有旅行计划</b><small>创建计划后，这里会按时间显示待出发、进行中、已结束或已取消。</small></div>
       </div>
     </section>
-
-    <TripPlanBinding
-      :trip="currentTrip"
-      :plan="currentPlan"
-    />
-    <section class="hero">
-      <div>
-        <p class="eyebrow">
-          TRAVEL COMPANION · HIKARI
-        </p>
-        <h1>{{ currentTrip ? heroCopy[0] : '还没有选中的旅行计划。' }}</h1>
-        <p>{{ currentTrip ? heroCopy[1] : '新建或选择计划后，可以在这里管理日程、提醒与旅途对话。' }}</p>
-      </div>
-      <div class="hero-status">
-        <b>{{ currentTrip?.destination_city || '等待计划' }}</b><span>{{ currentTripState ? tripLifecycleLabel[currentTripState] : '暂无状态' }}</span>
-      </div>
-    </section>
-
     <p
       v-if="error"
       class="error"
@@ -1089,7 +1038,7 @@ onUnmounted(() => {
         v-for="trip in trips"
         :key="trip.id"
         :value="trip.id"
-      >{{ trip.destination_city }} · {{ trip.title }}</option></select></label>
+      >{{ trip.origin_city }} → {{ trip.destination_city }}旅行</option></select></label>
       <div class="workspace-actions">
         <button
           class="notification-inbox-trigger"
@@ -1106,14 +1055,10 @@ onUnmounted(() => {
           >{{ unreadCount > 99 ? '99+' : unreadCount }}</b><small v-else>已读</small>
         </button><button
           class="secondary"
-          @click="locationOpen = !locationOpen"
+          :disabled="locationRefreshing"
+          @click="refreshAll"
         >
-          位置与城市
-        </button><button
-          class="secondary"
-          @click="loadWorkspace"
-        >
-          刷新数据
+          {{ locationRefreshing ? '定位并刷新中…' : '刷新' }}
         </button><button
           v-if="currentTrip"
           class="danger-button"
@@ -1143,46 +1088,21 @@ onUnmounted(() => {
     </section>
 
     <section
-      v-if="locationOpen"
-      class="card location-panel"
+      class="card current-location-card"
+      aria-label="当前地理位置"
     >
-      <div>
+      <div class="location-heading">
         <p class="eyebrow">
           LIVE LOCATION
-        </p><h2>提供给 Hikari 的当前位置</h2>
+        </p><h2>当前地理位置</h2><small>点击“刷新”会重新请求浏览器定位，并同步刷新当前计划的日程、备忘、提醒与对话。</small>
       </div>
-      <div class="location-grid">
-        <input
-          v-model="location.city_adcode"
-          placeholder="城市 adcode，如 310000"
-        ><input
-          v-model="location.place_name"
-          placeholder="位置名称"
-        ><input
-          v-model.number="location.longitude"
-          type="number"
-          step="any"
-          placeholder="经度"
-        ><input
-          v-model.number="location.latitude"
-          type="number"
-          step="any"
-          placeholder="纬度"
-        >
-      </div>
-      <div class="panel-actions">
-        <button
-          class="secondary"
-          @click="useBrowserLocation"
-        >
-          获取浏览器定位
-        </button><button
-          class="primary"
-          @click="saveLocation"
-        >
-          保存位置
-        </button>
-      </div>
+      <dl v-if="location">
+        <div><dt>位置</dt><dd>{{ location.place_name || '已获取坐标，地址暂未解析' }}</dd></div>
+        <div><dt>城市编码</dt><dd>{{ location.city_adcode || '待解析' }}</dd></div>
+        <div><dt>高德坐标</dt><dd>{{ location.longitude.toFixed(6) }}, {{ location.latitude.toFixed(6) }}</dd></div>
+        <div><dt>更新时间</dt><dd>{{ formatDate(location.updated_at) }}</dd></div>
+      </dl>
+      <p v-else class="location-empty">尚未获取位置。点击右上方“刷新”并允许浏览器定位即可自动补全。</p>
     </section>
 
     <p
@@ -1398,22 +1318,7 @@ onUnmounted(() => {
           >
             {{ date.slice(5).replace('-', '月') }}日
           </button>
-          <button
-            v-if="currentPlan"
-            class="sync-plan-button"
-            type="button"
-            :disabled="syncingPlanItineraries"
-            @click="syncGeneratedItineraries"
-          >
-            {{ syncingPlanItineraries ? '正在导入…' : '从旅行规划导入' }}
-          </button>
         </div>
-        <p
-          v-if="planSyncMessage"
-          class="plan-sync-message"
-        >
-          {{ planSyncMessage }}
-        </p>
         <div
           v-for="item in displayedItineraries"
           :key="item.itinerary_id"
@@ -2070,15 +1975,17 @@ onUnmounted(() => {
 .message-sources{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:3px;padding-top:8px;border-top:1px solid #d5e9dc}.message-sources span{color:#71877b;font-size:10px;font-weight:700;letter-spacing:.08em}.message-sources a{max-width:210px;overflow:hidden;border:1px solid #cfe2d6;border-radius:999px;padding:3px 8px;background:#fff;color:#327358;font-size:11px;text-decoration:none;text-overflow:ellipsis;white-space:nowrap}.message-sources a:hover{border-color:#75aa91;background:#f7fcf8}
 .active-trip-card.state-upcoming{border-color:#c6dce7;background:linear-gradient(120deg,#476f82 0%,#5e8898 58%,#87aeba 100%)}.active-trip-card.state-completed{border-color:#d7ded9;background:linear-gradient(120deg,#68776f 0%,#7f8e86 58%,#a7b2ac 100%);box-shadow:0 12px 30px rgba(55,72,63,.14)}.active-trip-card.state-cancelled{border-color:#e5c9c6;background:linear-gradient(120deg,#875b58 0%,#a06f6a 58%,#bb918c 100%);box-shadow:0 12px 30px rgba(104,60,57,.14)}.itinerary-status.upcoming{background:#eef3f0;color:#687a70}.itinerary-status.ongoing{background:#dcf2e4;color:#277052}.itinerary-status.change_pending{background:#fff2ce;color:#876523}.itinerary-status.completed{background:#e7ece9;color:#647169}.itinerary-status.cancelled{background:#fff0ee;color:#ad5751}.itinerary-row.state-change_pending{background:#fffdf7}.itinerary-row.state-completed{background:#fafbfa}.itinerary-row.state-cancelled{opacity:.68}.itinerary-row.state-cancelled b{text-decoration:line-through}
 .trip-overview{display:grid;grid-template-columns:minmax(210px,.8fr) 2fr;align-items:center;gap:24px;margin-bottom:18px;padding:18px 20px}.trip-overview-title{position:relative;min-width:0;padding-right:72px}.trip-overview-title h2{overflow:hidden;margin:0;color:#315342;font-size:18px;text-overflow:ellipsis;white-space:nowrap}.trip-overview-title>span{position:absolute;top:0;right:0;border-radius:999px;padding:4px 8px;background:#e5f3e9;color:#39755a;font-size:10px;font-weight:700}.trip-overview-title>span.state-upcoming{background:#eef4f7;color:#527586}.trip-overview-title>span.state-completed{background:#edf0ee;color:#69766f}.trip-overview-title>span.state-cancelled{background:#fff0ee;color:#a85a55}.trip-overview dl{display:grid;grid-template-columns:1fr 1.15fr .8fr 1.4fr;gap:10px;margin:0}.trip-overview dl>div{min-width:0;border-left:1px solid #e6ede8;padding-left:12px}.trip-overview dt{margin-bottom:5px;color:#8a9890;font-size:10px}.trip-overview dd{overflow:hidden;margin:0;color:#476052;font-size:12px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}.message.typing{display:flex;align-items:center;gap:8px}.message.typing i{width:8px;height:8px;border-radius:50%;background:#4b9875;box-shadow:12px 0 #79b397,24px 0 #a9cdb9;animation:typing-pulse 1.1s infinite ease-in-out}.message.typing span{margin-left:24px}@keyframes typing-pulse{0%,100%{opacity:.35;transform:translateY(0)}50%{opacity:1;transform:translateY(-2px)}}
+.current-location-card{display:grid;grid-template-columns:minmax(230px,.8fr) 2fr;align-items:center;gap:22px;margin-bottom:18px;padding:18px 20px;background:linear-gradient(120deg,#fff,#f4faf6)}.location-heading h2{margin:0;color:#315342;font-size:17px}.location-heading small{display:block;margin-top:5px;color:#839188;font-size:10px;line-height:1.55}.current-location-card dl{display:grid;grid-template-columns:1.4fr .7fr 1fr .9fr;gap:10px;margin:0}.current-location-card dl>div{min-width:0;border-left:1px solid #e3ece6;padding-left:12px}.current-location-card dt{margin-bottom:5px;color:#8a9890;font-size:10px}.current-location-card dd{overflow:hidden;margin:0;color:#456052;font-size:12px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}.location-empty{margin:0;border:1px dashed #d3e4d8;border-radius:10px;padding:13px;color:#7a8b81;font-size:12px}
 .audit-failure-summary{border-top:1px solid #edf2ee;padding-top:9px}.audit-failure-summary summary{color:#a05e59;font-size:11px;cursor:pointer}.audit-failure-summary .audit-failure-only{margin-top:8px}
 .message-row{display:flex;align-items:flex-start;gap:9px;margin:10px 14px}.message-row.user{flex-direction:row-reverse}.message-row .message{margin:0}.chat-avatar{display:grid;width:32px;height:32px;box-sizing:border-box;flex:0 0 auto;place-items:center;border:1px solid #cce3d5;border-radius:11px;background:linear-gradient(145deg,#e8f6ed,#cfeadb);box-shadow:0 4px 12px rgba(39,91,66,.1);color:#246a4e;font-size:12px;font-weight:800}.message-row.user .chat-avatar{border-color:#2c8266;background:#2b8668;color:#fff}.header-tools{display:flex;align-items:center;gap:8px}.header-tools label{display:flex;align-items:center;gap:6px}.header-tools select{border:1px solid #dce8df;border-radius:8px;padding:7px 28px 7px 8px;background:#fff;color:#4f6d5e;font:inherit}.tool>.muted{margin:0;padding:22px;text-align:center}.date-time-field{display:grid;grid-template-columns:minmax(170px,.9fr) minmax(190px,1.1fr);gap:10px;min-width:0;margin:0;border:1px solid #dfe9e2;border-radius:12px;padding:12px;background:#f9fcfa}.date-time-field legend{padding:0 5px;color:#486556;font-size:12px;font-weight:700}.date-time-field label{display:grid;align-content:start;gap:6px;font-size:10px}.date-picker-field input{cursor:pointer}.date-time-field .time-shortcuts{display:flex;align-items:center;gap:7px}.date-time-field>small{grid-column:1/-1}.time-shortcuts .quiet{padding:7px 9px;font-size:11px}.form-error{margin:0;border:1px solid #f0c8c2;border-radius:10px;padding:9px 11px;background:#fff2ef;color:#aa5048;font-size:11px;line-height:1.5}
-@media(max-width:920px){.main-grid,.tool-grid{grid-template-columns:1fr}.chat{min-height:480px}.side-stack{grid-template-columns:1fr}.location-grid{grid-template-columns:1fr 1fr}.active-trip-card{grid-template-columns:135px minmax(0,1fr) auto;gap:16px}.trip-overview{grid-template-columns:1fr}.trip-overview dl{grid-template-columns:1fr 1fr}}
+@media(max-width:920px){.main-grid,.tool-grid{grid-template-columns:1fr}.chat{min-height:480px}.side-stack{grid-template-columns:1fr}.location-grid{grid-template-columns:1fr 1fr}.active-trip-card{grid-template-columns:135px minmax(0,1fr) auto;gap:16px}.trip-overview,.current-location-card{grid-template-columns:1fr}.trip-overview dl,.current-location-card dl{grid-template-columns:1fr 1fr}}
 @media(max-width:680px){.companion-page{padding:26px 16px 55px}.hero{display:block;padding:25px 22px}.hero-status{display:none}.active-trip-card{grid-template-columns:1fr;gap:13px;padding:19px}.active-trip-side{grid-template-columns:auto 1fr;align-items:center;justify-items:start}.active-trip-side span{justify-self:end}.active-trip-empty{align-items:flex-start;flex-direction:column;gap:15px;padding:19px}.workspace-bar,.workspace-bar label{align-items:stretch;flex-direction:column}.workspace-bar select{width:100%;min-width:0}.workspace-actions{display:grid;grid-template-columns:1fr 1fr}.notification-inbox-trigger{justify-content:center}.danger-button{grid-column:1/-1}.trip-overview{padding:16px}.trip-overview dl{grid-template-columns:1fr}.trip-overview dl>div{border-left:0;border-top:1px solid #edf2ee;padding:9px 0 0}.inbox-toolbar{align-items:flex-start;flex-direction:column}.inbox-actions{width:100%;justify-content:space-between}.mail-row{grid-template-columns:10px minmax(0,1fr);padding:15px}.mail-row-actions{grid-column:2;justify-items:start}.mail-meta{align-items:flex-start;flex-direction:column;gap:4px}.conflict-picker-head{align-items:stretch;flex-direction:column}.conflict-choice{grid-template-columns:auto minmax(0,1fr)}.conflict-choice em{grid-column:2;justify-self:start}.memo-form,.schedule-form,.location-grid,.request-fields,.itinerary-form-grid,.date-time-field{grid-template-columns:1fr}.itinerary-form-grid .wide-field{grid-column:auto}.date-time-field>small{grid-column:auto}.message{max-width:92%}.message-row{margin:9px 10px}.chat-avatar{width:29px;height:29px;border-radius:9px}.card header{padding:15px}.tool header{align-items:flex-start;gap:10px}.header-tools{align-items:stretch;flex-direction:column}.notification-item{align-items:flex-start}.schedule-actions{align-items:center}.adjustment-overlay{align-items:end;padding:0}.adjustment-dialog{width:100%;max-height:92vh;border-radius:20px 20px 0 0}.dialog-body{padding:18px}.dialog-actions button{min-width:0}.candidate-actions{display:grid;grid-template-columns:1fr 1fr}.candidate-actions .primary{grid-column:1/-1}.row-actions{align-items:stretch;flex-direction:column}}
 .itinerary-dialog{width:min(880px,100%)}
 @media(min-width:681px){.wide-field :deep(.date-picker-popover),.wide-field :deep(.time-picker-popover){top:auto;bottom:calc(100% + 8px)}}
 </style>
 
 <style scoped>
+
 .main-grid {
   align-items: stretch;
 }

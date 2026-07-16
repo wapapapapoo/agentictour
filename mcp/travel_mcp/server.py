@@ -3,6 +3,9 @@ from typing import Any, Dict
 from fastmcp import FastMCP
 
 from travel_mcp.configs import check_settings, settings
+from travel_mcp.tools.amap_geocode import (
+    amap_reverse_geocode as amap_reverse_geocode_func,
+)
 from travel_mcp.tools.amap_poi import amap_nearby_search as amap_nearby_search_func
 from travel_mcp.tools.amap_route import amap_walking_route as amap_walking_route_func
 from travel_mcp.tools.amap_weather import amap_weather as amap_weather_func
@@ -17,6 +20,25 @@ from travel_mcp.tools.train_ticket import train_ticket_query as train_ticket_que
 check_settings()
 
 mcp = FastMCP("ai-travel-amap-mcp")
+
+
+@mcp.tool
+async def amap_reverse_geocode(
+    longitude: float,
+    latitude: float,
+    coordinate_system: str = "gps",
+) -> Dict[str, Any]:
+    """
+    仅凭经纬度获取当前位置的高德地址、城市、区县和 adcode。
+
+    浏览器定位默认使用 coordinate_system=gps；若输入已经是高德坐标，使用 gcj02。
+    经纬度参数必须分别传入，longitude 是经度，latitude 是纬度。
+    """
+    return await amap_reverse_geocode_func(
+        longitude=longitude,
+        latitude=latitude,
+        coordinate_system=coordinate_system,
+    )
 
 
 @mcp.tool

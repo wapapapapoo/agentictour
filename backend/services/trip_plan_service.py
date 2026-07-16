@@ -14,11 +14,13 @@ from models.trip import Trip
 from models.trip_plan import TripPlanRequest, TripPlanVersion
 from models.user import User
 from schemas.accompany import ItineraryCreate
+from schemas.trip import TripUpdate
 from schemas.trip_plan import (
     TripPlanGenerateRequest,
     TripPlanReviseRequest,
+    TripPlanUpdateRequest,
 )
-from services import accompany_service
+from services import accompany_service, trip_service
 from services.trip_service import ensure_trip_dates_available
 from utils import dify_knowledge_client
 from utils.dify_client import DifyClient, DifyError, DifyResponseError
@@ -72,9 +74,7 @@ def create_plan(
 ) -> TripPlanRequest:
     trip_id = _get_or_create_trip(db, data, user_id)
     existing = (
-        db.query(TripPlanRequest)
-        .filter(TripPlanRequest.trip_id == trip_id)
-        .first()
+        db.query(TripPlanRequest).filter(TripPlanRequest.trip_id == trip_id).first()
     )
     if existing is not None:
         raise ValueError("trip already has a plan request")
@@ -145,9 +145,7 @@ def revise_plan(
         revision_request=data.revision_request,
     )
 
-    response = _run_trip_plan_workflow(
-        generate_request, _get_username(db, user_id)
-    )
+    response = _run_trip_plan_workflow(generate_request, _get_username(db, user_id))
     next_version_no = latest_version.version_no + 1
     version = _build_version(
         request_id=request.id,
@@ -246,15 +244,24 @@ def _generated_itinerary_payloads(
             else:
                 continue
             title = _as_text(
-                item.get("title") or item.get("activity") or item.get("name")
-                or item.get("content") or item.get("description")
+                item.get("title")
+                or item.get("activity")
+                or item.get("name")
+                or item.get("content")
+                or item.get("description")
             )
             if not title:
                 continue
-            place_name = _as_text(
-                item.get("place_name") or item.get("location") or item.get("place")
-                or item.get("address") or item.get("poi")
-            ) or request.destination_city
+            place_name = (
+                _as_text(
+                    item.get("place_name")
+                    or item.get("location")
+                    or item.get("place")
+                    or item.get("address")
+                    or item.get("poi")
+                )
+                or request.destination_city
+            )
             fallback_start = time(min(9 + item_index * 2, 22), 0)
             start_clock = _clock(
                 item.get("start_time") or item.get("start") or item.get("time"),
@@ -272,22 +279,24 @@ def _generated_itinerary_payloads(
             end_at = datetime.combine(planned_date, end_clock, _CHINA_TIMEZONE)
             if end_at <= start_at:
                 end_at = start_at + timedelta(hours=1)
-            payloads.append(ItineraryCreate(
-                trip_id=request.trip_id,
-                title=title[:100],
-                place_name=place_name[:100],
-                start_time=start_at,
-                end_time=end_at,
-                itinerary_type=(
-                    "transit"
-                    if _as_text(
-                        item.get("itinerary_type") or item.get("type")
-                    ).lower()
-                    in {"transit", "transport", "交通", "出行"}
-                    else "play"
-                ),
-                reminder_time=start_at,
-            ))
+            payloads.append(
+                ItineraryCreate(
+                    trip_id=request.trip_id,
+                    title=title[:100],
+                    place_name=place_name[:100],
+                    start_time=start_at,
+                    end_time=end_at,
+                    itinerary_type=(
+                        "transit"
+                        if _as_text(
+                            item.get("itinerary_type") or item.get("type")
+                        ).lower()
+                        in {"transit", "transport", "交通", "出行"}
+                        else "play"
+                    ),
+                    reminder_time=start_at,
+                )
+            )
     return payloads
 
 
@@ -298,22 +307,67 @@ def sync_plan_itineraries(
     if request is None or request.user_id != user_id:
         raise LookupError("trip plan not found")
     existing = (
-        db.query(ItineraryItem)
-        .filter(ItineraryItem.trip_id == request.trip_id)
-        .all()
+        db.query(ItineraryItem).filter(ItineraryItem.trip_id == request.trip_id).all()
     )
-    if existing:
-        return accompany_service.list_itineraries(db, request.trip_id), 0
     latest_version = get_latest_version(db, plan_id)
     if latest_version is None:
         raise LookupError("trip plan version not found")
     payloads = _generated_itinerary_payloads(
         request, _loads_json(latest_version.plan_json)
     )
+    existing_keys = {
+        (
+            row.title.strip(),
+            row.place_name.strip(),
+            row.start_time,
+            row.end_time,
+        )
+        for row in existing
+    }
+    created_count = 0
     for payload in payloads:
+        start_time = payload.start_time.astimezone(timezone.utc).replace(tzinfo=None)
+        end_time = payload.end_time.astimezone(timezone.utc).replace(tzinfo=None)
+        key = (payload.title.strip(), payload.place_name.strip(), start_time, end_time)
+        if key in existing_keys:
+            continue
         accompany_service.create_itinerary(db, payload, commit=False)
+        existing_keys.add(key)
+        created_count += 1
     db.commit()
-    return accompany_service.list_itineraries(db, request.trip_id), len(payloads)
+    return accompany_service.list_itineraries(db, request.trip_id), created_count
+
+
+def update_plan_information(
+    db: Session, plan_id: int, data: TripPlanUpdateRequest, user_id: int
+) -> TripPlanRequest:
+    request = get_plan(db, plan_id)
+    if request is None or request.user_id != user_id:
+        raise LookupError("trip plan not found")
+    try:
+        start_date = date.fromisoformat(data.start_date)
+        end_date = date.fromisoformat(data.end_date)
+    except ValueError as exc:
+        raise ValueError("trip plan dates must use YYYY-MM-DD format") from exc
+    trip_service.update_trip(
+        db,
+        request.trip_id,
+        TripUpdate(
+            title=data.title,
+            origin_city=data.origin_city,
+            destination_city=data.destination_city,
+            start_date=start_date,
+            end_date=end_date,
+            status=data.status,
+        ),
+    )
+    request.origin_city = data.origin_city
+    request.destination_city = data.destination_city
+    request.start_date = data.start_date
+    request.end_date = data.end_date
+    db.commit()
+    db.refresh(request)
+    return request
 
 
 def list_plans(db: Session, user_id: int | None = None) -> list[dict[str, Any]]:
@@ -392,10 +446,7 @@ def humanize_plan(
 
     outputs = response.get("data", {}).get("outputs", {})
     natural_language = (
-        outputs.get("reply")
-        or outputs.get("text")
-        or outputs.get("result")
-        or ""
+        outputs.get("reply") or outputs.get("text") or outputs.get("result") or ""
     )
     if isinstance(natural_language, dict):
         natural_language = json.dumps(natural_language, ensure_ascii=False)
@@ -417,6 +468,7 @@ def delete_plan(db: Session, plan_id: int) -> bool:
 
     # 先删 Dify 知识库文档
     from models.knowledge import PlanKnowledgeMapping
+
     logger = logging.getLogger(__name__)
     mappings = (
         db.query(PlanKnowledgeMapping)
