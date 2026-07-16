@@ -43,13 +43,25 @@ def _get_username(db: Session, user_id: int) -> str:
 def _get_or_create_trip(
     db: Session, data: TripPlanGenerateRequest, user_id: int
 ) -> int:
-    if data.trip_id > 0 and db.get(Trip, data.trip_id) is not None:
-        return data.trip_id
     try:
         start_date = date.fromisoformat(data.start_date)
         end_date = date.fromisoformat(data.end_date)
     except ValueError as exc:
         raise ValueError("trip plan dates must use YYYY-MM-DD format") from exc
+    if end_date < start_date:
+        raise ValueError("计划结束日期不能早于开始日期")
+    if data.trip_id > 0:
+        trip = db.get(Trip, data.trip_id)
+        if trip is None or trip.user_id != user_id:
+            raise LookupError("trip not found")
+        if (
+            trip.origin_city != data.origin_city
+            or trip.destination_city != data.destination_city
+            or trip.start_date != start_date
+            or trip.end_date != end_date
+        ):
+            raise ValueError("规划输入与所选计划的城市或日期不一致")
+        return trip.id
     ensure_trip_dates_available(
         db,
         user_id=user_id,
@@ -82,7 +94,7 @@ def create_plan(
     request = TripPlanRequest(
         trip_id=trip_id,
         user_id=user_id,
-        action="create",
+        action="draft",
         origin_city=data.origin_city,
         destination_city=data.destination_city,
         start_date=data.start_date,
@@ -99,7 +111,13 @@ def create_plan(
     db.flush()
 
     username = _get_username(db, user_id)
-    response = _run_trip_plan_workflow(data, username)
+    try:
+        response = _run_trip_plan_workflow(data, username)
+    except Exception:
+        # The trip and request are created in the same transaction. A failed
+        # workflow must not leave an empty trip that blocks the same dates.
+        db.rollback()
+        raise
     version = _build_version(
         request_id=request.id,
         user_id=user_id,
@@ -315,6 +333,8 @@ def sync_plan_itineraries(
     payloads = _generated_itinerary_payloads(
         request, _loads_json(latest_version.plan_json)
     )
+    if not payloads and not existing:
+        raise ValueError("generated plan has no importable itinerary items")
     existing_keys = {
         (
             row.title.strip(),
@@ -334,6 +354,7 @@ def sync_plan_itineraries(
         accompany_service.create_itinerary(db, payload, commit=False)
         existing_keys.add(key)
         created_count += 1
+    request.action = "imported"
     db.commit()
     return accompany_service.list_itineraries(db, request.trip_id), created_count
 
@@ -378,11 +399,19 @@ def list_plans(db: Session, user_id: int | None = None) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     for request in query.all():
         latest_version = get_latest_version(db, request.id)
+        has_itineraries = (
+            db.query(ItineraryItem.itinerary_id)
+            .filter(ItineraryItem.trip_id == request.trip_id)
+            .first()
+            is not None
+        )
         plan_json = _loads_json(latest_version.plan_json) if latest_version else {}
         title = plan_json.get("title") if isinstance(plan_json, dict) else None
         items.append(
             {
                 "id": request.id,
+                "action": request.action,
+                "companion_imported": request.action == "imported" or has_itineraries,
                 "trip_id": request.trip_id,
                 "user_id": request.user_id,
                 "origin_city": request.origin_city,
@@ -461,9 +490,9 @@ def humanize_plan(
     }
 
 
-def delete_plan(db: Session, plan_id: int) -> bool:
+def delete_plan(db: Session, plan_id: int, user_id: int) -> bool:
     request = get_plan(db, plan_id)
-    if request is None:
+    if request is None or request.user_id != user_id:
         return False
 
     # 先删 Dify 知识库文档
@@ -487,7 +516,11 @@ def delete_plan(db: Session, plan_id: int) -> bool:
                     "failed to delete dify document %s: %s", m.document_id, e
                 )
 
-    db.delete(request)
+    trip = db.get(Trip, request.trip_id)
+    if trip is not None:
+        db.delete(trip)
+    else:
+        db.delete(request)
     db.commit()
     return True
 

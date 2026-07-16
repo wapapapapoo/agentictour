@@ -26,8 +26,8 @@ def ensure_trip_dates_available(
     conflict = query.order_by(Trip.start_date, Trip.id).with_for_update().first()
     if conflict is not None:
         raise ValueError(
-            "trip date range overlaps another plan: "
-            f"{conflict.title} ({conflict.start_date} - {conflict.end_date})"
+            "计划日期与已有计划重叠："
+            f"{conflict.title}（{conflict.start_date} 至 {conflict.end_date}）"
         )
 
 

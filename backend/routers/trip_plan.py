@@ -132,7 +132,7 @@ def delete_trip_plan(
     current_user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
-    ok = trip_plan_service.delete_plan(db, plan_id)
+    ok = trip_plan_service.delete_plan(db, plan_id, current_user_id)
     if not ok:
         raise HTTPException(status_code=404, detail="trip plan not found")
     return {"message": "删除成功"}

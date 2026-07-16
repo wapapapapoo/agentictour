@@ -117,11 +117,13 @@ def authoritative_itinerary_context(db: Session, trip_id: int) -> str:
 
 def upsert_location(db: Session, data: LocationUpdate) -> UserLocation:
     resolved: dict[str, Any] = {}
+    resolution_error = ""
     try:
         from services.amap_location_service import resolve_browser_location
 
         resolved = resolve_browser_location(data.latitude, data.longitude)
     except Exception as exc:
+        resolution_error = str(exc)
         logger.warning("location enrichment failed for user %s: %s", data.user_id, exc)
     row = db.query(UserLocation).filter(UserLocation.user_id == data.user_id).first()
     values = {
@@ -134,7 +136,8 @@ def upsert_location(db: Session, data: LocationUpdate) -> UserLocation:
             or {
                 "provider": "browser",
                 "coordinate_system": "wgs84",
-                "resolution_status": "unavailable",
+                "resolution_status": "failed",
+                "resolution_error": resolution_error or "位置解析暂不可用",
             },
             ensure_ascii=False,
         ),

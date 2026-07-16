@@ -86,6 +86,8 @@ class TripPlanResponse(BaseModel):
 
 class TripPlanListItem(BaseModel):
     id: int
+    action: str
+    companion_imported: bool
     trip_id: int
     user_id: int
     origin_city: str
