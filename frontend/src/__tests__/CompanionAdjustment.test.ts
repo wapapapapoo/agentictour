@@ -350,6 +350,8 @@ describe('Companion adjustment dialog', () => {
 
   it('filters memos and itinerary rows from their card headers', async () => {
     const now = Date.now()
+    const scheduleStart = new Date('2099-01-10T04:00:00.000Z').toISOString()
+    const scheduleEnd = new Date('2099-01-10T06:00:00.000Z').toISOString()
     const wrapper = await mountCompanion(
       [],
       [
@@ -357,9 +359,12 @@ describe('Companion adjustment dialog', () => {
         { memo_id: 2, trip_id: 1, memo_text: '已发送备忘', reminder_time: new Date(now).toISOString(), reminded_at: new Date(now).toISOString() },
       ],
       [
-        { itinerary_id: 1, trip_id: 1, title: '待开始日程', place_name: 'A', start_time: new Date(now + 3_600_000).toISOString(), end_time: new Date(now + 7_200_000).toISOString(), itinerary_type: 'play', status: 'pending' },
-        { itinerary_id: 2, trip_id: 1, title: '已取消日程', place_name: 'B', start_time: new Date(now + 3_600_000).toISOString(), end_time: new Date(now + 7_200_000).toISOString(), itinerary_type: 'play', status: 'cancelled' },
+        { itinerary_id: 1, trip_id: 1, title: '待开始日程', place_name: 'A', start_time: scheduleStart, end_time: scheduleEnd, itinerary_type: 'play', status: 'pending' },
+        { itinerary_id: 2, trip_id: 1, title: '已取消日程', place_name: 'B', start_time: scheduleStart, end_time: scheduleEnd, itinerary_type: 'play', status: 'cancelled' },
       ],
+      [],
+      [],
+      [{ ...trip, start_date: '2099-01-10', end_date: '2099-01-10', status: 'planned' }],
     )
 
     const filters = wrapper.findAll('.header-tools select')

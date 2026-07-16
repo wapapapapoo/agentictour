@@ -19,8 +19,7 @@ jobs:
           script: |
             set -euo pipefail
             sudo systemctl start mihomo
+            trap 'sudo systemctl stop mihomo || true' EXIT
             cd ~/agentictour
-            git pull
-            task down
+            git pull --ff-only
             task deploy
-            sudo systemctl stop mihomo
