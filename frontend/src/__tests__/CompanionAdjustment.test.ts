@@ -238,6 +238,7 @@ describe('Companion adjustment dialog', () => {
     expect(document.body.querySelector('.memo-dialog')).toBeTruthy()
     expect(document.body.querySelector('.memo-dialog input[type="datetime-local"]')).toBeNull()
     expect(document.body.querySelector('.memo-dialog input[type="date"]')).toBeTruthy()
+    expect(document.body.querySelectorAll('.memo-dialog .time-select select')).toHaveLength(2)
     document.body.querySelector<HTMLButtonElement>('.memo-dialog .dialog-close')!.click()
     await flushPromises()
 
@@ -248,6 +249,7 @@ describe('Companion adjustment dialog', () => {
     expect(document.body.querySelector('.itinerary-dialog')).toBeTruthy()
     expect(document.body.querySelector('.itinerary-dialog input[type="datetime-local"]')).toBeNull()
     expect(document.body.querySelectorAll('.itinerary-dialog input[type="date"]')).toHaveLength(3)
+    expect(document.body.querySelectorAll('.itinerary-dialog .time-select select')).toHaveLength(6)
     wrapper.unmount()
   })
 
@@ -464,6 +466,38 @@ describe('Companion adjustment dialog', () => {
     expect(checkboxes[0]!.checked).toBe(true)
     expect(checkboxes[0]!.disabled).toBe(true)
     expect(checkboxes[1]!.disabled).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('shows an ongoing automatic conflict as selected and locked', async () => {
+    const now = Date.now()
+    const wrapper = await mountCompanion([
+      advice({ proposed_itinerary: { conflicting_itinerary_ids: [8] } }),
+    ], [], [
+      {
+        itinerary_id: 8,
+        trip_id: 1,
+        title: '正在进行的午餐',
+        place_name: '餐厅',
+        start_time: new Date(now - 30 * 60_000).toISOString(),
+        end_time: new Date(now + 30 * 60_000).toISOString(),
+        itinerary_type: 'play',
+        status: 'pending',
+      },
+    ])
+
+    const agree = Array.from(document.body.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === '同意更改',
+    )!
+    agree.click()
+    await flushPromises()
+
+    const choice = document.body.querySelector('.conflict-choice')!
+    const checkbox = choice.querySelector<HTMLInputElement>('input')!
+    expect(choice.textContent).toContain('正在进行的午餐')
+    expect(choice.textContent).toContain('进行中')
+    expect(checkbox.checked).toBe(true)
+    expect(checkbox.disabled).toBe(true)
     wrapper.unmount()
   })
 

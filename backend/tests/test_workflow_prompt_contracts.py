@@ -39,6 +39,17 @@ def test_workflows_enforce_cross_city_destination_and_transit_order() -> None:
         assert "当前位置不能覆盖 destination_city" in text
 
 
+def test_workflows_require_12306_tool_for_specific_train_facts() -> None:
+    hikari = _workflow_text(HIKARI_WORKFLOW)
+    audit = _workflow_text(AUDIT_WORKFLOW)
+
+    assert hikari.count("tool_name: train_ticket_query") == 3
+    assert audit.count("tool_name: train_ticket_query") == 1
+    for text in (hikari, audit):
+        assert "Joooook/12306-mcp" in text
+        assert "不得" in text
+
+
 def test_user_iteration_counts_remain_unchanged() -> None:
     assert _maximum_iterations(AUDIT_WORKFLOW) == [45]
     assert _maximum_iterations(HIKARI_WORKFLOW) == [48, 41, 41]

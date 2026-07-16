@@ -803,6 +803,8 @@ workflow:
               6. Tavily 只查询公开网页信息，不得用于用户个人行程或备忘录。以下情况使用 Tavily Search：用户明确要求介绍目的地或公共地点；问题涉及开放公告、校区/景区信息、政策、近期资讯等可能变化的事实；或你对公开事实没有把握。普通聊天不要调用
               Tavily Research、Crawl 或 Map；只有已经获得明确 URL 且确需核对原文时才用 Tavily Extract。
 
+              6.1 只要回复涉及具体火车车次号、出发到达时刻、历时或余票，必须先调用 train_ticket_query（Joooook/12306-mcp）查询 12306；不得用 Tavily、数据库旧值或模型记忆编造车次。工具失败时只能说明暂时无法核实并给出不含虚构班次的安排边界，不能输出任何未经本轮工具确认的具体车次。
+
               7. 联网搜索时优先官方来源（政府、学校、景区、交通运营方等），其次使用可靠媒体。每个影响结论的公开事实必须有搜索结果支持；搜索不足就明确保留不确定性，不得编造营业时间、票价、地址、距离、天气、交通状态、用户行程或网页
               URL。
 
@@ -1053,6 +1055,41 @@ workflow:
                 - isindoor: 是否室内算路，0 不需要，1 需要'
               tool_label: amap_walking_route
               tool_name: amap_walking_route
+              type: mcp
+            - enabled: true
+              extra:
+                description: 通过 Joooook/12306-mcp 查询 12306 实时车次与余票。任何具体车次号、出发到达时间和历时都必须先调用本工具核实。
+              parameters:
+                date:
+                  auto: 1
+                  value: null
+                earliest_start_time:
+                  auto: 1
+                  value: null
+                from_station:
+                  auto: 1
+                  value: null
+                latest_start_time:
+                  auto: 1
+                  value: null
+                limited_num:
+                  auto: 1
+                  value: null
+                sort_flag:
+                  auto: 1
+                  value: null
+                to_station:
+                  auto: 1
+                  value: null
+                train_filter_flags:
+                  auto: 1
+                  value: null
+              provider_name: travel-mcp
+              provider_show_name: AI旅游MCP
+              settings: {}
+              tool_description: 通过 Joooook/12306-mcp 查询 12306 实时车次与余票。日期使用 yyyy-MM-dd；出发地和到达地使用中文城市或车站名。
+              tool_label: train_ticket_query
+              tool_name: train_ticket_query
               type: mcp
             - enabled: true
               extra:
@@ -1485,7 +1522,7 @@ workflow:
               \ ID，它一定包含在 selected_itinerary_ids 中，必须优先处理，不能忽略或要求用户取消选择。\n16. selected_itinerary_ids\
               \ 为空时，cancelled_itinerary_ids 必须为空；只能在不与任何现有 pending 日程重叠的空档新增建议。若没有安全空档，reply\
               \ 直接说明无法在不影响原行程的前提下安排，两个数组返回空。\n17. 只有 selected_itinerary_ids 非空时才允许替换旧项；此时每个被替换的\
-              \ ID 都必须出现在 cancelled_itinerary_ids 中，并给出对应的完整新日程。\n18. 跨城方向以 trip_context 为硬事实：origin_city 是出发城市，destination_city 是旅游目的地，当前位置不能覆盖 destination_city。用户概括要求安排明天或未来行程时，默认在 destination_city 安排游览；若用户仍在 origin_city 且没有已确认的跨城交通，必须先交通、后游览，先生成或保留 transit，再生成 destination_city 的 play。除非用户明确要求留在出发地，不得输出一整套 origin_city 游览方案。\n\n最终只输出一个合法 JSON\
+              \ ID 都必须出现在 cancelled_itinerary_ids 中，并给出对应的完整新日程。\n18. 跨城方向以 trip_context 为硬事实：origin_city 是出发城市，destination_city 是旅游目的地，当前位置不能覆盖 destination_city。用户概括要求安排明天或未来行程时，默认在 destination_city 安排游览；若用户仍在 origin_city 且没有已确认的跨城交通，必须先交通、后游览，先生成或保留 transit，再生成 destination_city 的 play。除非用户明确要求留在出发地，不得输出一整套 origin_city 游览方案。\n19. 候选方案只要写入具体火车车次、出发到达时刻或历时，必须先调用 train_ticket_query（Joooook/12306-mcp）并严格采用本轮 12306 查询结果；工具失败时不得编造车次，应返回不含虚构班次的说明或空候选。\n\n最终只输出一个合法 JSON\
               \ 对象，不要输出 Markdown 代码块或思考过程：\n{\n  \"reply\": \"面向用户的简洁说明\",\n  \"cancelled_itinerary_ids\"\
               : [123],\n  \"itinerary_items\": [\n    {\n      \"title\": \"候选行程标题\"\
               ,\n      \"place_name\": \"地点名称\",\n      \"city_name\": \"活动所在城市\",\n      \"start_time\": \"2026-08-20T14:00:00+08:00\"\
@@ -1721,6 +1758,41 @@ workflow:
                 - isindoor: 是否室内算路，0 不需要，1 需要'
               tool_label: amap_walking_route
               tool_name: amap_walking_route
+              type: mcp
+            - enabled: true
+              extra:
+                description: 通过 Joooook/12306-mcp 查询 12306 实时车次与余票。任何具体车次号、出发到达时间和历时都必须先调用本工具核实。
+              parameters:
+                date:
+                  auto: 1
+                  value: null
+                earliest_start_time:
+                  auto: 1
+                  value: null
+                from_station:
+                  auto: 1
+                  value: null
+                latest_start_time:
+                  auto: 1
+                  value: null
+                limited_num:
+                  auto: 1
+                  value: null
+                sort_flag:
+                  auto: 1
+                  value: null
+                to_station:
+                  auto: 1
+                  value: null
+                train_filter_flags:
+                  auto: 1
+                  value: null
+              provider_name: travel-mcp
+              provider_show_name: AI旅游MCP
+              settings: {}
+              tool_description: 通过 Joooook/12306-mcp 查询 12306 实时车次与余票。日期使用 yyyy-MM-dd；出发地和到达地使用中文城市或车站名。
+              tool_label: train_ticket_query
+              tool_name: train_ticket_query
               type: mcp
             - enabled: true
               extra:
@@ -3488,6 +3560,8 @@ workflow:
 
               7. 跨城判断必须以 trip_context 为准：origin_city 是出发城市，destination_city 是旅游目的地，当前位置不能覆盖 destination_city。检查用户是否仍在起点、现有交通是否足以按时到达，以及后续日程是否遵循先交通、后游览；不得把起点附近推荐当成目的地行程。
 
+              7.1 判断火车误点、错过班次或推荐替代车次时，必须调用 train_ticket_query（Joooook/12306-mcp）核实当天 12306 数据。不得把旧日程中的车次当成当前仍有效，也不得凭空生成替代车次；查询失败时不要发含具体车次的自动通知。
+
               8. 最终只输出合法 JSON，不要 Markdown 或思考过程，decision 只能是 false、chat_recommendation、itinerary_replan：
 
               {"reply":"检查结论或用户通知正文","decision":"false","conflicting_itinerary_ids":[]}'
@@ -3732,6 +3806,41 @@ workflow:
                 - isindoor: 是否室内算路，0 不需要，1 需要'
               tool_label: amap_walking_route
               tool_name: amap_walking_route
+              type: mcp
+            - enabled: true
+              extra:
+                description: 通过 Joooook/12306-mcp 查询 12306 实时车次与余票。任何具体车次号、出发到达时间和历时都必须先调用本工具核实。
+              parameters:
+                date:
+                  auto: 1
+                  value: null
+                earliest_start_time:
+                  auto: 1
+                  value: null
+                from_station:
+                  auto: 1
+                  value: null
+                latest_start_time:
+                  auto: 1
+                  value: null
+                limited_num:
+                  auto: 1
+                  value: null
+                sort_flag:
+                  auto: 1
+                  value: null
+                to_station:
+                  auto: 1
+                  value: null
+                train_filter_flags:
+                  auto: 1
+                  value: null
+              provider_name: travel-mcp
+              provider_show_name: AI旅游MCP
+              settings: {}
+              tool_description: 通过 Joooook/12306-mcp 查询 12306 实时车次与余票。日期使用 yyyy-MM-dd；出发地和到达地使用中文城市或车站名。
+              tool_label: train_ticket_query
+              tool_name: train_ticket_query
               type: mcp
             - enabled: true
               extra:
