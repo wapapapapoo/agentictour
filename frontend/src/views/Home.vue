@@ -7,7 +7,7 @@ import PlanPreviewModal from '@/components/PlanPreviewModal.vue'
 
 const form = ref({ origin_city: '上海', destination_city: '杭州', start_date: '', end_date: '', people_count: '2', budget_total: '4000', interests: '人文街巷、咖啡、自然风光', hotel_level: '舒适型', transport_preference: '高铁优先', pace: '适中', special_requirements: '' })
 const router = useRouter()
-const loading = ref(false); const historyLoading = ref(true); const historyRevisionLoading = ref(false); const historyRevisionError = ref(''); const error = ref(''); const plan = ref<Plan | null>(null); const historyPreview = ref<Plan | null>(null); const histories = ref<Plan[]>([]); const revision = ref(''); const naturalLanguage = ref(''); const editingTrip = ref(false); const editingPlanId = ref(0); const tripDraft = ref({ id: 0, title: '', origin_city: '', destination_city: '', start_date: '', end_date: '', status: 'planned' }); const publishing = ref(false); const publishMsg = ref(''); const importingPlanId = ref(0); const importMsg = ref('')
+const loading = ref(false); const historyLoading = ref(true); const historyRevisionLoading = ref(false); const historyRevisionError = ref(''); const error = ref(''); const plan = ref<Plan | null>(null); const historyPreview = ref<Plan | null>(null); const histories = ref<Plan[]>([]); const revision = ref(''); const naturalLanguage = ref(''); const editingTrip = ref(false); const editingPlanId = ref(0); const tripDraft = ref({ id: 0, title: '', origin_city: '', destination_city: '', start_date: '', end_date: '', status: 'planned' }); const publishing = ref(false); const publishMsg = ref(''); const historyPublishing = ref(false); const importingPlanId = ref(0); const importMsg = ref('')
 const today = new Date().toISOString().slice(0, 10)
 function parseJsonObject(source: string): Record<string, unknown> | null {
   const cleaned = source.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/```(?:json)?/gi, '').trim()
@@ -54,6 +54,7 @@ async function saveTrip() { try { const updated = await api.updatePlan(editingPl
 async function importPlan(target: Plan | null, enterCompanion = false) { if (!target || importingPlanId.value) return; importingPlanId.value = target.id; importMsg.value = ''; try { const result = await api.syncPlanItineraries(target.id); target.companion_imported = true; const history = histories.value.find((item) => item.id === target.id); if (history) history.companion_imported = true; importMsg.value = result.created_count ? `已导入 ${result.created_count} 项日程。` : '这份规划已经导入，没有产生重复日程。'; await loadHistory(); if (enterCompanion) await router.push('/companion') } catch (cause) { importMsg.value = cause instanceof Error ? cause.message : '导入失败。' } finally { importingPlanId.value = 0 } }
 async function removePlan() { if (!plan.value || !globalThis.confirm('确定删除这份行程计划吗？')) return; try { await api.deletePlan(plan.value.id); plan.value = null; await loadHistory() } catch (cause) { error.value = cause instanceof Error ? cause.message : '删除失败。' } }
 async function publishToKnowledge() { if (!plan.value || publishing.value) return; publishing.value = true; publishMsg.value = ''; try { const res = await api.syncPlanToKnowledge(plan.value.id); publishMsg.value = `已发布：${res.document_name}（状态: ${res.indexing_status || 'waiting'}）` } catch (cause) { publishMsg.value = cause instanceof Error ? cause.message : '发布失败。' } finally { publishing.value = false } }
+async function publishHistoryToKnowledge() { if (!historyPreview.value || historyPublishing.value) return; historyPublishing.value = true; try { const res = await api.syncPlanToKnowledge(historyPreview.value.id); publishMsg.value = `已发布：${res.document_name}（状态: ${res.indexing_status || 'waiting'}）` } catch (cause) { publishMsg.value = cause instanceof Error ? cause.message : '发布失败。' } finally { historyPublishing.value = false } }
 onMounted(loadHistory)
 </script>
 
@@ -64,10 +65,12 @@ onMounted(loadHistory)
       :plan="historyPreview"
       :revising="historyRevisionLoading"
       :importing="importingPlanId === historyPreview.id"
+      :publishing="historyPublishing"
       :error="historyRevisionError"
       @close="historyPreview = null"
       @revise="reviseHistory"
       @edit="editHistoricalPlan"
+      @publish="publishHistoryToKnowledge"
       @import="importPlan(historyPreview, true)"
     />
     <section class="hero">

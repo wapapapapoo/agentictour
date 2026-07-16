@@ -2,8 +2,8 @@
 import { computed, ref, watch } from 'vue'
 import type { Plan } from '@/services/api'
 
-const props = defineProps<{ plan: Plan; revising?: boolean; importing?: boolean; error?: string }>()
-const emit = defineEmits<{ close: []; revise: [revision: string]; import: []; edit: [] }>()
+const props = defineProps<{ plan: Plan; revising?: boolean; importing?: boolean; publishing?: boolean; error?: string }>()
+const emit = defineEmits<{ close: []; revise: [revision: string]; import: []; edit: []; publish: [] }>()
 const revision = ref('')
 
 watch(() => props.plan.latest_version?.version_no, () => { revision.value = '' })
@@ -50,7 +50,7 @@ function items(day: Record<string, unknown>) { const value = Array.isArray(day.i
         <div v-if="days.length" class="days"><article v-for="(day, index) in days" :key="index"><span>DAY {{ index + 1 }}</span><h3>{{ String(day.theme || day.title || `第 ${index + 1} 天`) }}</h3><p>{{ String(day.date || day.summary || day.description || '') }}</p><div v-if="items(day).length" class="items"><div v-for="(item, itemIndex) in items(day)" :key="itemIndex"><b>{{ String(item.time || '待定') }}</b><span>{{ String(item.name || item.title || item.description || '行程安排') }}</span><small v-if="item.tips">{{ String(item.tips) }}</small></div></div></article></div>
         <div v-else class="empty"><b>暂时无法整理这份历史规划</b><p>该规划没有可识别的日程 JSON 内容。</p></div>
       </main>
-      <div class="plan-actions"><button type="button" @click="emit('edit')">编辑计划信息</button><button v-if="plan.companion_imported === false" type="button" class="import-button" :disabled="importing" @click="emit('import')">{{ importing ? '正在导入…' : '将这份草稿导入旅行陪伴' }}</button></div>
+      <div class="plan-actions"><button type="button" @click="emit('edit')">编辑计划信息</button><button type="button" class="publish-button" :disabled="publishing" @click="emit('publish')">{{ publishing ? '发布中…' : '发布到公共行程知识库' }}</button><button v-if="plan.companion_imported === false" type="button" class="import-button" :disabled="importing" @click="emit('import')">{{ importing ? '正在导入…' : '将这份草稿导入旅行陪伴' }}</button></div>
       <form class="revision" @submit.prevent="emit('revise', revision)">
         <label>继续调整这份规划<input v-model="revision" :disabled="revising" placeholder="例如：第二天安排轻松一些，增加咖啡馆" /></label>
         <button type="submit" :disabled="revising || !revision.trim()">{{ revising ? '正在调整…' : '提交调整' }}</button>
@@ -65,5 +65,5 @@ function items(day: Record<string, unknown>) { const value = Array.isArray(day.i
 </style>
 
 <style scoped>
-.plan-actions{display:flex;justify-content:flex-end;gap:9px;padding:12px 26px;border-top:1px solid #eaf0eb}.plan-actions button{border:1px solid #d5e6da;border-radius:8px;padding:9px 12px;background:#fff;color:#39725a;font-weight:700;cursor:pointer}.plan-actions .import-button{border-color:#2d7b5d;background:#2d7b5d;color:#fff}@media(max-width:620px){.plan-actions{padding:12px 19px;flex-direction:column}}
+.plan-actions{display:flex;justify-content:flex-end;gap:9px;padding:12px 26px;border-top:1px solid #eaf0eb}.plan-actions button{border:1px solid #d5e6da;border-radius:8px;padding:9px 12px;background:#fff;color:#39725a;font-weight:700;cursor:pointer}.plan-actions .publish-button{border-color:#b0a052;background:#f9f7ed;color:#6b5f2e}.plan-actions .import-button{border-color:#2d7b5d;background:#2d7b5d;color:#fff}@media(max-width:620px){.plan-actions{padding:12px 19px;flex-direction:column}}
 </style>
