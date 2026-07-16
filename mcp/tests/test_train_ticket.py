@@ -10,9 +10,6 @@ from travel_mcp.tools import train_ticket
 class FakeClient:
     calls: list[tuple[str, dict[str, Any]]] = []
 
-    def __init__(self, url: str) -> None:
-        self.url = url
-
     async def __aenter__(self) -> "FakeClient":
         return self
 
@@ -33,10 +30,7 @@ def test_train_ticket_query_proxies_joooook_12306_mcp(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     FakeClient.calls = []
-    monkeypatch.setattr(train_ticket, "Client", FakeClient)
-    monkeypatch.setattr(
-        train_ticket.settings, "TRAIN_MCP_URL", "http://127.0.0.1:8080/mcp"
-    )
+    monkeypatch.setattr(train_ticket, "_train_client", FakeClient())
 
     result = asyncio.run(
         train_ticket.train_ticket_query(
@@ -54,3 +48,15 @@ def test_train_ticket_query_proxies_joooook_12306_mcp(
     assert FakeClient.calls[0][0] == "get-tickets"
     assert FakeClient.calls[0][1]["fromStation"] == "天津"
     assert FakeClient.calls[0][1]["toStation"] == "沈阳"
+
+
+def test_travel_mcp_exposes_train_ticket_on_main_server(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AMAP_KEY", "test-key")
+
+    from travel_mcp.server import mcp
+
+    tool_names = {tool.name for tool in asyncio.run(mcp.list_tools())}
+
+    assert "train_ticket_query" in tool_names

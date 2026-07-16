@@ -20,6 +20,7 @@ from schemas.accompany import (
     AdviceGenerateRequest,
     ChatRequest,
     ItineraryCreate,
+    ItineraryResponse,
     ItineraryUpdate,
     LocationResponse,
     LocationUpdate,
@@ -93,6 +94,29 @@ def test_accompany_request_models_use_city_adcode_without_manual_contexts() -> N
         assert "location_context" not in model.model_fields
     assert "current_itinerary" not in AdviceGenerateRequest.model_fields
     assert "nearby_context" not in ChatRequest.model_fields
+
+
+def test_itinerary_response_accepts_legacy_rows_without_create_validation() -> None:
+    response = ItineraryResponse.model_validate(
+        {
+            "itinerary_id": 9,
+            "trip_id": 1,
+            "title": "旧交通日程",
+            "place_name": "天津站",
+            "start_time": datetime(2026, 7, 16, 9),
+            "end_time": datetime(2026, 7, 16, 10),
+            "itinerary_type": "transit",
+            "reminder_time": None,
+            "is_initial": False,
+            "status": "pending",
+            "reminded_at": None,
+            "created_at": None,
+            "updated_at": None,
+        }
+    )
+
+    assert response.itinerary_id == 9
+    assert response.reminder_time is None
 
 
 def test_expired_pending_itineraries_are_automatically_completed(db: Session) -> None:
