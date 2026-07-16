@@ -14,7 +14,7 @@ export class ApiError extends Error {
 
 export interface AuthToken { access_token: string; token_type: string; user_id: number; username: string }
 export interface Trip { id: number; title: string; origin_city: string; destination_city: string; start_date: string; end_date: string; timezone?: string; status: string }
-export interface Plan { id: number; trip_id: number; destination_city: string; origin_city: string; start_date: string; end_date: string; latest_version?: { version_no: number; plan_json: unknown }; [key: string]: unknown }
+export interface Plan { id: number; trip_id: number; destination_city: string; origin_city: string; start_date: string; end_date: string; action?: string; companion_imported?: boolean; latest_version?: { version_no: number; plan_json: unknown }; [key: string]: unknown }
 export interface BlogMaterial { id: number; title: string; destination: string }
 export interface BlogGeneration { id: number; generated_title?: string; generated_content: string; tags?: string; risk_note?: string; content_type?: string; writing_style?: string }
 export interface ChatReply { session_id: number; user_message_id: number; ai_message_id: number; reply: string; audit_status: string; audit_reason?: string | null }

@@ -196,7 +196,7 @@ def test_trip_service_rejects_partial_update_with_inverted_dates(db: Session) ->
 def test_trip_service_rejects_overlapping_non_cancelled_plans(db: Session) -> None:
     trip_service.create_trip(db, _trip_data())
 
-    with pytest.raises(ValueError, match="overlap"):
+    with pytest.raises(ValueError, match="重叠"):
         trip_service.create_trip(
             db,
             _trip_data(
@@ -214,7 +214,7 @@ def test_trip_service_rejects_overlapping_non_cancelled_plans(db: Session) -> No
             end_date=date(2026, 7, 27),
         ),
     )
-    with pytest.raises(ValueError, match="overlap"):
+    with pytest.raises(ValueError, match="重叠"):
         trip_service.update_trip(
             db,
             later.id,

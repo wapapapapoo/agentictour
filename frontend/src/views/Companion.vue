@@ -104,6 +104,18 @@ const browserCoordinates = ref({
   latitude: null as number | null,
   longitude: null as number | null,
 })
+const locationContext = computed<Record<string, unknown>>(() => {
+  if (!location.value?.location_context) return {}
+  try { return JSON.parse(location.value.location_context) as Record<string, unknown> } catch { return {} }
+})
+const locationResolutionError = computed(() => (
+  locationContext.value.resolution_status === 'failed'
+    ? String(locationContext.value.resolution_error || '高德地址解析失败')
+    : ''
+))
+const locationCoordinateLabel = computed(() => (
+  locationContext.value.coordinate_system === 'gcj02' ? '高德坐标' : '浏览器坐标'
+))
 
 const currentTrip = computed(() => trips.value.find((trip) => trip.id === tripId.value))
 const ongoingTrip = computed(() => trips.value.find(
@@ -393,7 +405,7 @@ async function loadTrips(preserveSelection = false) {
       try {
         const planRows = await fetchPlans()
         plans.value = planRows
-        const plannedTripIds = new Set(planRows.map((plan) => plan.trip_id))
+        const plannedTripIds = new Set(planRows.filter((plan) => plan.companion_imported !== false).map((plan) => plan.trip_id))
         trips.value = tripRows.filter((trip) => plannedTripIds.has(trip.id))
       } catch {
         plans.value = []
@@ -1099,10 +1111,11 @@ onUnmounted(() => {
       <dl v-if="location">
         <div><dt>位置</dt><dd>{{ location.place_name || '已获取坐标，地址暂未解析' }}</dd></div>
         <div><dt>城市编码</dt><dd>{{ location.city_adcode || '待解析' }}</dd></div>
-        <div><dt>高德坐标</dt><dd>{{ location.longitude.toFixed(6) }}, {{ location.latitude.toFixed(6) }}</dd></div>
+        <div><dt>{{ locationCoordinateLabel }}</dt><dd>{{ location.longitude.toFixed(6) }}, {{ location.latitude.toFixed(6) }}</dd></div>
         <div><dt>更新时间</dt><dd>{{ formatDate(location.updated_at) }}</dd></div>
       </dl>
-      <p v-else class="location-empty">尚未获取位置。点击右上方“刷新”并允许浏览器定位即可自动补全。</p>
+      <p v-if="locationResolutionError" class="location-resolution-error">{{ locationResolutionError }}。请确认后端容器中的 AMAP_KEY 是高德 Web 服务 Key，然后点击“刷新”重试。</p>
+      <p v-if="!location" class="location-empty">尚未获取位置。点击右上方“刷新”并允许浏览器定位即可自动补全。</p>
     </section>
 
     <p
@@ -1976,6 +1989,7 @@ onUnmounted(() => {
 .active-trip-card.state-upcoming{border-color:#c6dce7;background:linear-gradient(120deg,#476f82 0%,#5e8898 58%,#87aeba 100%)}.active-trip-card.state-completed{border-color:#d7ded9;background:linear-gradient(120deg,#68776f 0%,#7f8e86 58%,#a7b2ac 100%);box-shadow:0 12px 30px rgba(55,72,63,.14)}.active-trip-card.state-cancelled{border-color:#e5c9c6;background:linear-gradient(120deg,#875b58 0%,#a06f6a 58%,#bb918c 100%);box-shadow:0 12px 30px rgba(104,60,57,.14)}.itinerary-status.upcoming{background:#eef3f0;color:#687a70}.itinerary-status.ongoing{background:#dcf2e4;color:#277052}.itinerary-status.change_pending{background:#fff2ce;color:#876523}.itinerary-status.completed{background:#e7ece9;color:#647169}.itinerary-status.cancelled{background:#fff0ee;color:#ad5751}.itinerary-row.state-change_pending{background:#fffdf7}.itinerary-row.state-completed{background:#fafbfa}.itinerary-row.state-cancelled{opacity:.68}.itinerary-row.state-cancelled b{text-decoration:line-through}
 .trip-overview{display:grid;grid-template-columns:minmax(210px,.8fr) 2fr;align-items:center;gap:24px;margin-bottom:18px;padding:18px 20px}.trip-overview-title{position:relative;min-width:0;padding-right:72px}.trip-overview-title h2{overflow:hidden;margin:0;color:#315342;font-size:18px;text-overflow:ellipsis;white-space:nowrap}.trip-overview-title>span{position:absolute;top:0;right:0;border-radius:999px;padding:4px 8px;background:#e5f3e9;color:#39755a;font-size:10px;font-weight:700}.trip-overview-title>span.state-upcoming{background:#eef4f7;color:#527586}.trip-overview-title>span.state-completed{background:#edf0ee;color:#69766f}.trip-overview-title>span.state-cancelled{background:#fff0ee;color:#a85a55}.trip-overview dl{display:grid;grid-template-columns:1fr 1.15fr .8fr 1.4fr;gap:10px;margin:0}.trip-overview dl>div{min-width:0;border-left:1px solid #e6ede8;padding-left:12px}.trip-overview dt{margin-bottom:5px;color:#8a9890;font-size:10px}.trip-overview dd{overflow:hidden;margin:0;color:#476052;font-size:12px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}.message.typing{display:flex;align-items:center;gap:8px}.message.typing i{width:8px;height:8px;border-radius:50%;background:#4b9875;box-shadow:12px 0 #79b397,24px 0 #a9cdb9;animation:typing-pulse 1.1s infinite ease-in-out}.message.typing span{margin-left:24px}@keyframes typing-pulse{0%,100%{opacity:.35;transform:translateY(0)}50%{opacity:1;transform:translateY(-2px)}}
 .current-location-card{display:grid;grid-template-columns:minmax(230px,.8fr) 2fr;align-items:center;gap:22px;margin-bottom:18px;padding:18px 20px;background:linear-gradient(120deg,#fff,#f4faf6)}.location-heading h2{margin:0;color:#315342;font-size:17px}.location-heading small{display:block;margin-top:5px;color:#839188;font-size:10px;line-height:1.55}.current-location-card dl{display:grid;grid-template-columns:1.4fr .7fr 1fr .9fr;gap:10px;margin:0}.current-location-card dl>div{min-width:0;border-left:1px solid #e3ece6;padding-left:12px}.current-location-card dt{margin-bottom:5px;color:#8a9890;font-size:10px}.current-location-card dd{overflow:hidden;margin:0;color:#456052;font-size:12px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}.location-empty{margin:0;border:1px dashed #d3e4d8;border-radius:10px;padding:13px;color:#7a8b81;font-size:12px}
+.location-resolution-error{grid-column:1/-1;margin:0;border:1px solid #f0d2b0;border-radius:10px;padding:10px 12px;background:#fff8ee;color:#8b6437;font-size:11px;line-height:1.55}
 .audit-failure-summary{border-top:1px solid #edf2ee;padding-top:9px}.audit-failure-summary summary{color:#a05e59;font-size:11px;cursor:pointer}.audit-failure-summary .audit-failure-only{margin-top:8px}
 .message-row{display:flex;align-items:flex-start;gap:9px;margin:10px 14px}.message-row.user{flex-direction:row-reverse}.message-row .message{margin:0}.chat-avatar{display:grid;width:32px;height:32px;box-sizing:border-box;flex:0 0 auto;place-items:center;border:1px solid #cce3d5;border-radius:11px;background:linear-gradient(145deg,#e8f6ed,#cfeadb);box-shadow:0 4px 12px rgba(39,91,66,.1);color:#246a4e;font-size:12px;font-weight:800}.message-row.user .chat-avatar{border-color:#2c8266;background:#2b8668;color:#fff}.header-tools{display:flex;align-items:center;gap:8px}.header-tools label{display:flex;align-items:center;gap:6px}.header-tools select{border:1px solid #dce8df;border-radius:8px;padding:7px 28px 7px 8px;background:#fff;color:#4f6d5e;font:inherit}.tool>.muted{margin:0;padding:22px;text-align:center}.date-time-field{display:grid;grid-template-columns:minmax(170px,.9fr) minmax(190px,1.1fr);gap:10px;min-width:0;margin:0;border:1px solid #dfe9e2;border-radius:12px;padding:12px;background:#f9fcfa}.date-time-field legend{padding:0 5px;color:#486556;font-size:12px;font-weight:700}.date-time-field label{display:grid;align-content:start;gap:6px;font-size:10px}.date-picker-field input{cursor:pointer}.date-time-field .time-shortcuts{display:flex;align-items:center;gap:7px}.date-time-field>small{grid-column:1/-1}.time-shortcuts .quiet{padding:7px 9px;font-size:11px}.form-error{margin:0;border:1px solid #f0c8c2;border-radius:10px;padding:9px 11px;background:#fff2ef;color:#aa5048;font-size:11px;line-height:1.5}
 @media(max-width:920px){.main-grid,.tool-grid{grid-template-columns:1fr}.chat{min-height:480px}.side-stack{grid-template-columns:1fr}.location-grid{grid-template-columns:1fr 1fr}.active-trip-card{grid-template-columns:135px minmax(0,1fr) auto;gap:16px}.trip-overview,.current-location-card{grid-template-columns:1fr}.trip-overview dl,.current-location-card dl{grid-template-columns:1fr 1fr}}

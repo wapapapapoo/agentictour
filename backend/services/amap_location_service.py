@@ -5,23 +5,33 @@ from typing import Any
 
 import httpx
 
-AMAP_BASE_URL = os.getenv("AMAP_BASE_URL", "https://restapi.amap.com").rstrip("/")
-AMAP_KEY = os.getenv("AMAP_KEY", "")
-AMAP_TIMEOUT = float(os.getenv("AMAP_TIMEOUT", "10"))
-
 
 def _request(path: str, params: dict[str, Any]) -> dict[str, Any]:
-    if not AMAP_KEY:
-        raise RuntimeError("AMAP_KEY is not configured")
-    response = httpx.get(
-        f"{AMAP_BASE_URL}{path}",
-        params={**params, "key": AMAP_KEY, "output": "json"},
-        timeout=AMAP_TIMEOUT,
+    # Read at request time so process managers and container runtime injection
+    # are not affected by Python module import order.
+    key = os.getenv("AMAP_KEY", "").strip()
+    base_url = (
+        os.getenv("AMAP_BASE_URL", "https://restapi.amap.com").strip().rstrip("/")
     )
-    response.raise_for_status()
+    timeout = float(os.getenv("AMAP_TIMEOUT", "10").strip())
+    if not key:
+        raise RuntimeError("后端未配置 AMAP_KEY")
+    try:
+        response = httpx.get(
+            f"{base_url}{path}",
+            params={**params, "key": key, "output": "json"},
+            timeout=timeout,
+        )
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        raise RuntimeError(f"高德服务返回 HTTP {exc.response.status_code}") from exc
+    except httpx.RequestError as exc:
+        raise RuntimeError("后端无法连接高德服务") from exc
     payload = response.json()
     if str(payload.get("status")) != "1":
-        raise RuntimeError(payload.get("info") or "AMap request failed")
+        info = payload.get("info") or "未知错误"
+        infocode = payload.get("infocode") or ""
+        raise RuntimeError(f"高德解析失败：{info}（{infocode}）")
     return payload
 
 
@@ -52,6 +62,9 @@ def resolve_browser_location(latitude: float, longitude: float) -> dict[str, Any
     pois = regeocode.get("pois") or []
     nearest_poi = pois[0] if pois else {}
     formatted_address = str(regeocode.get("formatted_address") or "")
+    adcode = str(component.get("adcode") or "")
+    if not formatted_address or not adcode:
+        raise RuntimeError("高德未返回可用的地址或城市编码")
     place_name = str(nearest_poi.get("name") or formatted_address)
     city = component.get("city")
     if not isinstance(city, str) or not city:
@@ -59,10 +72,11 @@ def resolve_browser_location(latitude: float, longitude: float) -> dict[str, Any
     return {
         "latitude": amap_latitude,
         "longitude": amap_longitude,
-        "city_adcode": str(component.get("adcode") or ""),
+        "city_adcode": adcode,
         "place_name": place_name,
         "location_context": {
             "provider": "amap",
+            "resolution_status": "resolved",
             "source_coordinate_system": "wgs84",
             "source_latitude": latitude,
             "source_longitude": longitude,

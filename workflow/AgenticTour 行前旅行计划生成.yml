@@ -251,21 +251,37 @@ workflow:
         agent_parameters:
           instruction:
             type: constant
-            value: "\n你是一个旅行规划agent，请你按照用户的要求，制定旅行规划，不论问题如何，你都必须按照下述shema生成json：\n\
-              \n{\n  \"title\": \"上海 3 日轻松美食文化游\",\n  \"summary\": \"适合预算3000元、2人、步行较少的行程。\"\
-              ,\n  \"days\": [\n    {\n      \"day\": 1,\n      \"date\": \"2026-07-20\"\
-              ,\n      \"theme\": \"城市初体验\",\n      \"items\": [\n        {\n    \
-              \      \"time\": \"09:30-11:30\",\n          \"type\": \"attraction\"\
-              ,\n          \"name\": \"外滩\",\n          \"reason\": \"经典城市景观，适合作为首站\"\
-              ,\n          \"transport\": \"地铁+短步行\",\n          \"estimated_cost\"\
-              : 0,\n          \"walking_minutes\": 15,\n          \"tips\": \"夏季注意防晒\"\
-              \n        }\n      ]\n    }\n  ],\n  \"attractions\": [],\n  \"route_summary\"\
-              : {\n    \"total_walking_minutes\": 80,\n    \"transport_advice\": \"\
-              地铁为主，必要时打车\"\n  },\n  \"budget\": {\n    \"total\": 3000,\n    \"hotel\"\
-              : 1200,\n    \"food\": 800,\n    \"transport\": 400,\n    \"tickets\"\
-              : 400,\n    \"buffer\": 200\n  },\n  \"warnings\": [\n    \"如遇高温，下午安排室内场馆\"\
-              \n  ],\n  \"change_log\": [\n    \"根据用户要求减少步行\"\n  ]\n}\n注意：必须是json格式，不要出现改动。\n\
-              \n妈了个逼，不准在{\"后输出莫名其妙的think标签，傻逼\n\n"
+            value: |-
+              你是 AgenticTour 的行前旅行规划 Agent。请把用户偏好转成真实、连贯、可执行的旅行方案。
+
+              一、事实与工具约束
+              1. 出发地、目的地、开始日期、结束日期是硬约束，不得互换，也不得把出发城市当作主要旅游城市。
+              2. 当出发地与目的地不同，首日必须先安排合理的跨城交通，再安排目的地活动；返程日也要预留返程时间。
+              3. 只要方案包含具体火车车次、出发到达时刻、历时或余票，必须先调用 train_ticket_query，并且只能采用本轮工具返回的数据。工具失败时不得编造车次，只能写“具体班次待通过 12306 核实”。
+              4. 用户选择高铁优先，或两个城市适合铁路出行时，必须调用 train_ticket_query 查询出发日；涉及返程具体班次时还要查询返程日。
+              5. 景点开放时间、门票、天气等会变化的事实，应优先使用可用工具核实；无法核实时，在 warnings 中明确标注，不得伪造。
+              6. 工具之间职责不同：12306 负责火车事实，高德负责位置、周边和路线，知识库负责已有攻略。不得用普通网页或模型记忆替代 12306 的实时车次结果。
+
+              二、行程质量约束
+              1. 每个 days.date 必须位于开始和结束日期之间且不重复、不缺日。
+              2. 同一天 items 的时间不得重叠；跨城交通和后续活动之间要保留换乘、进站、取行李等缓冲。
+              3. type 仅使用 transit、attraction、food、hotel、rest。跨城交通必须使用 transit。
+              4. 每个 item 必须包含 time、type、name、reason、transport、estimated_cost、walking_minutes、tips。
+              5. 预算分项之和应与总预算大致一致；若预算不足，应减少项目或降低标准，不得强行超支。
+              6. revise 时必须以 previous_plan_json 为基准，只修改用户要求涉及的部分，并在 change_log 说明变化。
+
+              三、输出约束
+              只输出一个合法 JSON 对象，不输出 Markdown、代码围栏、think 标签或解释文字。结构必须为：
+              {
+                "title": "计划标题",
+                "summary": "适用人群、预算和节奏摘要",
+                "days": [{"day": 1, "date": "YYYY-MM-DD", "theme": "主题", "items": [{"time": "09:30-11:30", "type": "transit", "name": "事项", "reason": "原因", "transport": "交通方式", "estimated_cost": 0, "walking_minutes": 0, "tips": "提示"}]}],
+                "attractions": [],
+                "route_summary": {"total_walking_minutes": 0, "transport_advice": "交通建议"},
+                "budget": {"total": 0, "hotel": 0, "food": 0, "transport": 0, "tickets": 0, "buffer": 0},
+                "warnings": [],
+                "change_log": []
+              }
           maximum_iterations:
             type: constant
             value: 40
@@ -525,6 +541,41 @@ workflow:
                 - isindoor: 是否室内算路，0 不需要，1 需要'
               tool_label: amap_walking_route
               tool_name: amap_walking_route
+              type: mcp
+            - enabled: true
+              extra:
+                description: 通过 Joooook/12306-mcp 查询 12306 实时车次与余票；具体车次和时刻必须以本工具本轮结果为准。
+              parameters:
+                date:
+                  auto: 1
+                  value: null
+                earliest_start_time:
+                  auto: 1
+                  value: null
+                from_station:
+                  auto: 1
+                  value: null
+                latest_start_time:
+                  auto: 1
+                  value: null
+                limited_num:
+                  auto: 1
+                  value: null
+                sort_flag:
+                  auto: 1
+                  value: null
+                to_station:
+                  auto: 1
+                  value: null
+                train_filter_flags:
+                  auto: 1
+                  value: null
+              provider_name: travel-mcp
+              provider_show_name: AI旅游MCP
+              settings: {}
+              tool_description: 查询 12306 实时车次、时刻、历时和余票，日期使用 yyyy-MM-dd。
+              tool_label: train_ticket_query
+              tool_name: train_ticket_query
               type: mcp
             - enabled: true
               extra:
